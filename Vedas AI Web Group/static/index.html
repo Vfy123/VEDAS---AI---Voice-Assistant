@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VEDAS AI</title>
+  <meta name="description" content="Vedas AI — Advanced Autonomous Intelligence Operating System powered by Local Ollama & Gemini Supervisor.">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+</head>
+<body>
+
+  <!-- Interactive Background Canvas & Ambience -->
+  <canvas id="particles-canvas"></canvas>
+  <div class="ambient-glow ambient-glow-1"></div>
+  <div class="ambient-glow ambient-glow-2"></div>
+
+  <!-- Master App Container -->
+  <div id="app-container">
+
+    <!-- Top Futuristic HUD -->
+    <header id="top-hud">
+      <div class="brand-section">
+        <div class="brand-logo-badge">
+          <span class="brand-icon">⚡</span>
+        </div>
+        <div class="brand-meta">
+          <h1>VEDAS AI</h1>
+          <div class="brand-subtitle">Autonomous Multimodal Intelligence</div>
+        </div>
+      </div>
+
+      <!-- Center Telemetry & Health Gauges -->
+      <div class="hud-telemetry">
+        <div class="telemetry-chip">
+          <span id="hud-ollama-dot" class="status-dot"></span>
+          <span id="hud-ollama-text">OLLAMA: STANDBY</span>
+        </div>
+        <div class="telemetry-chip">
+          <span class="status-dot"></span>
+          <span id="hud-cpu">CPU: 0%</span>
+        </div>
+        <div class="telemetry-chip">
+          <span class="status-dot"></span>
+          <span id="hud-ram">RAM: 0%</span>
+        </div>
+      </div>
+
+      <!-- Right HUD Controls -->
+      <div class="hud-actions">
+        <select id="model-selector" class="model-badge-select" title="Active Intelligence Core">
+          <option value="llama3.2:latest">⚡ Local: llama3.2 (Primary)</option>
+          <option value="llama3:latest">⚡ Local: llama3</option>
+          <option value="gemini-3.6-flash">☁️ Cloud: Gemini 3.6 Flash</option>
+          <option value="gemini-3.5-flash">☁️ Cloud: Gemini 3.5 Flash</option>
+          <option value="gemini-3.1-pro-preview">☁️ Cloud: Gemini 3.1 Pro</option>
+        </select>
+        <button class="hud-btn" id="studio-open-btn" onclick="openImageStudio()" title="Open Image Generation Studio">
+          <span>🎨</span> Image Studio
+        </button>
+        <button class="hud-btn" onclick="openMemoryStudio()" title="Open Memory Bank Core">
+          <span>🧠</span> Memory
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace Area -->
+    <main id="main-workspace">
+
+      <!-- Left Sidebar: History & Memory -->
+      <aside id="sidebar">
+        <button class="sidebar-new-chat-btn" onclick="startNewChat()">
+          <span>+</span> New Conversation
+        </button>
+
+        <!-- Navigation Tabs -->
+        <div class="sidebar-tabs">
+          <button class="sidebar-tab-btn active" id="tab-sessions-btn">Recent Chats</button>
+          <button class="sidebar-tab-btn" id="tab-memory-btn">Memory Bank</button>
+        </div>
+
+        <!-- Sessions / Memory List Container -->
+        <div class="sidebar-content-area">
+          <div id="sessions-list" style="display:flex; flex-direction:column; gap:4px;"></div>
+          <div id="memory-list" style="display:none; flex-direction:column; gap:4px;"></div>
+        </div>
+
+        <!-- Sidebar Footer & Persona Picker -->
+        <div class="sidebar-footer">
+          <div class="persona-select-container">
+            <label for="persona-selector">System Persona</label>
+            <select id="persona-selector" class="persona-select">
+              <option value="master_vedas">Master Vedas (Omniscient AI)</option>
+              <option value="cyber_coder">Cyber Coder (Full-Stack Engineer)</option>
+              <option value="deep_thinker">Deep Thinker (Logic & Math)</option>
+              <option value="creative_muse">Creative Muse (Visionary)</option>
+              <option value="sarcastic_genius">Sarcastic Genius (Witty)</option>
+            </select>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center Chat & Visual Stage -->
+      <section id="chat-stage">
+
+        <!-- Welcome Hero View (When conversation empty) -->
+        <div id="welcome-hero">
+          <div class="hero-orb">⚡</div>
+          <h2 class="hero-title">Hello, I am Vedas</h2>
+          <p class="hero-tagline">
+            Your autonomous intelligence workstation. Powered primarily by local Ollama cores with Gemini cloud supervisor, high-res neural art synthesis, and PDF/multimodal analysis.
+          </p>
+
+          <!-- Quick Action Prompts Grid -->
+          <div class="quick-prompts-grid">
+            <div class="quick-card" data-prompt="/image a futuristic cybernetic city with flying holographic vehicles, 8k cinematic lighting">
+              <div class="quick-card-icon">🎨</div>
+              <div class="quick-card-title">AI Image Studio</div>
+              <div class="quick-card-desc">Generate 8k high-res art with FLUX neural engines.</div>
+            </div>
+            <div class="quick-card" data-prompt="Analyze how an AI assistant handles multi-modal reasoning and write a Python demonstration with tests.">
+              <div class="quick-card-icon">💻</div>
+              <div class="quick-card-title">Code Lab Sandbox</div>
+              <div class="quick-card-desc">Write, analyze, and execute Python code in real-time.</div>
+            </div>
+            <div class="quick-card" data-prompt="Search for latest breakthroughs in quantum computing and summarize the top findings.">
+              <div class="quick-card-icon">🌐</div>
+              <div class="quick-card-title">Live Web Intelligence</div>
+              <div class="quick-card-desc">Perform real-time web lookups & knowledge card synthesis.</div>
+            </div>
+            <div class="quick-card" data-prompt="Please explain how Vedas AI architecture integrates local Ollama and cloud Gemini.">
+              <div class="quick-card-icon">⚡</div>
+              <div class="quick-card-title">Architecture Insight</div>
+              <div class="quick-card-desc">Deep-dive into dual-core intelligence & supervisory alerts.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Chat Messages Stream -->
+        <div id="chat-messages-container"></div>
+
+        <!-- Glowing Audio Waveform Visualizer -->
+        <div id="waveform-container">
+          <canvas id="waveform-canvas"></canvas>
+          <span id="waveform-status-text" class="waveform-indicator-label">VEDAS: IDLE</span>
+        </div>
+
+        <!-- Master Chat Input Dock -->
+        <div id="input-dock">
+          <!-- File Attachments Tray (PDFs, Images, Docs) -->
+          <div id="attachment-tray"></div>
+
+          <!-- Glass Input Box -->
+          <div class="input-glass-box">
+            <div class="input-row-main">
+              <textarea id="chat-input" rows="1" placeholder="Ask Vedas, drag & drop PDFs/photos, or press Ctrl+M / say 'Hello Vedas'..." autofocus></textarea>
+              <button class="mic-action-btn" id="mic-btn" title="Voice Input [Hotkey: Ctrl+M or Alt+V]">
+                🎙️
+              </button>
+              <button class="send-btn" id="send-btn" title="Transmit Query">
+                ➤
+              </button>
+            </div>
+
+            <!-- Bottom Action Icons Bar -->
+            <div class="input-actions-bar">
+              <div class="input-tools-left">
+                <input type="file" id="file-input" multiple accept=".pdf,image/*,.txt,.py,.js,.json,.md,.csv">
+                <button class="tool-icon-btn" id="upload-trigger-btn" title="Attach PDFs, Photos, Documents, or Code">
+                  📎
+                </button>
+                <button class="tool-icon-btn" id="web-search-toggle" title="Toggle Live Web Search">
+                  🌐
+                </button>
+                <button class="tool-icon-btn" onclick="openImageStudio()" title="Quick Image Studio">
+                  🎨
+                </button>
+              </div>
+              <div style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">
+                Hotkey: <code>Ctrl + M</code> for Voice • Enter to send
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Drawer Backdrop Overlay -->
+      <div id="drawer-backdrop" onclick="closeSideCanvas()"></div>
+
+      <!-- Right Side Drawer: Image Studio / Memory Studio -->
+      <div id="side-canvas">
+        <div class="drawer-header">
+          <div class="drawer-title" id="side-canvas-title">🎨 AI Image Studio</div>
+          <button class="drawer-close-btn" onclick="closeSideCanvas()" title="Close Panel (Esc)">✕</button>
+        </div>
+        <div class="drawer-body" id="side-canvas-body"></div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Full-Screen Lightbox Modal -->
+  <div id="lightbox-modal" onclick="closeLightbox()">
+    <img id="lightbox-img" src="" alt="Fullscreen Render">
+  </div>
+
+  <!-- Toast Notification System -->
+  <div id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="/static/js/particles.js"></script>
+  <script src="/static/js/waveform.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
