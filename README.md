@@ -2,6 +2,7 @@
 
 <div align="center">
 
+[![GitHub Repository](https://img.shields.io/badge/GitHub-Vfy123%2FVEDAS--AI--Voice--Assistant-181717?style=for-the-badge&logo=github)](https://github.com/Vfy123/VEDAS---AI---Voice-Assistant)
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue?style=for-the-badge&logo=python)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?style=for-the-badge&logo=fastapi)
 ![Ollama](https://img.shields.io/badge/Ollama-Local_Inference-white?style=for-the-badge&logo=ollama)
@@ -61,7 +62,7 @@ graph TD
 - **Two-Stage TTS Confirmation**: For long answers, Vedas reads the introductory summary, then pauses and asks: *"Should I read it to you in full?"* Say *"Yes"* or click the corner button to hear the full text.
 
 ### 📐 5. LaTeX & Chemistry/Math Typography
-- Automatic transformation of LaTeX formulas and chemical equations (e.g. `\text{Na}_2\text{S}`, `\mathrm{MgCl}_2`, `\text{Mg}^{2+}`) into clean, readable math typography.
+- Automatic transformation of LaTeX formulas and chemical equations (e.g. `\text{Na}_2\text{S}`, `\mathrm{MgCl}_2`, `\text{Mg}^{2+}`) into clean, readable math typography ($$\text{Na}_2\text{S}$$, $$\text{Mg}^{2+}$$, $$\mathrm{MgCl}_2$$).
 
 ### 💻 6. Python Code Execution Sandbox
 - Run, test, and debug Python code blocks directly within the chat interface with live standard output and execution time metrics.
@@ -71,32 +72,30 @@ graph TD
 ## 📂 Repository Structure
 
 ```
-.
+VEDAS---AI---Voice-Assistant/
 ├── .env.example              # Environment variables template
-├── .gitignore                # Git ignore rules for security and clean clones
+├── .gitignore                # Git ignore rules for clean repository
 ├── LICENSE                   # MIT License
 ├── README.md                 # Project documentation
 ├── requirements.txt          # Pinned Python dependencies
-├── run_vedas_web.py          # Master launcher script
-├── Vedas Linux Run.sh        # Linux launch executable
-├── Vedas Windows Run.bat     # Windows batch launcher
-├── Vedas Windows Run.ps1     # Windows PowerShell launcher
-├── Vedas Mac Run.command     # macOS double-clickable launcher
-└── Vedas AI Web Group/
-    ├── SERVER/
-    │   ├── vedas_server.py   # Core FastAPI Backend Server
-    │   └── run_vedas_web.py  # Local server runner
-    ├── RUN FILES/            # Cross-platform launcher scripts
-    ├── certs/                # HTTPS SSL Certificates (auto-generated)
-    ├── uploads/              # Ingested documents & PDFs
-    ├── memory.json           # Long-term knowledge bank
-    └── static/
-        ├── index.html        # Futuristic Workspace UI
-        ├── css/style.css     # Cyber-Glassmorphism Design System
-        └── js/
-            ├── app.js        # Client controller & TTS Engine
-            ├── waveform.js   # Audio visualizer
-            └── particles.js  # Neural matrix background canvas
+├── RUN FILES/                # Cross-platform launcher scripts
+│   ├── Vedas Linux Run.sh    # Linux launch script
+│   ├── Vedas Windows Run.bat # Windows batch launcher
+│   ├── Vedas Windows Run.ps1 # Windows PowerShell launcher
+│   └── Vedas Mac Run.command # macOS double-clickable launcher
+├── SERVER/
+│   ├── vedas_server.py       # Core FastAPI Backend Server
+│   └── run_vedas_web.py      # Server runner & browser launcher
+├── certs/                    # HTTPS SSL Certificates (auto-generated)
+├── legacy/                   # Desktop application reference code
+├── static/                   # Futuristic Web Interface Assets
+│   ├── index.html            # Main Workspace UI
+│   ├── css/style.css         # Cyber-Glassmorphism Design System
+│   └── js/
+│       ├── app.js            # Client Controller & Two-Stage TTS Engine
+│       ├── waveform.js       # Real-Time Audio Visualizer
+│       └── particles.js      # Neural Canvas Matrix
+└── uploads/                  # Ingested documents & PDFs
 ```
 
 ---
@@ -105,8 +104,8 @@ graph TD
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/vedas-ai.git
-cd vedas-ai
+git clone https://github.com/Vfy123/VEDAS---AI---Voice-Assistant.git
+cd VEDAS---AI---Voice-Assistant
 ```
 
 ### 2. Set Up Virtual Environment & Dependencies
@@ -117,7 +116,7 @@ pip install -r requirements.txt
 ```
 
 ### 3. Configure Environment Variables
-Copy `.env.example` to `.env` and configure your API keys:
+Copy `.env.example` to `.env` and configure your settings:
 ```bash
 cp .env.example .env
 ```
@@ -141,22 +140,24 @@ ollama pull llama3.2
 ## ⚡ Running the Application
 
 ### 🐧 Linux
+Run from your terminal:
 ```bash
-./"Vedas Linux Run.sh"
+chmod +x "RUN FILES/Vedas Linux Run.sh"
+./"RUN FILES/Vedas Linux Run.sh"
 ```
-*(or `python3 run_vedas_web.py`)*
+*(or `python3 SERVER/run_vedas_web.py`)*
 
 ### 🪟 Windows
 Double-click:
 ```bat
-"Vedas Windows Run.bat"
+"RUN FILES\Vedas Windows Run.bat"
 ```
-*(or execute `.\Vedas Windows Run.ps1` in PowerShell)*
+*(or execute `.\RUN FILES\Vedas Windows Run.ps1` in PowerShell)*
 
 ### 🍎 macOS
 Double-click:
 ```bash
-"Vedas Mac Run.command"
+"RUN FILES/Vedas Mac Run.command"
 ```
 
 The browser will automatically open at:
