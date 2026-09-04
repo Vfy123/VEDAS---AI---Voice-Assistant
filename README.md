@@ -1,182 +1,136 @@
-# ⚡ VEDAS AI — Autonomous Multimodal Intelligence Operating System
+# 🧠 Vedas AI — Multi-Modal AI Workstation & Web Assistant
 
-<div align="center">
+[![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
-[![GitHub Repository](https://img.shields.io/badge/GitHub-Vfy123%2FVEDAS--AI--Voice--Assistant-181717?style=for-the-badge&logo=github)](https://github.com/Vfy123/VEDAS---AI---Voice-Assistant)
-![Python Version](https://img.shields.io/badge/python-3.10%2B-blue?style=for-the-badge&logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?style=for-the-badge&logo=fastapi)
-![Ollama](https://img.shields.io/badge/Ollama-Local_Inference-white?style=for-the-badge&logo=ollama)
-![Gemini](https://img.shields.io/badge/Google_Gemini-Supervisor_%26_Fallback-8E75B2?style=for-the-badge&logo=google)
-![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
-![Security](https://img.shields.io/badge/HTTPS-TLS_Encrypted-brightgreen?style=for-the-badge)
-
-<p align="center">
-  <strong>An advanced, cyber-glassmorphism AI workstation powered primarily by Local Ollama cores with Google Gemini Cloud supervisor fact-checking, multimodal PDF extraction, FLUX neural art synthesis, and two-stage voice conversation flow.</strong>
-</p>
-
-</div>
+**Vedas AI** is an intelligent, multi-modal personal AI assistant and command center. It features both a local-first architecture powered by **Ollama** and cloud intelligence powered by **Google Gemini**, integrated with real-time web search, document parsing, system diagnostics, and voice interaction.
 
 ---
 
-## 🏛️ System Architecture
+## ✨ Key Features
 
-```mermaid
-graph TD
-    User([👤 User / Browser Client]) <-->|HTTPS / WebSockets| UI[🎨 Cyber-Glassmorphism UI & Canvas]
-    UI <-->|REST API / Audio Streams| Backend[🚀 FastAPI Server - vedas_server.py]
-    
-    subgraph Intelligence Hub
-        Backend -->|1. Primary Inference (Default)| Ollama[⚡ Local Ollama Engine\nllama3.2 / llama3]
-        Backend -->|2. Supervisor Fact-Check| GeminiSupervisor[🛡️ Gemini 3.6 Flash\nSilent Fact-Checker]
-        Backend -->|3. Multimodal & Vision Fallback| GeminiCloud[☁️ Gemini Cloud Fallback]
-    end
-    
-    subgraph Multi-Tool Subsystems
-        Backend --> PDFEngine[📄 PDF Document Reader - pypdf]
-        Backend --> ArtStudio[🎨 FLUX.1 Neural Image Studio]
-        Backend --> CodeSandbox[💻 Python Sandbox Executor]
-        Backend --> MemoryCore[(🧠 Long-Term Memory Bank)]
-    end
+- **🌐 Hybrid AI Intelligence**: Seamlessly switch between local private LLMs (**Ollama**) and high-speed cloud intelligence (**Google Gemini API**).
+- **🎙️ Voice & Audio Interaction**: Real-time speech recognition and text-to-speech audio feedback.
+- **🔍 Live Web Intelligence**: Real-time internet searches and website summaries via DuckDuckGo and Wikipedia integrations.
+- **📄 Multimodal Document & Vision Analysis**: Upload and analyze PDFs, images, and text files directly inside the workspace.
+- **💻 Desktop System Automation**: System telemetry (CPU, RAM, battery), volume controls, app launchers, and automation.
+- **🎨 Glassmorphic Web UI**: Modern, responsive dark-mode web console with real-time streaming, conversation history, and quick action widgets.
+- **🔒 Secure Local Storage**: Retains notes, history, and uploaded files locally without external cloud lock-in.
+
+---
+
+## 🏗️ Project Architecture
+
+```
+Ai bro/
+├── requirements.txt             # Python dependencies specification
+├── .env.example                 # Environment variables template
+├── .gitignore                   # Git ignore patterns
+├── README.md                    # Project documentation
+├── LICENSE                      # Open-source MIT license
+├── veda_ultra.py                # Standalone desktop voice assistant
+├── build_exe.py                 # PyInstaller packaging script
+└── Vedas AI Web Group/
+    ├── SERVER/
+    │   ├── vedas_server.py      # FastAPI backend server
+    │   └── run_vedas_web.py     # Server and browser orchestrator
+    ├── RUN FILES/               # Quick launcher scripts (Windows, Mac, Linux)
+    ├── static/                  # Web dashboard UI (HTML, CSS, JS)
+    ├── uploads/                 # Local uploaded documents/images
+    └── memory/                  # Persistent memory storage (JSON)
 ```
 
 ---
 
-## ✨ Core Features
-
-### ⚡ 1. Dual-Core Intelligence (Ollama Major + Gemini Supervisor)
-- **Local First**: All everyday reasoning and conversations run locally and privately on your machine via **Ollama** (`llama3.2:latest`, `llama3:latest`).
-- **Silent Background Supervisor**: **Gemini 3.6 Flash** reviews Ollama's answers in real-time. If a factual inaccuracy is detected, a supervisor correction badge is displayed in the UI and spoken via voice output.
-- **Automated Fallback**: Seamlessly switches to Gemini Cloud if Ollama is offline or times out.
-
-### 📄 2. Document & PDF Vision Ingestion
-- Ingest and analyze multi-page `.pdf` documents with automated text parsing, structured tables, and page-by-page comprehension.
-- Ask questions, extract key metrics, compare data, and generate executive summaries directly from uploaded PDFs.
-
-### 🎨 3. FLUX.1 Neural Art Studio
-- Built-in studio for generating 8K ultra-detailed artwork across presets: *Cinematic 8K, Cyberpunk 2077, Makoto Shinkai Anime, Photorealistic, 3D Pixar, Fantasy Concept, Oil Painting, Pixel Art*.
-- Support for multiple aspect ratios (`1:1`, `16:9`, `9:16`, `4:3`, `3:2`) and one-click image downloads.
-
-### 🎙️ 4. Advanced Voice Engine & Two-Stage TTS
-- **Global Hotkey**: Press **`Ctrl + M`** or **`Alt + V`** to activate/deactivate the microphone instantly.
-- **Smart Conversation Flow**: Say *"Hello Vedas"* on the first turn. For subsequent conversation turns, Vedas automatically listens for 10 seconds right after answering — **no need to repeat the wake-word!**
-- **Two-Stage TTS Confirmation**: For long answers, Vedas reads the introductory summary, then pauses and asks: *"Should I read it to you in full?"* Say *"Yes"* or click the corner button to hear the full text.
-
-### 📐 5. LaTeX & Chemistry/Math Typography
-- Automatic transformation of LaTeX formulas and chemical equations (e.g. `\text{Na}_2\text{S}`, `\mathrm{MgCl}_2`, `\text{Mg}^{2+}`) into clean, readable math typography ($$\text{Na}_2\text{S}$$, $$\text{Mg}^{2+}$$, $$\mathrm{MgCl}_2$$).
-
-### 💻 6. Python Code Execution Sandbox
-- Run, test, and debug Python code blocks directly within the chat interface with live standard output and execution time metrics.
-
----
-
-## 📂 Repository Structure
-
-```
-VEDAS---AI---Voice-Assistant/
-├── .env.example              # Environment variables template
-├── .gitignore                # Git ignore rules for clean repository
-├── LICENSE                   # MIT License
-├── README.md                 # Project documentation
-├── requirements.txt          # Pinned Python dependencies
-├── RUN FILES/                # Cross-platform launcher scripts
-│   ├── Vedas Linux Run.sh    # Linux launch script
-│   ├── Vedas Windows Run.bat # Windows batch launcher
-│   ├── Vedas Windows Run.ps1 # Windows PowerShell launcher
-│   └── Vedas Mac Run.command # macOS double-clickable launcher
-├── SERVER/
-│   ├── vedas_server.py       # Core FastAPI Backend Server
-│   └── run_vedas_web.py      # Server runner & browser launcher
-├── certs/                    # HTTPS SSL Certificates (auto-generated)
-├── legacy/                   # Desktop application reference code
-├── static/                   # Futuristic Web Interface Assets
-│   ├── index.html            # Main Workspace UI
-│   ├── css/style.css         # Cyber-Glassmorphism Design System
-│   └── js/
-│       ├── app.js            # Client Controller & Two-Stage TTS Engine
-│       ├── waveform.js       # Real-Time Audio Visualizer
-│       └── particles.js      # Neural Canvas Matrix
-└── uploads/                  # Ingested documents & PDFs
-```
-
----
-
-## 🚀 Quickstart & Installation
+## 🚀 Quick Start
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/Vfy123/VEDAS---AI---Voice-Assistant.git
-cd VEDAS---AI---Voice-Assistant
+git clone https://github.com/your-username/vedas-ai.git
+cd vedas-ai
 ```
 
-### 2. Set Up Virtual Environment & Dependencies
+### 2. Set Up a Virtual Environment
 ```bash
-python3 -m venv myvenv
-source myvenv/bin/activate   # On Windows: myvenv\Scripts\activate
+# Windows
+python -m venv venv
+venv\Scripts\activate
+
+# Linux / macOS
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
+```bash
 pip install -r requirements.txt
 ```
 
-### 3. Configure Environment Variables
-Copy `.env.example` to `.env` and configure your settings:
+### 4. Configure Environment Variables
+Copy `.env.example` to `.env` and provide your Gemini API key:
 ```bash
 cp .env.example .env
 ```
-Edit `.env`:
+Open `.env` in any text editor:
 ```env
-GEMINI_API_KEY=your_gemini_api_key_here
-OLLAMA_HOST=http://localhost:11434
-LOCAL_MODEL=llama3.2:latest
-CLOUD_MODEL=gemini-3.6-flash
-SUPERVISOR_ENABLED=true
+GEMINI_API_KEY=your_actual_gemini_api_key_here
+HOST=127.0.0.1
+PORT=8000
 ```
 
-### 4. Ensure Ollama is Installed & Running (Optional for Local Models)
-Install Ollama from [ollama.ai](https://ollama.ai) and pull your preferred model:
+### 5. Launch Vedas AI
+
+#### Option A: Quick Launchers (Recommended)
+- **Windows**: Double-click `Vedas AI Web Group/RUN FILES/Vedas Windows Run.bat`
+- **Linux**: Execute `bash "Vedas AI Web Group/RUN FILES/Vedas Linux Run.sh"`
+- **macOS**: Execute `"Vedas AI Web Group/RUN FILES/Vedas Mac Run.command"`
+
+#### Option B: Terminal Command
 ```bash
-ollama pull llama3.2
+python "Vedas AI Web Group/SERVER/run_vedas_web.py"
 ```
+
+Then visit [https://127.0.0.1:8000](https://127.0.0.1:8000) (or `http://127.0.0.1:8000`) in your web browser.
 
 ---
 
-## ⚡ Running the Application
+## 📦 Optional: Local LLM Setup (Ollama)
 
-### 🐧 Linux
-Run from your terminal:
-```bash
-chmod +x "RUN FILES/Vedas Linux Run.sh"
-./"RUN FILES/Vedas Linux Run.sh"
-```
-*(or `python3 SERVER/run_vedas_web.py`)*
-
-### 🪟 Windows
-Double-click:
-```bat
-"RUN FILES\Vedas Windows Run.bat"
-```
-*(or execute `.\RUN FILES\Vedas Windows Run.ps1` in PowerShell)*
-
-### 🍎 macOS
-Double-click:
-```bash
-"RUN FILES/Vedas Mac Run.command"
-```
-
-The browser will automatically open at:
-👉 **`https://127.0.0.1:8000`** *(or `https://localhost:8000`)*
-
-> [!NOTE]
-> Because Vedas AI uses local self-signed SSL certificates for secure microphone and Web Speech API access, click **"Advanced" → "Proceed to 127.0.0.1 (unsafe)"** on your browser's first visit.
+For offline, 100% private AI inference:
+1. Download and install [Ollama](https://ollama.com/).
+2. Pull your preferred model (e.g. Llama 3, Mistral, Qwen):
+   ```bash
+   ollama run llama3
+   ```
+3. Vedas AI will automatically detect running Ollama instances on `http://127.0.0.1:11434`.
 
 ---
 
-## 🔒 Security Best Practices
+## 🛠️ Requirements & Tech Stack
 
-- **Zero Hardcoded Secrets**: All API tokens and sensitive credentials are read strictly from `.env` or system environment variables and are excluded from version control via `.gitignore`.
-- **Upload Protection**: File uploads use strict sanitization (`os.path.basename`) and enforce a 50MB file size ceiling to prevent path traversal and disk exhaustion.
-- **Sandbox Guardrails**: Python execution blocks destructive file system operations and enforces a strict 10-second timeout.
-- **Dynamic TLS Generation**: SSL private keys are generated on-the-fly locally and never committed to Git.
+- **Python**: 3.10 or newer
+- **Backend**: FastAPI, Uvicorn, Pydantic, WebSockets
+- **AI / LLM**: `google-genai`, `ollama`
+- **Voice / Audio**: `SpeechRecognition`, `pyttsx3`, `PyAudio`, `faster-whisper`
+- **Utilities**: `duckduckgo-search`, `wikipedia`, `pypdf`, `Pillow`, `psutil`, `pyautogui`
 
 ---
 
-## 📜 License
+## 🤝 Contributing
 
-Distributed under the **MIT License**. See `LICENSE` for more information.
+Contributions, issues, and feature requests are welcome!
+Feel free to check the [issues page](https://github.com/your-username/vedas-ai/issues).
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+Distributed under the MIT License. See [`LICENSE`](LICENSE) for more information.
