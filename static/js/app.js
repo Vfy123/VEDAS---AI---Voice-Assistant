@@ -18,6 +18,23 @@ const state = {
   currentPersona: 'master_vedas',
   activeModel: 'llama3.2:latest',
   systemStatus: {},
+  isSpeaking: false,
+  micArmed: false,
+  recognitionActive: false,
+  // Friendly display names for known models
+  modelDisplayNames: {
+    'llama3.2:latest': 'LLaMA 3.2 (Primary)',
+    'llama3.2:1b': 'LLaMA 3.2 1B (Fast)',
+    'llama3.2': 'LLaMA 3.2',
+    'llama3:latest': 'LLaMA 3',
+    'llama3': 'LLaMA 3',
+    'qwen2.5:7b': 'Qwen 2.5 7B',
+    'phi4:latest': 'Phi-4',
+    'gemini-3.7-flash': 'Gemini 3.7 Flash',
+    'gemini-3.6-flash': 'Gemini 3.6 Flash',
+    'gemini-3.5-flash': 'Gemini 3.5 Flash',
+    'gemini-3.1-pro-preview': 'Gemini 3.1 Pro'
+  },
   // TTS State
   currentTTS: {
     fullText: '',
@@ -207,42 +224,90 @@ async function fetchSystemStatus() {
     if (ollamaDot && ollamaText) {
       if (data.ollama_running) {
         ollamaDot.className = 'status-dot';
-        ollamaText.textContent = `OLLAMA: ${data.active_local_model}`;
+        ollamaText.textContent = `⚡ OLLAMA: ${data.active_local_model}`;
       } else {
         ollamaDot.className = 'status-dot danger';
-        ollamaText.textContent = 'OLLAMA: OFFLINE';
+        ollamaText.textContent = '⚡ OLLAMA: OFFLINE';
       }
     }
 
-    // Populate model options
-    if (modelSelector && data.local_models && modelSelector.options.length <= 2) {
-      modelSelector.innerHTML = '';
-      const localGroup = document.createElement('optgroup');
-      localGroup.label = '⚡ Local Ollama Models (Primary)';
-      data.local_models.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m;
-        opt.textContent = `Local: ${m}`;
-        if (m === data.active_local_model) opt.selected = true;
-        localGroup.appendChild(opt);
-      });
-      modelSelector.appendChild(localGroup);
+    // Populate model options with thunderbolt in front of EVERY option.
+    // Avoid rebuilding DOM if option list has not changed, preserving user selection.
+    if (modelSelector && data.local_models) {
+      const geminiList = (data.cloud_models && data.cloud_models.length)
+        ? data.cloud_models
+        : [
+            { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash' },
+            { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash' },
+            { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash' },
+            { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro' }
+          ];
 
-      const cloudGroup = document.createElement('optgroup');
-      cloudGroup.label = '☁️ Gemini Cloud Models (Fallback & Supervisor)';
-      const geminiList = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-pro-preview'];
-      geminiList.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m;
-        opt.textContent = `Cloud: ${m}`;
-        cloudGroup.appendChild(opt);
-      });
-      modelSelector.appendChild(cloudGroup);
+      const currentValues = Array.from(modelSelector.options).map(o => o.value).join('|');
+      const newValues = [...data.local_models, ...geminiList.map(m => m.id || m)].join('|');
+
+      if (currentValues !== newValues || modelSelector.options.length === 0) {
+        const previousSelection = state.activeModel || modelSelector.value;
+        modelSelector.innerHTML = '';
+
+        const localGroup = document.createElement('optgroup');
+        localGroup.label = '⚡ Local Ollama Models (Primary)';
+        data.local_models.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m;
+          const name = state.modelDisplayNames[m] || m;
+          opt.textContent = `⚡ Local: ${name}`;
+          localGroup.appendChild(opt);
+        });
+        modelSelector.appendChild(localGroup);
+
+        const cloudGroup = document.createElement('optgroup');
+        cloudGroup.label = '⚡ Gemini Cloud Models (Supervisor & Fallback)';
+        geminiList.forEach(m => {
+          const opt = document.createElement('option');
+          const mId = m.id || m;
+          opt.value = mId;
+          const name = m.name || state.modelDisplayNames[mId] || mId;
+          opt.textContent = `⚡ Cloud: ${name}`;
+          cloudGroup.appendChild(opt);
+        });
+        modelSelector.appendChild(cloudGroup);
+
+        // Restore selection to the previous user selection or primary local model
+        const target = Array.from(modelSelector.options).find(o => o.value === previousSelection) ||
+                       Array.from(modelSelector.options).find(o => o.value === data.active_local_model) ||
+                       modelSelector.options[0];
+        if (target) {
+          target.selected = true;
+          state.activeModel = target.value;
+        }
+      }
     }
   } catch (err) {
     console.error('Telemetry Error:', err);
   }
 }
+
+window.restartOllamaService = async function () {
+  const ollamaDot = document.getElementById('hud-ollama-dot');
+  const ollamaText = document.getElementById('hud-ollama-text');
+  if (ollamaDot) ollamaDot.className = 'status-dot inferring';
+  if (ollamaText) ollamaText.textContent = '⚡ OLLAMA: CONNECTING...';
+  showToast('Connecting to Ollama background core...', '⚡');
+  try {
+    const res = await fetch('/api/ollama/start', { method: 'POST' });
+    const data = await res.json();
+    if (data.running) {
+      showToast('Ollama Core Connected and Ready!', '⚡');
+    } else {
+      showToast('Ollama not running. Try: ollama serve', '⚠️');
+    }
+    await fetchSystemStatus();
+  } catch (err) {
+    showToast('Ollama connection request failed', '❌');
+    await fetchSystemStatus();
+  }
+};
 
 // ----------------- SESSIONS & MEMORY -----------------
 async function loadSessionsAndMemory() {
@@ -377,10 +442,12 @@ function renderChatMessages(messages) {
 
   if (!messages || messages.length === 0) {
     if (welcomeHero) welcomeHero.style.display = 'flex';
+    if (chatMessagesContainer) chatMessagesContainer.style.display = 'none';
     return;
   }
 
   if (welcomeHero) welcomeHero.style.display = 'none';
+  if (chatMessagesContainer) chatMessagesContainer.style.display = 'flex';
 
   messages.forEach(msg => {
     appendMessageToDOM(msg.role, msg.content, msg.meta, false);
@@ -391,6 +458,7 @@ function renderChatMessages(messages) {
 
 function appendMessageToDOM(role, content, meta = {}, shouldScroll = true) {
   if (welcomeHero) welcomeHero.style.display = 'none';
+  if (chatMessagesContainer) chatMessagesContainer.style.display = 'flex';
 
   const row = document.createElement('div');
   row.className = `message-row ${role === 'user' ? 'user' : 'ai'}`;
@@ -465,6 +533,73 @@ function appendMessageToDOM(role, content, meta = {}, shouldScroll = true) {
   }
 }
 
+function appendAnimatedMessageToDOM(role, content, meta = {}, onComplete = null) {
+  if (role !== 'ai' || !content) {
+    appendMessageToDOM(role, content, meta, true);
+    if (onComplete) onComplete();
+    return;
+  }
+
+  if (welcomeHero) welcomeHero.style.display = 'none';
+
+  const row = document.createElement('div');
+  row.className = 'message-row ai';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar-badge animated-avatar';
+  avatar.innerHTML = '⚡';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'message-bubble';
+
+  const isOllama = meta && meta.source === 'ollama';
+  const modelTag = meta && meta.model ? meta.model : (isOllama ? 'Local Ollama' : 'Gemini Cloud');
+  const badgeClass = isOllama ? 'ai-meta-tag ollama-active-badge' : 'ai-meta-tag';
+
+  const metaDiv = document.createElement('div');
+  metaDiv.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+      <div class="${badgeClass}" style="margin-bottom:0;">⚡ ${isOllama ? 'Local Ollama' : 'Gemini Cloud'}: ${modelTag}</div>
+      <div style="display:flex; gap:6px;">
+        <button class="tts-bubble-btn" title="Read message aloud" onclick="speakMessageManual(this)">🔊 Read</button>
+        <button class="tts-bubble-btn" title="Stop speech" onclick="stopSpeech()">⏹ Stop</button>
+      </div>
+    </div>
+    ${meta && meta.supervisorAlert ? `<div class="supervisor-alert-badge">🛡️ Supervisor AI Correction: ${meta.supervisorAlert}</div>` : ''}
+  `;
+
+  const textContainer = document.createElement('div');
+  textContainer.className = 'ai-text-stream';
+
+  bubble.appendChild(metaDiv);
+  bubble.appendChild(textContainer);
+  row.appendChild(avatar);
+  row.appendChild(bubble);
+  chatMessagesContainer.appendChild(row);
+  scrollChatToBottom();
+
+  // Fast typewriter animated stream
+  const tokens = content.split(/(\s+)/);
+  let accumulated = '';
+  let tokenIdx = 0;
+  const chunk = 3;
+  const speedMs = 15;
+
+  const timer = setInterval(() => {
+    if (tokenIdx < tokens.length) {
+      accumulated += tokens.slice(tokenIdx, tokenIdx + chunk).join('');
+      tokenIdx += chunk;
+      textContainer.innerHTML = renderMarkdown(accumulated) + '<span class="typing-cursor">█</span>';
+      scrollChatToBottom();
+    } else {
+      clearInterval(timer);
+      textContainer.innerHTML = renderMarkdown(content);
+      scrollChatToBottom();
+      if (onComplete) onComplete();
+    }
+  }, speedMs);
+}
+
 function scrollChatToBottom() {
   if (chatMessagesContainer) {
     chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
@@ -475,18 +610,26 @@ function scrollChatToBottom() {
 async function handleSendMessage() {
   const text = chatInput.value.trim();
   if (!text && state.attachments.length === 0) return;
+  if (state.micArmed || state.isListening) hardStopMic();
 
   if (!state.currentSessionId) {
     state.currentSessionId = String(Date.now());
     state.sessions.unshift({
       id: state.currentSessionId,
-      title: text ? (text.length > 25 ? text.substring(0, 22) + '...' : text) : 'Attachment Query',
+      title: text ? (text.length > 35 ? text.substring(0, 32) + '...' : text) : 'Attachment Query',
       messages: []
     });
+    renderSidebarSessions();
   }
 
   const currentSession = state.sessions.find(s => s.id === state.currentSessionId);
   const userAttachments = [...state.attachments];
+
+  // Auto-rename "New Conversation" to actual prompt title
+  if (currentSession && currentSession.title === 'New Conversation' && text) {
+    currentSession.title = text.length > 35 ? text.substring(0, 32) + '...' : text;
+    renderSidebarSessions();
+  }
 
   // Append user message
   const userMsg = {
@@ -503,8 +646,19 @@ async function handleSendMessage() {
   renderAttachmentTray();
   autoResizeChatInput();
 
-  // Set waveform to thinking/speaking
-  if (window.vedasWaveform) window.vedasWaveform.setState('speaking');
+  if (text && /^(shutdown|shut down|power off)\b/i.test(text)) {
+    confirmShutdown();
+    if (window.vedasWaveform) window.vedasWaveform.setState('idle');
+    if (window.setHologramState) setHologramState('idle');
+    return;
+  }
+
+  if (text && /^(restart|reboot)\b/i.test(text)) {
+    confirmRestart();
+    if (window.vedasWaveform) window.vedasWaveform.setState('idle');
+    if (window.setHologramState) setHologramState('idle');
+    return;
+  }
 
   // Check for image generation prompt prefix
   const imageGenMatch = text.match(/^(?:\/image|generate image(?: of)?|create an image of)\s+(.+)/i);
@@ -545,6 +699,58 @@ async function handleSendMessage() {
     return;
   }
 
+  // Check for system commands (open notepad, shutdown, etc.)
+  if (text && checkVoiceSystemCommand(text)) {
+    try {
+      const cmdRes = await fetch('/api/system/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: text })
+      });
+      const cmdData = await cmdRes.json();
+      if (cmdData.success) {
+        const aiMsg = { role: 'ai', content: `⚡ **System Command Executed:** ${cmdData.message}`, meta: { model: 'system', source: 'system_action' } };
+        if (currentSession) currentSession.messages.push(aiMsg);
+        appendMessageToDOM('ai', aiMsg.content, aiMsg.meta);
+        saveCurrentSessionToBackend();
+        if (state.speechSynthEnabled) smartSpeakResponse(cmdData.message);
+        if (window.vedasWaveform) window.vedasWaveform.setState('idle');
+        return;
+      }
+    } catch (e) { /* fallthrough to AI */ }
+  }
+
+  // Set UI into thinking animation state
+  if (window.vedasWaveform) window.vedasWaveform.setState('thinking');
+  if (window.setHologramState) setHologramState('ai_thinking');
+
+  const ollamaDot = document.getElementById('hud-ollama-dot');
+  const ollamaText = document.getElementById('hud-ollama-text');
+  if (ollamaDot) ollamaDot.className = 'status-dot inferring';
+  if (ollamaText) ollamaText.textContent = '⚡ OLLAMA: GENERATING...';
+
+  // Append animated thinking indicator card in the chat
+  const thinkingRow = document.createElement('div');
+  thinkingRow.className = 'message-row ai thinking-row';
+  thinkingRow.id = 'active-thinking-indicator';
+  const isCloudActive = state.activeModel && state.activeModel.includes('gemini');
+  const activeLabel = isCloudActive ? `Gemini Cloud: ${state.activeModel}` : `Local Ollama: ${state.activeModel}`;
+  thinkingRow.innerHTML = `
+    <div class="avatar-badge animated-avatar">⚡</div>
+    <div class="message-bubble thinking-bubble">
+      <div class="ai-meta-tag ${isCloudActive ? '' : 'ollama-active-badge'}">⚡ ${activeLabel}</div>
+      <div class="thinking-pulse-wrapper">
+        <div class="thinking-spinner"></div>
+        <div class="thinking-details">
+          <span class="thinking-label">Synthesizing intelligence</span>
+          <span class="thinking-dots-anim"><span>.</span><span>.</span><span>.</span></span>
+        </div>
+      </div>
+    </div>
+  `;
+  chatMessagesContainer.appendChild(thinkingRow);
+  scrollChatToBottom();
+
   // Send standard / multimodal chat request to backend
   try {
     const res = await fetch('/api/chat', {
@@ -561,8 +767,17 @@ async function handleSendMessage() {
       })
     });
 
+    // Remove thinking indicator
+    const existingThinking = document.getElementById('active-thinking-indicator');
+    if (existingThinking) existingThinking.remove();
+
     if (!res.ok) {
-      throw new Error(`HTTP Error ${res.status}`);
+      let backendDetail = '';
+      try {
+        const errBody = await res.json();
+        backendDetail = errBody.detail || errBody.message || errBody.error || '';
+      } catch (_) { /* ignore parse error */ }
+      throw new Error(`HTTP Error ${res.status}${backendDetail ? `: ${backendDetail}` : ''}`);
     }
 
     const data = await res.json();
@@ -576,8 +791,16 @@ async function handleSendMessage() {
       }
     };
 
+    // Show a friendly, actionable hint if the response is an error/offline source
+    if (data.source === 'error' || data.source === 'offline') {
+      const hint = data.text && data.text.includes('Ollama')
+        ? '\n\n💡 Tip: Make sure the AI core (Ollama) is running, or select a different model in the top-left dropdown. If you picked Qwen 2.5 or Phi-4, first run: `ollama pull qwen2.5:7b` (or `ollama pull phi4`).'
+        : '';
+      aiMsg.content = (data.text || '') + hint;
+    }
+
     if (currentSession) currentSession.messages.push(aiMsg);
-    appendMessageToDOM('ai', aiMsg.content, aiMsg.meta);
+    appendAnimatedMessageToDOM('ai', aiMsg.content, aiMsg.meta);
     saveCurrentSessionToBackend();
 
     // Voice response with two-stage confirmation TTS
@@ -585,11 +808,28 @@ async function handleSendMessage() {
       smartSpeakResponse(data.text);
     }
   } catch (err) {
+    const existingThinking = document.getElementById('active-thinking-indicator');
+    if (existingThinking) existingThinking.remove();
     console.error('Chat Error:', err);
-    appendMessageToDOM('ai', `⚠️ Neural Core Interruption: ${err.message}\n\nPlease verify that the backend server is running.`);
+    appendMessageToDOM('ai', `⚠️ Neural Core Interruption: ${err.message}\n\nPlease verify that the backend server is running and try again. If the AI core won't respond, restart Vedas AI or check your internet connection for cloud models.`);
   } finally {
-    if (window.vedasWaveform && !state.isListening) {
+    // Restore HUD and animations safely
+    const oDot = document.getElementById('hud-ollama-dot');
+    const oText = document.getElementById('hud-ollama-text');
+    if (oDot && oText && state.systemStatus) {
+      if (state.systemStatus.ollama_running) {
+        oDot.className = 'status-dot';
+        oText.textContent = `⚡ OLLAMA: ${state.systemStatus.active_local_model || state.activeModel}`;
+      } else {
+        oDot.className = 'status-dot danger';
+        oText.textContent = '⚡ OLLAMA: OFFLINE';
+      }
+    }
+    if (window.vedasWaveform && !state.isListening && !state.isSpeaking) {
       window.vedasWaveform.setState('idle');
+    }
+    if (window.setHologramState && !state.isListening && !state.isSpeaking) {
+      setHologramState('idle');
     }
   }
 }
@@ -758,12 +998,23 @@ function speakUtterance(text, onEndCallback) {
   utterance.pitch = 1.0;
 
   utterance.onstart = () => {
+    state.isSpeaking = true;
+    haltMicForSpeech();
     if (window.vedasWaveform) window.vedasWaveform.setState('speaking');
+    setHologramState('ai_speaking');
   };
 
   utterance.onend = () => {
+    state.isSpeaking = false;
     if (window.vedasWaveform && !state.isListening) window.vedasWaveform.setState('idle');
+    setHologramState('idle');
     if (onEndCallback) onEndCallback();
+  };
+
+  utterance.onerror = () => {
+    state.isSpeaking = false;
+    setHologramState('idle');
+    if (window.vedasWaveform && !state.isListening) window.vedasWaveform.setState('idle');
   };
 
   window.speechSynthesis.speak(utterance);
@@ -782,10 +1033,12 @@ function readFullResponse() {
 }
 
 function stopSpeech() {
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  state.isSpeaking = false;
   state.currentTTS.isPausedForConfirmation = false;
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
   removeTTSFullReadBanner();
-  if (window.vedasWaveform) window.vedasWaveform.setState('idle');
+  if (window.vedasWaveform && !state.isListening) window.vedasWaveform.setState('idle');
+  if (!state.isListening) setHologramState('idle');
 }
 
 function showTTSFullReadBanner() {
@@ -822,35 +1075,8 @@ function removeTTSFullReadBanner() {
 }
 
 function onSpeechFinished(waitingForConfirmation) {
-  if (waitingForConfirmation) {
-    // Open mic in continuous conversation mode so user can simply say "Yes"
-    if (state.inConversationMode && recognition) {
-      try {
-        state.isListening = true;
-        recognition.start();
-        if (micBtn) micBtn.classList.add('listening');
-        if (window.vedasWaveform) window.vedasWaveform.setState('listening');
-      } catch (e) {}
-    }
-  } else {
+  if (!waitingForConfirmation) {
     removeTTSFullReadBanner();
-    // Auto-reopen listening for follow-up turns without wake-word
-    if (state.inConversationMode && recognition) {
-      try {
-        state.isListening = true;
-        recognition.start();
-        if (micBtn) micBtn.classList.add('listening');
-        if (window.vedasWaveform) window.vedasWaveform.setState('listening');
-
-        clearTimeout(state.conversationTimeoutId);
-        state.conversationTimeoutId = setTimeout(() => {
-          if (state.isListening) {
-            stopVoiceListening();
-            state.inConversationMode = false;
-          }
-        }, 10000);
-      } catch (e) {}
-    }
   }
 }
 
@@ -866,6 +1092,54 @@ window.stopSpeech = stopSpeech;
 
 // ----------------- VOICE ENGINE, WAKE-WORDS & HOTKEY CONVERSATION FLOW -----------------
 let recognition = null;
+let silenceTimer = null;
+// 3200ms allows natural conversational breathing, pausing to think, and sentence structuring
+const MIC_SILENCE_MS = 3200;
+let voiceSessionPrefix = '';
+let voiceRestartDebounce = null;
+
+function clearSilenceTimer() {
+  if (silenceTimer) {
+    clearTimeout(silenceTimer);
+    silenceTimer = null;
+  }
+}
+
+function applyMicUi(listening) {
+  if (micBtn) micBtn.classList.toggle('listening', listening);
+  if (chatInput) {
+    if (listening) {
+      if (!chatInput.getAttribute('data-default-placeholder')) {
+        chatInput.setAttribute('data-default-placeholder', chatInput.placeholder || '');
+      }
+      chatInput.placeholder = '🎙️ Listening... speak naturally (take your time, auto-sends after pause)';
+    } else {
+      const def = chatInput.getAttribute('data-default-placeholder');
+      if (def) chatInput.placeholder = def;
+    }
+  }
+  if (listening) {
+    if (window.vedasWaveform) window.vedasWaveform.setState('listening');
+    setHologramState('user_speaking');
+  } else if (!state.isSpeaking) {
+    if (window.vedasWaveform) window.vedasWaveform.setState('idle');
+    setHologramState('idle');
+  }
+}
+
+function haltMicForSpeech() {
+  state.micArmed = false;
+  state.isListening = false;
+  clearSilenceTimer();
+  clearTimeout(voiceRestartDebounce);
+  voiceSessionPrefix = '';
+  applyMicUi(false);
+  if (recognition && state.recognitionActive) {
+    try { recognition.abort(); } catch (e) {
+      try { recognition.stop(); } catch (e2) {}
+    }
+  }
+}
 
 function initVoiceEngine() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -879,93 +1153,130 @@ function initVoiceEngine() {
   recognition.continuous = true;
   recognition.interimResults = true;
   recognition.lang = 'en-US';
+  recognition.maxAlternatives = 1;
 
   recognition.onstart = () => {
-    state.isListening = true;
-    if (micBtn) micBtn.classList.add('listening');
-    if (window.vedasWaveform) window.vedasWaveform.setState('listening');
-    if (!state.inConversationMode) {
-      showToast('Listening... [Hotkey: Ctrl+M]', '🎙️');
+    state.recognitionActive = true;
+    if (!state.micArmed || state.isSpeaking) {
+      try { recognition.abort(); } catch (e) {}
+      return;
     }
+    state.isListening = true;
+    applyMicUi(true);
   };
 
   recognition.onresult = (event) => {
-    let interimTranscript = '';
-    let finalTranscript = '';
+    if (!state.micArmed || state.isSpeaking) return;
 
-    for (let i = event.resultIndex; i < event.results.length; ++i) {
+    let sessionFinal = '';
+    let sessionInterim = '';
+
+    for (let i = 0; i < event.results.length; ++i) {
       if (event.results[i].isFinal) {
-        finalTranscript += event.results[i][0].transcript;
+        sessionFinal += event.results[i][0].transcript + ' ';
       } else {
-        interimTranscript += event.results[i][0].transcript;
+        sessionInterim += event.results[i][0].transcript;
       }
     }
 
-    if (interimTranscript) {
-      chatInput.value = interimTranscript;
+    // Combine any text persisted across recognition restarts with current session
+    const fullText = (voiceSessionPrefix + sessionFinal + sessionInterim).trim();
+    if (fullText) {
+      chatInput.value = fullText;
+      autoResizeChatInput();
     }
 
-    if (finalTranscript) {
-      const cleanTranscript = finalTranscript.trim().toLowerCase();
-
-      // Check if user is answering the "Should I read it to you in full?" prompt
-      if (state.currentTTS.isPausedForConfirmation) {
-        if (cleanTranscript.includes('yes') || cleanTranscript.includes('sure') || cleanTranscript.includes('read') || cleanTranscript.includes('continue') || cleanTranscript.includes('full')) {
-          chatInput.value = '';
-          readFullResponse();
-          return;
-        } else if (cleanTranscript.includes('no') || cleanTranscript.includes('stop') || cleanTranscript.includes('never mind')) {
-          chatInput.value = '';
-          stopSpeech();
-          return;
-        }
+    // Reset silence timer on every chunk of speech detected (resets on breathing/speaking)
+    clearSilenceTimer();
+    silenceTimer = setTimeout(() => {
+      const query = (chatInput.value || '').trim();
+      if (query) {
+        commitVoiceTranscript(query);
       }
-
-      const wakeWordMatch = finalTranscript.trim().match(/^(?:hey|hello|ok|okay)?\s*vedas\s*(.*)/i);
-
-      // If in ongoing conversation mode, user DOES NOT need to repeat "Hello Vedas"
-      if (state.inConversationMode) {
-        const query = wakeWordMatch ? wakeWordMatch[1].trim() : finalTranscript.trim();
-        if (query) {
-          chatInput.value = query;
-          handleSendMessage();
-        }
-      } else {
-        // First time / standby: wake word OR direct speech if button was clicked
-        if (wakeWordMatch) {
-          state.inConversationMode = true;
-          const query = wakeWordMatch[1].trim();
-          if (query) {
-            chatInput.value = query;
-            handleSendMessage();
-          } else {
-            smartSpeakResponse("I am listening. What is your command?");
-          }
-        } else {
-          // Direct speech
-          state.inConversationMode = true;
-          chatInput.value = finalTranscript.trim();
-          handleSendMessage();
-        }
-      }
-    }
+    }, MIC_SILENCE_MS);
   };
 
   recognition.onerror = (event) => {
+    // 'no-speech' is emitted when there's a pause, breathing, or brief silence.
+    // We intentionally ignore 'no-speech' and 'aborted' so the mic stays open.
+    if (event.error === 'aborted' || event.error === 'no-speech') {
+      return;
+    }
     console.error('Speech Recognition Error:', event.error);
-    stopVoiceListening();
+    if (event.error === 'not-allowed') {
+      showToast('Microphone permission denied', '⚠️');
+      hardStopMic();
+    }
   };
 
   recognition.onend = () => {
-    if (state.isListening) {
-      try { recognition.start(); } catch (e) {}
-    } else {
-      stopVoiceListening();
+    state.recognitionActive = false;
+    if (state.micArmed && !state.isSpeaking) {
+      // Save current input value so browser auto-restart does not wipe speech
+      if (chatInput && chatInput.value && chatInput.value.trim()) {
+        voiceSessionPrefix = chatInput.value.trim() + ' ';
+      }
+      clearTimeout(voiceRestartDebounce);
+      voiceRestartDebounce = setTimeout(() => {
+        if (state.micArmed && !state.isSpeaking && !state.recognitionActive) {
+          try {
+            recognition.start();
+          } catch (e) {
+            console.warn('Recognition restart handled:', e);
+          }
+        }
+      }, 120);
+      return;
     }
+    state.isListening = false;
+    applyMicUi(false);
   };
 }
 
-function toggleVoiceListening() {
+function commitVoiceTranscript(rawQuery) {
+  const query = (rawQuery || '').trim();
+  if (!query) {
+    hardStopMic();
+    return;
+  }
+
+  const cleanTranscript = query.toLowerCase();
+
+  if (state.currentTTS.isPausedForConfirmation) {
+    hardStopMic();
+    if (cleanTranscript.includes('yes') || cleanTranscript.includes('sure') || cleanTranscript.includes('read') || cleanTranscript.includes('continue') || cleanTranscript.includes('full')) {
+      chatInput.value = '';
+      readFullResponse();
+      return;
+    }
+    if (cleanTranscript.includes('no') || cleanTranscript.includes('stop') || cleanTranscript.includes('never mind')) {
+      chatInput.value = '';
+      stopSpeech();
+      return;
+    }
+  }
+
+  const wakeWordMatch = query.match(/^(?:hey|hello|ok|okay)?\s*vedas\s*(.*)/i);
+  let outbound = query;
+  if (wakeWordMatch) {
+    outbound = (wakeWordMatch[1] || '').trim();
+    if (!outbound) {
+      hardStopMic();
+      smartSpeakResponse('I am listening. What is your command?');
+      return;
+    }
+  }
+
+  chatInput.value = outbound;
+  hardStopMic();
+  handleSendMessage();
+}
+
+function beginVoiceListening() {
+  if (state.isSpeaking) {
+    showToast('Wait until Vedas finishes speaking', '🔇');
+    return;
+  }
   if (!recognition) {
     initVoiceEngine();
     if (!recognition) {
@@ -973,26 +1284,48 @@ function toggleVoiceListening() {
       return;
     }
   }
+  voiceSessionPrefix = '';
+  clearTimeout(voiceRestartDebounce);
+  clearSilenceTimer();
 
-  if (state.isListening) {
-    stopVoiceListening();
-  } else {
-    state.inConversationMode = true;
-    try {
-      recognition.start();
-    } catch (e) {
-      console.error(e);
+  state.micArmed = true;
+  state.isListening = true;
+  applyMicUi(true);
+  showToast('Listening... Speak naturally (pause to send)', '🎙️');
+  try {
+    recognition.start();
+  } catch (e) {
+    console.error(e);
+    showToast('Could not start voice recognition', '⚠️');
+    hardStopMic();
+  }
+}
+
+function hardStopMic() {
+  state.micArmed = false;
+  state.isListening = false;
+  clearSilenceTimer();
+  clearTimeout(voiceRestartDebounce);
+  voiceSessionPrefix = '';
+  applyMicUi(false);
+  if (recognition && state.recognitionActive) {
+    try { recognition.abort(); } catch (e) {
+      try { recognition.stop(); } catch (e2) {}
     }
   }
 }
 
-function stopVoiceListening() {
-  state.isListening = false;
-  if (micBtn) micBtn.classList.remove('listening');
-  if (window.vedasWaveform) window.vedasWaveform.setState('idle');
-  if (recognition) {
-    try { recognition.stop(); } catch (e) {}
+function toggleVoiceListening() {
+  if (state.isListening || state.micArmed || state.recognitionActive) {
+    hardStopMic();
+    showToast('Voice input stopped', '🔇');
+    return;
   }
+  beginVoiceListening();
+}
+
+function stopVoiceListening() {
+  hardStopMic();
 }
 
 // ----------------- PYTHON SANDBOX CODE EXECUTION -----------------
@@ -1457,3 +1790,332 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSessionsAndMemory();
   initVoiceEngine();
 });
+
+// ----------------- HOLOGRAM CONTROL -----------------
+function setHologramState(st) {
+  if (window.VedasHologram) {
+    window.VedasHologram.setState(st);
+  }
+}
+
+// ----------------- SYSTEM COMMANDS -----------------
+window.runSysCmd = async function(cmd) {
+  try {
+    const res = await fetch('/api/system/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: cmd })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message, '⚡');
+      // Also speak the response
+      if (state.speechSynthEnabled) smartSpeakResponse(data.message);
+    } else {
+      showToast(data.message || 'Command failed', '⚠️');
+    }
+  } catch (err) {
+    showToast('System command failed: ' + err.message, '❌');
+  }
+};
+
+window.confirmShutdown = function() {
+  const modal = document.getElementById('shutdown-confirm-modal');
+  if (modal) modal.classList.add('open');
+};
+
+window.closeShutdownModal = function() {
+  const modal = document.getElementById('shutdown-confirm-modal');
+  if (modal) modal.classList.remove('open');
+};
+
+window.executeShutdown = async function() {
+  closeShutdownModal();
+  await runSysCmd('shutdown');
+};
+
+window.confirmRestart = function() {
+  const modal = document.getElementById('restart-confirm-modal');
+  if (modal) modal.classList.add('open');
+};
+
+window.closeRestartModal = function() {
+  const modal = document.getElementById('restart-confirm-modal');
+  if (modal) modal.classList.remove('open');
+};
+
+window.executeRestart = async function() {
+  closeRestartModal();
+  await runSysCmd('restart');
+};
+
+// Dismiss modals on Escape key
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeShutdownModal();
+    closeRestartModal();
+  }
+});
+
+// Detect voice system commands
+function checkVoiceSystemCommand(text) {
+  const t = text.toLowerCase().trim();
+  const sysPatterns = [
+    /^open\s+(notepad|calculator|paint|chrome|browser|explorer|file manager|task manager|terminal|cmd|command prompt|word|excel|vlc|spotify|discord|settings|control panel|snipping tool|screenshot)/i,
+    /^(shutdown|shut down|power off|restart|reboot|sleep|hibernate|cancel shutdown|abort shutdown)/i,
+    /^(mute|unmute|volume\s+\d+)/i,
+    /^lock (screen|computer)/i
+  ];
+  return sysPatterns.some(p => p.test(t));
+}
+
+// ----------------- FILE MANAGER -----------------
+let fmCurrentPath = null;
+let fmParentPath = null;
+
+window.openFileManager = async function() {
+  const sideCanvas = document.getElementById('side-canvas');
+  const sideCanvasTitle = document.getElementById('side-canvas-title');
+  const sideCanvasBody = document.getElementById('side-canvas-body');
+  if (!sideCanvas) return;
+
+  sideCanvasTitle.innerHTML = '📁 File & Folder Manager';
+  sideCanvasBody.innerHTML = `
+    <div class="drawer-section-title">📁 FILE SYSTEM EXPLORER</div>
+    <div class="file-manager-toolbar" id="fm-toolbar">
+      <input type="text" class="fm-path-bar" id="fm-path-input" placeholder="Enter path..." />
+      <button class="fm-toolbar-btn" onclick="fmNavigatePath()">Go</button>
+      <button class="fm-toolbar-btn" onclick="fmGoUp()">↑ Up</button>
+      <button class="fm-toolbar-btn" onclick="fmRefresh()">🔄</button>
+    </div>
+    <div style="display:flex; gap:6px; margin-top:4px; flex-wrap:wrap;">
+      <button class="fm-toolbar-btn" onclick="fmCreateItem(false)">+ New File</button>
+      <button class="fm-toolbar-btn" onclick="fmCreateItem(true)">+ New Folder</button>
+    </div>
+    <div class="fm-items-list" id="fm-items-list">Loading...</div>
+  `;
+
+  const pathInput = document.getElementById('fm-path-input');
+  if (pathInput) {
+    pathInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') fmNavigatePath();
+    });
+  }
+
+  sideCanvas.classList.add('open');
+  const backdrop = document.getElementById('drawer-backdrop');
+  if (backdrop) backdrop.classList.add('active');
+
+  await fmBrowse(null);
+};
+
+async function fmBrowse(path) {
+  const list = document.getElementById('fm-items-list');
+  if (!list) return;
+  list.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-dim);">Loading...</div>`;
+
+  try {
+    const res = await fetch('/api/files/browse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Browse failed');
+
+    fmCurrentPath = data.current_path;
+    fmParentPath = data.parent || null;
+    const pathInput = document.getElementById('fm-path-input');
+    if (pathInput) pathInput.value = fmCurrentPath;
+
+    list.innerHTML = '';
+
+    if (data.parent) {
+      const upItem = document.createElement('div');
+      upItem.className = 'fm-item';
+      upItem.innerHTML = `<span class="fm-item-icon">⬆️</span><span class="fm-item-name">.. (Parent)</span>`;
+      upItem.onclick = () => fmBrowse(data.parent);
+      list.appendChild(upItem);
+    }
+
+    if (data.items.length === 0) {
+      list.innerHTML += `<div style="color:var(--text-dim); padding:12px; font-size:0.82rem;">Empty directory</div>`;
+    }
+
+    data.items.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'fm-item';
+      const icon = item.is_dir ? '📁' : getFileIcon(item.name);
+      const sizeStr = item.is_dir ? '' : formatBytes(item.size);
+      const encodedPath = encodeURIComponent(item.path);
+
+      el.innerHTML = `
+        <span class="fm-item-icon">${icon}</span>
+        <span class="fm-item-name">${escapeHtml(item.name)}</span>
+        <span class="fm-item-meta">${sizeStr || ''}</span>
+        <div class="fm-item-actions">
+          ${!item.is_dir ? `<button class="fm-action-btn" title="Edit" onclick="fmEditFile('${encodedPath}', event)">✏️</button>` : ''}
+          <button class="fm-action-btn" title="Rename" onclick="fmRenamePrompt('${encodedPath}', '${escapeHtml(item.name)}', event)">📝</button>
+          <button class="fm-action-btn danger" title="Delete" onclick="fmDeleteItem('${encodedPath}', event)">🗑️</button>
+        </div>
+      `;
+
+      if (item.is_dir) {
+        el.onclick = (e) => {
+          if (!e.target.closest('.fm-item-actions')) fmBrowse(item.path);
+        };
+      }
+
+      list.appendChild(el);
+    });
+  } catch (err) {
+    list.innerHTML = `<div style="color:var(--pink-neon); padding:12px;">⚠️ ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+window.fmNavigatePath = function() {
+  const input = document.getElementById('fm-path-input');
+  if (input && input.value.trim()) fmBrowse(input.value.trim());
+};
+
+window.fmGoUp = function() {
+  if (fmParentPath) {
+    fmBrowse(fmParentPath);
+  }
+};
+
+window.fmRefresh = function() {
+  fmBrowse(fmCurrentPath);
+};
+
+window.fmEditFile = async function(encodedPath, event) {
+  event.stopPropagation();
+  const path = decodeURIComponent(encodedPath);
+  try {
+    const res = await fetch(`/api/files/read?path=${encodeURIComponent(path)}`);
+    if (!res.ok) throw new Error('Cannot read file');
+    const data = await res.json();
+
+    const body = document.getElementById('side-canvas-body');
+    body.innerHTML = `
+      <div class="fm-editor-area">
+        <div class="fm-editor-header">
+          <span class="fm-editor-filename">✏️ ${escapeHtml(data.name)}</span>
+          <button class="fm-toolbar-btn" onclick="openFileManager()">← Back</button>
+        </div>
+        <textarea class="fm-editor-textarea" id="fm-editor-content">${escapeHtml(data.content)}</textarea>
+        <button class="fm-save-btn" onclick="fmSaveFile('${encodedPath}')">
+          💾 Save File
+        </button>
+      </div>
+    `;
+  } catch (err) {
+    showToast('Cannot open file: ' + err.message, '❌');
+  }
+};
+
+window.fmSaveFile = async function(encodedPath) {
+  const path = decodeURIComponent(encodedPath);
+  const textarea = document.getElementById('fm-editor-content');
+  if (!textarea) return;
+  const content = textarea.value;
+  try {
+    const res = await fetch('/api/files/write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, content })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message, '✅');
+    } else {
+      showToast('Save failed', '❌');
+    }
+  } catch (err) {
+    showToast('Save error: ' + err.message, '❌');
+  }
+};
+
+window.fmCreateItem = async function(isFolder) {
+  const name = prompt(isFolder ? 'New folder name:' : 'New file name:');
+  if (!name || !name.trim()) return;
+  const fullPath = (fmCurrentPath ? fmCurrentPath.replace(/\\/g, '/') + '/' : '') + name.trim();
+  try {
+    const res = await fetch('/api/files/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: fullPath, is_folder: isFolder })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message, '✅');
+      fmRefresh();
+    } else {
+      showToast(data.detail || 'Create failed', '❌');
+    }
+  } catch (err) {
+    showToast('Create error: ' + err.message, '❌');
+  }
+};
+
+window.fmRenamePrompt = async function(encodedPath, currentName, event) {
+  event.stopPropagation();
+  const path = decodeURIComponent(encodedPath);
+  const newName = prompt('Rename to:', currentName);
+  if (!newName || !newName.trim() || newName.trim() === currentName) return;
+  try {
+    const res = await fetch('/api/files/rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, new_name: newName.trim() })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message, '✅');
+      fmRefresh();
+    } else {
+      showToast(data.detail || 'Rename failed', '❌');
+    }
+  } catch (err) {
+    showToast('Rename error: ' + err.message, '❌');
+  }
+};
+
+window.fmDeleteItem = async function(encodedPath, event) {
+  event.stopPropagation();
+  const path = decodeURIComponent(encodedPath);
+  const name = path.split(/[\\/]/).pop();
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  try {
+    const res = await fetch(`/api/files/delete?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message, '🗑️');
+      fmRefresh();
+    } else {
+      showToast(data.detail || 'Delete failed', '❌');
+    }
+  } catch (err) {
+    showToast('Delete error: ' + err.message, '❌');
+  }
+};
+
+function getFileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  const icons = {
+    py: '🐍', js: '📜', ts: '📘', html: '🌐', css: '🎨',
+    json: '📋', md: '📝', txt: '📄', pdf: '📕', png: '🖼️',
+    jpg: '🖼️', jpeg: '🖼️', gif: '🖼️', svg: '🎨', mp4: '🎬',
+    mp3: '🎵', wav: '🎵', zip: '📦', exe: '⚙️', sh: '🔧',
+    bat: '⚙️', csv: '📊', xml: '📋', yaml: '⚙️', yml: '⚙️'
+  };
+  return icons[ext] || '📄';
+}
+
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}

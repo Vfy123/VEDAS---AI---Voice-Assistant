@@ -13,8 +13,14 @@ echo " Location: SERVER | Major Engine: Local Ollama"
 echo " Web Interface: https://127.0.0.1:8000"
 echo "============================================================"
 
-# Auto-locate virtual environment
-if [ -f "$SCRIPT_DIR/myvenv/bin/activate" ]; then
+# Auto-locate virtual environment (checks myenv and myvenv)
+if [ -f "$SCRIPT_DIR/myenv/bin/activate" ]; then
+    source "$SCRIPT_DIR/myenv/bin/activate"
+elif [ -f "$SCRIPT_DIR/../myenv/bin/activate" ]; then
+    source "$SCRIPT_DIR/../myenv/bin/activate"
+elif [ -f "$SCRIPT_DIR/../../myenv/bin/activate" ]; then
+    source "$SCRIPT_DIR/../../myenv/bin/activate"
+elif [ -f "$SCRIPT_DIR/myvenv/bin/activate" ]; then
     source "$SCRIPT_DIR/myvenv/bin/activate"
 elif [ -f "$SCRIPT_DIR/../myvenv/bin/activate" ]; then
     source "$SCRIPT_DIR/../myvenv/bin/activate"
@@ -24,7 +30,7 @@ fi
 
 # Auto-start Ollama daemon if not running
 if command -v ollama >/dev/null 2>&1; then
-    if ! curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
+    if ! curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
         echo "⚡ Starting background Ollama daemon..."
         ollama serve >/dev/null 2>&1 &
         sleep 2

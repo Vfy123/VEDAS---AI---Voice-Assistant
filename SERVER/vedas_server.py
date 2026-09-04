@@ -1,18 +1,35 @@
 import os
 import sys
+
+# Ensure UTF-8 output on Windows consoles to prevent charmap UnicodeEncodeErrors
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import json
 import time
 import threading
 import subprocess
 import webbrowser
 import datetime
+import ctypes
 import requests
 import re
 import math
-import psutil
+try:
+    import psutil
+except ImportError:
+    psutil = None
 import base64
 import io
-import tempfile
+import shutil
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
@@ -22,33 +39,42 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 
+# PDF reader import
 try:
     from pypdf import PdfReader
 except ImportError:
     PdfReader = None
 
+# Google GenAI import
 try:
     from google import genai
 except ImportError:
     genai = None
 
+# DuckDuckGo Search import
 try:
     from duckduckgo_search import DDGS
 except ImportError:
     DDGS = None
 
+# Wikipedia import
 try:
     import wikipedia
 except ImportError:
     wikipedia = None
 
+# PyJokes import
 try:
     import pyjokes
 except ImportError:
     pyjokes = None
 
+# PyAutoGUI import (fallback for headless/non-X11)
 try:
     import pyautogui
 except Exception:
@@ -57,36 +83,82 @@ except Exception:
 IS_WINDOWS = sys.platform == "win32"
 IS_LINUX = sys.platform.startswith("linux")
 
-if getattr(sys, 'frozen', False):
-    BUNDLE_DIR = Path(sys._MEIPASS)
-    STATIC_DIR = BUNDLE_DIR / "static"
-    APP_DIR = Path(sys.executable).parent.resolve()
-    WORKSPACE_DIR = APP_DIR
-    SERVER_DIR = APP_DIR
-else:
-    SERVER_DIR = Path(__file__).parent.resolve()
-    APP_DIR = SERVER_DIR.parent.resolve() if SERVER_DIR.name == "SERVER" else SERVER_DIR
-    WORKSPACE_DIR = APP_DIR.parent.resolve()
-    STATIC_DIR = APP_DIR / "static"
 
-MEMORY_FILE = APP_DIR / "memory.json"
+def _is_frozen() -> bool:
+    return bool(getattr(sys, "frozen", False))
+
+
+def resource_root() -> Path:
+    """Read-only bundled assets (static UI, seed memory) when running as .exe."""
+    if _is_frozen():
+        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+    here = Path(__file__).parent.resolve()
+    return here.parent.resolve() if here.name == "SERVER" else here
+
+
+def data_root() -> Path:
+    """Writable app data: memory.json, uploads, and certs live here permanently."""
+    if _is_frozen():
+        return Path(sys.executable).parent.resolve()
+    here = Path(__file__).parent.resolve()
+    return here.parent.resolve() if here.name == "SERVER" else here
+
+
+RESOURCE_DIR = resource_root()
+SERVER_DIR = Path(__file__).parent.resolve() if not _is_frozen() else RESOURCE_DIR
+APP_DIR = data_root()
+MEMORY_DIR = APP_DIR / "memory"
+MEMORY_FILE = MEMORY_DIR / "memory.json"
 UPLOAD_DIR = APP_DIR / "uploads"
+_bundled_static = RESOURCE_DIR / "static"
+STATIC_DIR = _bundled_static if _bundled_static.exists() else (APP_DIR / "static")
 CERTS_DIR = APP_DIR / "certs"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-STATIC_DIR.mkdir(parents=True, exist_ok=True)
-CERTS_DIR.mkdir(parents=True, exist_ok=True)
 
-def load_env_variables():
-    env_paths = [
-        APP_DIR / ".env",
-        WORKSPACE_DIR / ".env",
-        SERVER_DIR / ".env",
-        Path.cwd() / ".env"
-    ]
-    for p in env_paths:
-        if p.exists():
+
+def bootstrap_persistent_data():
+    """Keep memory/uploads/certs in accessible folders next to the .exe so they survive restarts."""
+    MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    CERTS_DIR.mkdir(parents=True, exist_ok=True)
+    if not STATIC_DIR.exists():
+        STATIC_DIR.mkdir(parents=True, exist_ok=True)
+
+    # 1. Seed or migrate memory into the accessible 'memory/' folder
+    legacy_memory = APP_DIR / "memory.json"
+    seed_memory = RESOURCE_DIR / "memory.json"
+    if not MEMORY_FILE.exists():
+        if legacy_memory.exists() and legacy_memory.resolve() != MEMORY_FILE.resolve():
             try:
-                for line in p.read_text(encoding="utf-8").splitlines():
+                MEMORY_FILE.write_bytes(legacy_memory.read_bytes())
+            except Exception as e:
+                print(f"Memory migration notice: {e}")
+        elif seed_memory.exists() and seed_memory.resolve() != MEMORY_FILE.resolve():
+            try:
+                MEMORY_FILE.write_bytes(seed_memory.read_bytes())
+            except Exception as e:
+                print(f"Seed memory notice: {e}")
+        else:
+            MEMORY_FILE.write_text(
+                json.dumps({"notes": [], "sessions": []}, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+
+    # 2. SSL certificates
+    for name in ("cert.pem", "key.pem"):
+        dest = CERTS_DIR / name
+        src = RESOURCE_DIR / "certs" / name
+        if not dest.exists() and src.exists():
+            dest.write_bytes(src.read_bytes())
+
+
+bootstrap_persistent_data()
+
+def _load_local_env():
+    """Load key-value pairs from .env files scoped strictly within Vedas AI Web Group."""
+    for env_path in [APP_DIR / ".env", SERVER_DIR / ".env"]:
+        if env_path.exists():
+            try:
+                for line in env_path.read_text(encoding="utf-8").splitlines():
                     line = line.strip()
                     if line and not line.startswith("#") and "=" in line:
                         k, v = line.split("=", 1)
@@ -97,19 +169,20 @@ def load_env_variables():
             except Exception:
                 pass
 
-load_env_variables()
+_load_local_env()
 
+# Application Configuration & Model Defaults (Ollama is the major/primary engine)
 APP_CONFIG = {
-    "local_model": os.environ.get("LOCAL_MODEL", "llama3.2:latest"),
-    "cloud_model": os.environ.get("CLOUD_MODEL", "gemini-3.6-flash"),
+    "local_model": "llama3.2:latest",
+    "cloud_model": "gemini-3.7-flash",
     "gemini_api_key": os.environ.get("GEMINI_API_KEY", ""),
-    "ollama_host": os.environ.get("OLLAMA_HOST", "http://localhost:11434"),
+    "ollama_host": "http://127.0.0.1:11434",
     "speech_rate": 1.0,
     "wake_word_enabled": True,
-    "supervisor_enabled": os.environ.get("SUPERVISOR_ENABLED", "true").lower() in ("true", "1", "yes"),
+    "supervisor_enabled": True,
     "temperature": 0.7,
     "system_persona": "master_vedas",
-    "reasoning_pass": os.environ.get("REASONING_PASS", "true").lower() in ("true", "1", "yes")
+    "reasoning_pass": True
 }
 
 PERSONAS = {
@@ -137,17 +210,13 @@ def load_memory() -> Dict[str, Any]:
 
 def save_memory(mem: Dict[str, Any]):
     with _memory_lock:
-        try:
-            temp_file = MEMORY_FILE.with_suffix(".tmp")
-            temp_file.write_text(json.dumps(mem, ensure_ascii=False, indent=2), encoding="utf-8")
-            temp_file.replace(MEMORY_FILE)
-        except Exception as e:
-            print(f"Memory save error: {e}")
+        MEMORY_FILE.write_text(json.dumps(mem, ensure_ascii=False, indent=2), encoding="utf-8")
 
 memory = load_memory()
 
+# Helper: Get Gemini Client
 def get_gemini_client():
-    api_key = APP_CONFIG.get("gemini_api_key", "").strip() or os.environ.get("GEMINI_API_KEY", "").strip()
+    api_key = os.environ.get("GEMINI_API_KEY") or APP_CONFIG.get("gemini_api_key", "").strip()
     if not api_key or api_key == "YOUR_API_KEY_HERE":
         return None
     if not genai:
@@ -158,17 +227,164 @@ def get_gemini_client():
         print(f"Gemini Client Init Error: {e}")
         return None
 
-def get_ollama_models() -> List[str]:
-    try:
-        res = requests.get(f"{APP_CONFIG['ollama_host']}/api/tags", timeout=2)
-        if res.status_code == 200:
-            models_info = res.json().get("models", [])
-            return [m.get("name") for m in models_info if m.get("name")]
-    except Exception:
-        pass
-    return ["llama3.2:latest", "llama3:latest"]
+# Ordered Gemini model fallback chain (newest/first preference first).
+# On 503 (quota/overload) or any error the next model in the list is tried.
+GEMINI_MODEL_CHAIN = [
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3.1-pro-preview",
+]
 
-app = FastAPI(title="Vedas AI", version="3.0", docs_url=None, redoc_url=None)
+def gemini_generate_with_fallback(client, contents, preferred_models=None):
+    """Try each Gemini model in order; fall back to the next on errors/503."""
+    chain = list(preferred_models) if preferred_models else list(GEMINI_MODEL_CHAIN)
+    if not chain:
+        chain = [APP_CONFIG.get("cloud_model", "gemini-3.7-flash")]
+
+    last_error = None
+    for model in chain:
+        try:
+            config = {"automatic_function_calling": {"disable": True}}
+            resp = client.models.generate_content(model=model, contents=contents, config=config)
+            return model, resp
+        except Exception as e:
+            last_error = e
+            print(f"Gemini model '{model}' failed ({type(e).__name__}: {e}); trying next...")
+            continue
+    raise last_error if last_error else RuntimeError("No Gemini models available.")
+
+# Helper: Auto-start and verify Ollama background daemon
+def ensure_ollama_running() -> bool:
+    """Verifies Ollama daemon is responsive; if not, attempts background launch."""
+    host = APP_CONFIG.get("ollama_host", "http://127.0.0.1:11434")
+    # Quick probe
+    for probe_url in [host, "http://127.0.0.1:11434"]:
+        try:
+            r = requests.get(f"{probe_url}/api/tags", timeout=1.0)
+            if r.status_code == 200:
+                return True
+        except Exception:
+            pass
+
+    # Attempt to locate ollama executable
+    ollama_path = shutil.which("ollama")
+    if not ollama_path and IS_WINDOWS:
+        candidate = Path.home() / "AppData" / "Local" / "Programs" / "Ollama" / "ollama.exe"
+        if candidate.exists():
+            ollama_path = str(candidate)
+
+    if ollama_path:
+        try:
+            print("⚡ Starting background Ollama daemon...")
+            if IS_WINDOWS:
+                CREATE_NO_WINDOW = 0x08000000
+                subprocess.Popen(
+                    [ollama_path, "serve"],
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+            else:
+                subprocess.Popen(
+                    [ollama_path, "serve"],
+                    start_new_session=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+            # Wait up to 6 seconds for daemon to initialize
+            for _ in range(12):
+                time.sleep(0.5)
+                for probe_url in ["http://127.0.0.1:11434", host]:
+                    try:
+                        r = requests.get(f"{probe_url}/api/tags", timeout=1.0)
+                        if r.status_code == 200:
+                            print("⚡ Ollama daemon is active and responsive.")
+                            return True
+                    except Exception:
+                        pass
+        except Exception as ex:
+            print(f"Notice: Failed to auto-launch Ollama daemon: {ex}")
+
+    return False
+
+# Helper: Get Installed Ollama Models from Local Daemon
+def get_installed_ollama_models() -> List[str]:
+    # Probe 127.0.0.1 first to avoid Windows IPv6 localhost 2s latency penalty
+    hosts = ["http://127.0.0.1:11434"]
+    configured_host = APP_CONFIG.get("ollama_host", "http://127.0.0.1:11434")
+    if configured_host not in hosts:
+        hosts.append(configured_host)
+
+    for host in hosts:
+        try:
+            res = requests.get(f"{host}/api/tags", timeout=1.5)
+            if res.status_code == 200:
+                models_info = res.json().get("models", [])
+                names = [m.get("name") for m in models_info if m.get("name")]
+                if names:
+                    return names
+        except Exception:
+            continue
+    return []
+
+# Helper: Precisely resolve requested model to best installed model without false prefix matches
+def resolve_ollama_model(target_model: str, installed: Optional[List[str]] = None) -> str:
+    """Matches target_model to installed models strictly.
+    Prevents false prefix matching such as 'llama3.2' matching 'llama3'.
+    """
+    if installed is None:
+        installed = get_installed_ollama_models()
+    if not installed:
+        return target_model
+    if target_model in installed:
+        return target_model
+
+    target_clean = target_model.lower()
+    target_base = target_clean.split(":")[0]
+    target_tag = target_clean.split(":")[1] if ":" in target_clean else ""
+
+    # 1. Exact base match with tag
+    for m in installed:
+        m_clean = m.lower()
+        m_base = m_clean.split(":")[0]
+        m_tag = m_clean.split(":")[1] if ":" in m_clean else ""
+        if m_base == target_base and m_tag == target_tag:
+            return m
+
+    # 2. Exact base match with any tag (e.g. llama3.2:1b for llama3.2:latest)
+    for m in installed:
+        m_clean = m.lower()
+        m_base = m_clean.split(":")[0]
+        if m_base == target_base:
+            return m
+
+    # 3. Model where base matches with library prefix (e.g. library/llama3.2:latest)
+    for m in installed:
+        m_clean = m.lower()
+        m_base = m_clean.split("/")[-1].split(":")[0]
+        if m_base == target_base:
+            return m
+
+    # 4. If llama3.2 specifically requested, prefer any model with llama3.2
+    if "llama3.2" in target_base:
+        llama32 = next((m for m in installed if "llama3.2" in m.lower()), None)
+        if llama32:
+            return llama32
+
+    # 5. Otherwise, if an exact base match isn't found, keep target_model or first installed
+    return installed[0]
+
+# Helper: Get Available / Supported Ollama Models
+def get_ollama_models() -> List[str]:
+    installed = get_installed_ollama_models()
+    known = ["llama3.2:latest", "llama3:latest", "qwen2.5:7b", "phi4:latest"]
+    if installed:
+        return list(dict.fromkeys(installed + known))
+    return known
+
+# FastAPI App
+app = FastAPI(title="Vedas AI", version="3.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -178,13 +394,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Pydantic Request Models
 class ChatRequest(BaseModel):
     prompt: str
     session_id: Optional[str] = None
     persona: Optional[str] = "master_vedas"
     model_override: Optional[str] = None
     use_web_search: Optional[bool] = False
-    enable_thinking: Optional[bool] = False
+    enable_thinking: Optional[bool] = True
     attachments: Optional[List[Dict[str, Any]]] = None
 
 class SupervisorCheckRequest(BaseModel):
@@ -205,41 +422,154 @@ class CodeExecRequest(BaseModel):
 class NoteRequest(BaseModel):
     note: str
 
+class SystemCommandRequest(BaseModel):
+    command: str
 
+class FileEditRequest(BaseModel):
+    path: str
+    content: str
+
+class FileBrowseRequest(BaseModel):
+    path: Optional[str] = None
+
+class CreateItemRequest(BaseModel):
+    path: str
+    is_folder: bool = False
+
+class RenameRequest(BaseModel):
+    path: str
+    new_name: str
+
+class DeleteItemRequest(BaseModel):
+    path: str
+
+
+# ----------------- SYSTEM ACTION RUNNER -----------------
 def execute_system_action(command_str: str) -> Dict[str, Any]:
     cmd = command_str.lower().strip()
     desktop_path = Path.home() / "Desktop"
 
-    if "mute" in cmd:
-        if pyautogui:
-            try: pyautogui.press("volumemute")
-            except Exception: pass
-        subprocess.run("pactl set-sink-mute @DEFAULT_SINK@ toggle || amixer set Master toggle", shell=True, stderr=subprocess.DEVNULL)
-        return {"success": True, "message": "System audio muted/unmuted."}
+    # Open Applications
+    app_map = {
+        "notepad": ("notepad.exe" if IS_WINDOWS else "gedit"),
+        "calculator": ("calc.exe" if IS_WINDOWS else "gnome-calculator"),
+        "paint": ("mspaint.exe" if IS_WINDOWS else "gimp"),
+        "chrome": ("start chrome" if IS_WINDOWS else "google-chrome"),
+        "browser": ("start chrome" if IS_WINDOWS else "xdg-open https://"),
+        "explorer": ("explorer.exe" if IS_WINDOWS else "nautilus"),
+        "file manager": ("explorer.exe" if IS_WINDOWS else "nautilus"),
+        "task manager": ("taskmgr.exe" if IS_WINDOWS else "gnome-system-monitor"),
+        "terminal": ("start cmd" if IS_WINDOWS else "x-terminal-emulator"),
+        "cmd": ("start cmd" if IS_WINDOWS else "x-terminal-emulator"),
+        "command prompt": ("start cmd" if IS_WINDOWS else "x-terminal-emulator"),
+        "word": ("start winword" if IS_WINDOWS else "libreoffice --writer"),
+        "excel": ("start excel" if IS_WINDOWS else "libreoffice --calc"),
+        "vlc": ("start vlc" if IS_WINDOWS else "vlc"),
+        "spotify": ("start spotify" if IS_WINDOWS else "spotify"),
+        "discord": ("start discord" if IS_WINDOWS else "discord"),
+        "settings": ("start ms-settings:" if IS_WINDOWS else "gnome-control-center"),
+        "control panel": ("control.exe" if IS_WINDOWS else "gnome-control-center"),
+        "snipping tool": ("snippingtool.exe" if IS_WINDOWS else "gnome-screenshot -i"),
+        "screenshot": ("snippingtool.exe" if IS_WINDOWS else "gnome-screenshot -i"),
+    }
+
+    for app_kw, app_cmd in app_map.items():
+        if f"open {app_kw}" in cmd or f"launch {app_kw}" in cmd or f"start {app_kw}" in cmd:
+            try:
+                if IS_WINDOWS:
+                    subprocess.Popen(app_cmd, shell=True, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+                else:
+                    subprocess.Popen(app_cmd.split(), start_new_session=True)
+                return {"success": True, "message": f"Opening {app_kw.title()}..."}
+            except Exception as ex:
+                return {"success": False, "message": f"Failed to open {app_kw}: {ex}"}
+
+    # Open URL / website
+    url_match = re.search(r'open\s+(https?://\S+|www\.\S+)', cmd)
+    if url_match:
+        url = url_match.group(1)
+        if not url.startswith('http'):
+            url = 'https://' + url
+        webbrowser.open(url)
+        return {"success": True, "message": f"Opening {url} in browser..."}
+
+    # Shutdown
+    if "shutdown" in cmd or "shut down" in cmd or "power off" in cmd:
+        if IS_WINDOWS:
+            subprocess.Popen("shutdown /s /t 5", shell=True)
+        else:
+            subprocess.Popen("shutdown -h 5", shell=True)
+        return {"success": True, "message": "⚠️ System shutting down in 5 seconds..."}
+
+    # Restart
+    if "restart" in cmd or "reboot" in cmd:
+        if IS_WINDOWS:
+            subprocess.Popen("shutdown /r /t 5", shell=True)
+        else:
+            subprocess.Popen("reboot", shell=True)
+        return {"success": True, "message": "⚠️ System restarting in 5 seconds..."}
+
+    # Sleep
+    if "sleep" in cmd or "hibernate" in cmd:
+        if IS_WINDOWS:
+            subprocess.Popen("rundll32.exe powrprof.dll,SetSuspendState 0,1,0", shell=True)
+        else:
+            subprocess.Popen("systemctl suspend", shell=True)
+        return {"success": True, "message": "Putting system to sleep..."}
+
+    # Cancel shutdown
+    if "cancel shutdown" in cmd or "abort shutdown" in cmd:
+        if IS_WINDOWS:
+            subprocess.Popen("shutdown /a", shell=True)
+        else:
+            subprocess.Popen("shutdown -c", shell=True)
+        return {"success": True, "message": "Shutdown cancelled."}
+
+    # Volume Controls
+    if "mute" in cmd or "unmute" in cmd:
+        if IS_WINDOWS:
+            if pyautogui:
+                try: pyautogui.press("volumemute")
+                except Exception: pass
+            else:
+                subprocess.run(['powershell', '-NoProfile', '-Command', '(New-Object -ComObject WScript.Shell).SendKeys([char]173)'], capture_output=True)
+        else:
+            subprocess.run("pactl set-sink-mute @DEFAULT_SINK@ toggle || amixer set Master toggle", shell=True, stderr=subprocess.DEVNULL)
+        return {"success": True, "message": "System audio mute toggled."}
 
     vol_match = re.search(r'set\s+(?:system\s+)?volume\s+to\s+(\d+)', cmd)
     if vol_match:
         target_vol = max(0, min(100, int(vol_match.group(1))))
-        subprocess.run(f"pactl set-sink-volume @DEFAULT_SINK@ {target_vol}% || amixer set Master {target_vol}%", shell=True, stderr=subprocess.DEVNULL)
+        if IS_WINDOWS:
+            try:
+                from ctypes import cast, POINTER
+                from comtypes import CLSCTX_ALL
+                from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+                devices = AudioUtilities.GetSpeakers()
+                interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+                volume = cast(interface, POINTER(IAudioEndpointVolume))
+                volume.SetMasterVolumeLevelScalar(target_vol / 100.0, None)
+            except Exception:
+                pass
+        else:
+            subprocess.run(f"pactl set-sink-volume @DEFAULT_SINK@ {target_vol}% || amixer set Master {target_vol}%", shell=True, stderr=subprocess.DEVNULL)
         return {"success": True, "message": f"System volume set to {target_vol}%."}
 
+    # Folder / File Creation
     if "create folder" in cmd or "make a folder" in cmd:
         folder_name = re.sub(r'^(create folder|make a folder called|create a folder named)\s+', '', cmd).strip()
-        safe_name = re.sub(r'[^\w\s-]', '', folder_name).strip()
-        if safe_name:
-            folder_path = desktop_path / safe_name
-            folder_path.mkdir(parents=True, exist_ok=True)
-            return {"success": True, "message": f"Created folder '{safe_name}' on Desktop."}
+        folder_path = desktop_path / folder_name
+        folder_path.mkdir(parents=True, exist_ok=True)
+        return {"success": True, "message": f"Created folder '{folder_name}' on Desktop."}
 
     if "create file" in cmd or "make a file" in cmd:
         file_name = re.sub(r'^(create file|make a file called|create a file named)\s+', '', cmd).strip()
-        safe_name = re.sub(r'[^\w\s.-]', '', file_name).strip()
-        if safe_name:
-            if "." not in safe_name: safe_name += ".txt"
-            file_path = desktop_path / safe_name
-            file_path.touch(exist_ok=True)
-            return {"success": True, "message": f"Created file '{safe_name}' on Desktop."}
+        if "." not in file_name: file_name += ".txt"
+        file_path = desktop_path / file_name
+        file_path.touch(exist_ok=True)
+        return {"success": True, "message": f"Created file '{file_name}' on Desktop."}
 
+    # Lock Screen
     if "lock computer" in cmd or "lock screen" in cmd:
         if IS_WINDOWS and hasattr(ctypes, "windll"):
             ctypes.windll.user32.LockWorkStation()
@@ -247,10 +577,12 @@ def execute_system_action(command_str: str) -> Dict[str, Any]:
             subprocess.Popen("xdg-screensaver lock || loginctl lock-session || gnome-screensaver-command -l 2>/dev/null", shell=True)
         return {"success": True, "message": "Workstation locked."}
 
+    # Jokes
     if "joke" in cmd and pyjokes:
         joke = pyjokes.get_joke()
         return {"success": True, "message": joke, "is_joke": True}
 
+    # Wikipedia
     if cmd.startswith("wikipedia ") and wikipedia:
         query = cmd.replace("wikipedia ", "").strip()
         try:
@@ -262,7 +594,11 @@ def execute_system_action(command_str: str) -> Dict[str, Any]:
     return {"success": False, "message": "Command not recognized as local system action."}
 
 
+# ----------------- SUPERVISOR FACT-CHECKER -----------------
 def run_supervisor_fact_check(prompt: str, local_answer: str, cloud_model: str) -> Optional[str]:
+    """Runs verification using Gemini to verify and correct Ollama's response if wrong.
+    Uses bounded non-blocking execution so local Ollama responses are never delayed.
+    """
     client = get_gemini_client()
     if not client or not local_answer or len(local_answer) < 5:
         return None
@@ -275,26 +611,43 @@ def run_supervisor_fact_check(prompt: str, local_answer: str, cloud_model: str) 
         "If NO, reply with 'INCORRECT:' followed by a clear, accurate, and direct correction of the fact."
     )
 
+    # Build the model chain: prefer the passed cloud_model, then the full chain.
+    chain = list(GEMINI_MODEL_CHAIN)
+    if cloud_model and cloud_model in chain:
+        chain = [cloud_model] + [m for m in chain if m != cloud_model]
+
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError
+    def _execute():
+        try:
+            used_model, resp = gemini_generate_with_fallback(client, verification_prompt, preferred_models=chain)
+            verdict = resp.text.strip()
+            if verdict.upper().startswith("INCORRECT"):
+                return verdict.replace("INCORRECT:", "").replace("INCORRECT", "").strip()
+            print(f"Supervisor used model: {used_model} -> CORRECT")
+        except Exception as e:
+            print(f"Supervisor Fact Check Error: {e}")
+        return None
+
     try:
-        resp = client.models.generate_content(
-            model=cloud_model,
-            contents=verification_prompt
-        )
-        verdict = resp.text.strip()
-        if verdict.upper().startswith("INCORRECT"):
-            return verdict.replace("INCORRECT:", "").replace("INCORRECT", "").strip()
-    except Exception as e:
-        print(f"Supervisor Fact Check Error: {e}")
-    return None
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            fut = executor.submit(_execute)
+            return fut.result(timeout=3.5)
+    except TimeoutError:
+        print("Supervisor check timed out (releasing response immediately)")
+        return None
+    except Exception as ex:
+        print(f"Supervisor execution error: {ex}")
+        return None
 
 
+# ----------------- CHAT & MULTIMODAL REASONING -----------------
 def generate_ai_response(
     prompt: str,
     history: List[Dict[str, str]],
     persona_key: str = "master_vedas",
     model_override: Optional[str] = None,
     use_web_search: bool = False,
-    enable_thinking: bool = False,
+    enable_thinking: bool = True,
     attachments: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     global memory
@@ -303,6 +656,7 @@ def generate_ai_response(
     mem_notes = memory.get("notes", [])
     mem_context = "\n".join([f"- {n}" for n in mem_notes[-10:]]) if mem_notes else "No notes stored."
 
+    # Perform web search if requested
     search_context = ""
     if use_web_search or prompt.lower().startswith("search for ") or prompt.lower().startswith("browse "):
         search_query = re.sub(r'^(search for |browse |google |find info on )', '', prompt, flags=re.I).strip()
@@ -317,18 +671,31 @@ def generate_ai_response(
             except Exception as e:
                 print(f"Web Search Error: {e}")
 
+    # Build history context
     history_lines = []
     for h in history[-8:]:
         role = "User" if h.get("role") == "user" else "Vedas"
         history_lines.append(f"{role}: {h.get('content') or h.get('text', '')}")
     history_text = "\n".join(history_lines)
 
+    # Process Attachments (PDFs, Images, Documents, Code)
     attachment_descriptions = []
     pil_images = []
     has_pdf = False
 
-    if attachments:
-        for att in attachments:
+    # Collect attachments from current prompt OR look back in recent session history
+    effective_attachments = list(attachments) if attachments else []
+    if not effective_attachments and history:
+        for h in reversed(history[-8:]):
+            prev_meta = h.get("meta")
+            if isinstance(prev_meta, dict):
+                prev_atts = prev_meta.get("attachments", [])
+                if prev_atts:
+                    effective_attachments = prev_atts
+                    break
+
+    if effective_attachments:
+        for att in effective_attachments:
             name = att.get("name", "file")
             att_type = att.get("type", "")
             data_b64 = att.get("data", "")
@@ -336,9 +703,16 @@ def generate_ai_response(
 
             if att.get("is_pdf") or name.lower().endswith(".pdf") or "pdf" in att_type:
                 has_pdf = True
-                attachment_descriptions.append(f"=== ATTACHED PDF DOCUMENT: '{name}' ===\n{text_content}\n=== END OF PDF ===")
+                attachment_descriptions.append(
+                    f"=== ATTACHED PDF DOCUMENT: '{name}' ===\n"
+                    "INSTRUCTIONS: The text below is extracted from an attached PDF document. "
+                    "When questions, exercises, or exam problems appear in this document, directly solve them "
+                    "and provide clear, complete answers or the full answer key as requested by the user.\n\n"
+                    f"{text_content}\n"
+                    "=== END OF PDF ==="
+                )
             elif text_content:
-                attachment_descriptions.append(f"=== ATTACHED FILE: '{name}' ===\n```{att_type}\n{text_content[:6000]}\n```")
+                attachment_descriptions.append(f"=== ATTACHED FILE: '{name}' ===\n```{att_type}\n{text_content[:8000]}\n```")
             elif "image" in att_type and data_b64:
                 try:
                     if "," in data_b64:
@@ -352,6 +726,7 @@ def generate_ai_response(
 
     att_context = "\n\n".join(attachment_descriptions)
 
+    # Clean, Natural Prompt Assembly
     prompt_sections = []
     if persona_prompt:
         prompt_sections.append(persona_prompt)
@@ -371,20 +746,18 @@ def generate_ai_response(
     active_cloud_model = APP_CONFIG["cloud_model"]
     gemini_client = get_gemini_client()
 
+    # If user explicitly picked Gemini model
     if model_override and "gemini" in model_override.lower():
         active_cloud_model = model_override
         if gemini_client:
             try:
                 contents = [full_prompt] + pil_images if pil_images else full_prompt
-                resp = gemini_client.models.generate_content(
-                    model=active_cloud_model,
-                    contents=contents
-                )
-                clean_text = re.sub(r'^(?:Vedas|AI):\s*', '', resp.text.strip(), flags=re.I).strip()
+                used_model, resp = gemini_generate_with_fallback(gemini_client, contents)
+                active_cloud_model = used_model
                 return {
                     "source": "gemini_direct",
                     "model": active_cloud_model,
-                    "text": clean_text,
+                    "text": resp.text.strip(),
                     "search_used": bool(search_context)
                 }
             except Exception as e:
@@ -395,56 +768,73 @@ def generate_ai_response(
                     "search_used": False
                 }
 
+    # If images are attached and Gemini is available, prioritize Gemini Vision for best multimodal image comprehension
     if pil_images and gemini_client:
         try:
             contents = [full_prompt] + pil_images
-            resp = gemini_client.models.generate_content(
-                model=active_cloud_model,
-                contents=contents
-            )
-            clean_text = re.sub(r'^(?:Vedas|AI):\s*', '', resp.text.strip(), flags=re.I).strip()
+            used_model, resp = gemini_generate_with_fallback(gemini_client, contents)
+            active_cloud_model = used_model
             return {
                 "source": "gemini_multimodal",
                 "model": active_cloud_model,
-                "text": clean_text,
+                "text": resp.text.strip(),
                 "search_used": bool(search_context)
             }
         except Exception as e:
             print(f"Gemini Vision Error: {e}")
 
-    ollama_models = get_ollama_models()
+    # 1. PRIMARY: Query Local Ollama (Major Engine)
     target_ollama_model = model_override if (model_override and "gemini" not in model_override.lower()) else active_local_model
 
-    if target_ollama_model not in ollama_models:
-        for m in ollama_models:
-            if m.startswith(target_ollama_model) or target_ollama_model.startswith(m.split(":")[0]):
-                target_ollama_model = m
-                break
+    # Check installed models on the local Ollama daemon (ensure daemon is up)
+    installed_models = get_installed_ollama_models()
+    if not installed_models:
+        ensure_ollama_running()
+        installed_models = get_installed_ollama_models()
+
+    if installed_models:
+        target_ollama_model = resolve_ollama_model(target_ollama_model, installed_models)
 
     ollama_text = None
+    _t0 = time.time()
     try:
+        # Context window expanded to 16,384 tokens for documents; predict tokens expanded for complete answer keys
+        ctx_size = 16384 if (has_pdf or len(full_prompt) > 3500) else 8192
+        max_predict = 2048 if has_pdf else 600
+
+        ollama_endpoint = APP_CONFIG.get("ollama_host", "http://127.0.0.1:11434")
         res = requests.post(
-            f"{APP_CONFIG['ollama_host']}/api/generate",
+            f"{ollama_endpoint}/api/generate",
             json={
                 "model": target_ollama_model,
                 "prompt": full_prompt,
                 "stream": False,
+                "keep_alive": "60m",
                 "options": {
-                    "temperature": APP_CONFIG.get("temperature", 0.7)
+                    "temperature": APP_CONFIG.get("temperature", 0.7),
+                    "num_ctx": ctx_size,
+                    "num_predict": max_predict
                 }
             },
-            timeout=45
+            timeout=120
         )
         if res.status_code == 200:
             ollama_text = res.json().get("response", "").strip()
+            print(f"Ollama '{target_ollama_model}' responded in {round(time.time()-_t0,2)}s ({len(ollama_text)} chars)")
+        else:
+            print(f"Ollama returned HTTP {res.status_code}: {res.text[:120]} (after {round(time.time()-_t0,2)}s)")
     except Exception as e:
-        print(f"Ollama inference error/timeout ({target_ollama_model}): {e}")
+        print(f"Ollama inference error/timeout ({target_ollama_model}) after {round(time.time()-_t0,2)}s: {e}")
 
     if ollama_text:
         ollama_text = re.sub(r'^(?:Vedas|AI):\s*', '', ollama_text, flags=re.I).strip()
+        # Non-blocking supervisor fact-check if enabled
         supervisor_correction = None
         if APP_CONFIG.get("supervisor_enabled") and gemini_client:
-            supervisor_correction = run_supervisor_fact_check(prompt, ollama_text, active_cloud_model)
+            try:
+                supervisor_correction = run_supervisor_fact_check(prompt, ollama_text, active_cloud_model)
+            except Exception as se:
+                print(f"Supervisor check ignored: {se}")
 
         return {
             "source": "ollama",
@@ -454,12 +844,11 @@ def generate_ai_response(
             "search_used": bool(search_context)
         }
 
+    # 2. FALLBACK: Cloud Gemini Fallback (if Ollama offline/timeout)
     if gemini_client:
         try:
-            fallback = gemini_client.models.generate_content(
-                model=active_cloud_model,
-                contents=full_prompt
-            )
+            used_model, fallback = gemini_generate_with_fallback(gemini_client, full_prompt)
+            active_cloud_model = used_model
             clean_fallback = re.sub(r'^(?:Vedas|AI):\s*', '', fallback.text.strip(), flags=re.I).strip()
             return {
                 "source": "gemini_fallback",
@@ -478,11 +867,12 @@ def generate_ai_response(
     return {
         "source": "offline",
         "model": "none",
-        "text": f"⚠️ Both Local Ollama (`{target_ollama_model}`) and Cloud Gemini are unreachable.\n\nStart Ollama locally with: `ollama run {target_ollama_model}`.",
+        "text": f"⚠️ Both Local Ollama (`{target_ollama_model}`) and Cloud Gemini are currently unreachable.\n\nTo start Ollama locally, run: `ollama run {target_ollama_model}`.",
         "search_used": False
     }
 
 
+# ----------------- IMAGE GENERATION ENGINE -----------------
 STYLE_PROMPT_PRESETS = {
     "cinematic": "cinematic lighting, hyper-realistic, dramatic atmosphere, ultra-detailed 8k render, octane render, masterpiece, Unreal Engine 5 aesthetic, volumetric fog",
     "anime": "stunning anime visual, Makoto Shinkai style, vibrant saturated colors, crisp line art, studio anime aesthetic, beautiful lighting, highly detailed",
@@ -519,30 +909,60 @@ def generate_image_pollinations(
 
     clean_prompt = requests.utils.quote(enhanced_prompt)
     model_name = "flux" if model == "flux" else "turbo"
-    image_url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width={width}&height={height}&model={model_name}&seed={seed}&nologo=true&enhance=false"
 
-    try:
-        resp = requests.get(image_url, timeout=30)
-        if resp.status_code == 200:
-            b64_img = base64.b64encode(resp.content).decode("utf-8")
-            data_uri = f"data:image/jpeg;base64,{b64_img}"
-            return {
-                "success": True,
-                "url": image_url,
-                "data_uri": data_uri,
-                "enhanced_prompt": enhanced_prompt,
-                "width": width,
-                "height": height,
-                "seed": seed,
-                "style": style
-            }
-    except Exception as e:
-        print(f"Direct image fetch error: {e}")
+    # Primary and fallback CDN URLs for Pollinations
+    primary_url = (
+        f"https://image.pollinations.ai/prompt/{clean_prompt}"
+        f"?width={width}&height={height}&model={model_name}&seed={seed}&nologo=true&enhance=false"
+    )
+    turbo_fallback_url = (
+        f"https://image.pollinations.ai/prompt/{clean_prompt}"
+        f"?width={width}&height={height}&model=turbo&seed={seed}&nologo=true&enhance=false"
+    )
 
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (compatible; VedasAI/3.0)",
+        "Accept": "image/webp,image/jpeg,image/*"
+    })
+
+    # Attempt primary URL with up to 2 retries, then fallback model, then return CDN URL directly
+    for attempt_url in [primary_url, turbo_fallback_url]:
+        for attempt in range(2):
+            try:
+                resp = session.get(attempt_url, timeout=45, stream=False)
+                if resp.status_code == 200 and len(resp.content) > 1000:
+                    content_type = resp.headers.get("Content-Type", "image/jpeg")
+                    ext = "png" if "png" in content_type else "jpeg"
+                    b64_img = base64.b64encode(resp.content).decode("utf-8")
+                    data_uri = f"data:image/{ext};base64,{b64_img}"
+                    return {
+                        "success": True,
+                        "url": attempt_url,
+                        "data_uri": data_uri,
+                        "enhanced_prompt": enhanced_prompt,
+                        "width": width,
+                        "height": height,
+                        "seed": seed,
+                        "style": style
+                    }
+                elif resp.status_code in (429, 503):
+                    print(f"Pollinations rate limited (attempt {attempt+1}), retrying...")
+                    time.sleep(2)
+            except requests.exceptions.Timeout:
+                print(f"Pollinations timeout on attempt {attempt+1}, retrying...")
+                time.sleep(1)
+            except Exception as e:
+                print(f"Image fetch error (attempt {attempt+1}): {e}")
+                break
+
+    # Final fallback: return the CDN URL directly so the browser can load it
+    # (works fine since Pollinations has CORS headers on their CDN)
+    print("Returning direct Pollinations CDN URL as fallback (browser will load it).")
     return {
         "success": True,
-        "url": image_url,
-        "data_uri": image_url,
+        "url": primary_url,
+        "data_uri": primary_url,
         "enhanced_prompt": enhanced_prompt,
         "width": width,
         "height": height,
@@ -551,45 +971,83 @@ def generate_image_pollinations(
     }
 
 
+# ----------------- API ENDPOINTS -----------------
+
 @app.get("/api/system/status")
 def get_system_status():
-    ollama_running = False
-    models = []
-    try:
-        res = requests.get(f"{APP_CONFIG['ollama_host']}/api/tags", timeout=1.5)
-        if res.status_code == 200:
-            ollama_running = True
-            models = [m["name"] for m in res.json().get("models", []) if "name" in m]
-    except Exception:
-        ollama_running = False
+    installed = get_installed_ollama_models()
+    ollama_running = len(installed) > 0
+    if not ollama_running:
+        for probe in ["http://127.0.0.1:11434", APP_CONFIG.get("ollama_host", "http://127.0.0.1:11434")]:
+            try:
+                res = requests.get(f"{probe}/api/tags", timeout=1.0)
+                if res.status_code == 200:
+                    ollama_running = True
+                    break
+            except Exception:
+                pass
 
     gemini_online = bool(get_gemini_client())
 
-    cpu_usage = psutil.cpu_percent(interval=None)
-    ram = psutil.virtual_memory()
-    ram_usage = ram.percent
-    ram_gb = round(ram.used / (1024**3), 1)
-    ram_total_gb = round(ram.total / (1024**3), 1)
+    # Known stable Ollama models always exposed in the UI (in addition to what's installed),
+    # so the user can select and download them. llama3.2 stays the default primary engine.
+    known_stable_models = [
+        APP_CONFIG.get("local_model", "llama3.2:latest"),
+        "llama3.2:latest",
+        "llama3:latest",
+        "qwen2.5:7b",
+        "phi4:latest",
+    ]
+    combined_models = list(dict.fromkeys(installed + known_stable_models))
+
+    # Gemini cloud models exposed to the UI with friendly display names.
+    # Order matches the fallback chain (3.7 first, then down to 3.1 Pro).
+    cloud_models = [
+        {"id": "gemini-3.7-flash", "name": "Gemini 3.7 Flash"},
+        {"id": "gemini-3.6-flash", "name": "Gemini 3.6 Flash"},
+        {"id": "gemini-3.5-flash", "name": "Gemini 3.5 Flash"},
+        {"id": "gemini-3.1-pro-preview", "name": "Gemini 3.1 Pro"},
+    ]
+
+    cpu_usage = psutil.cpu_percent(interval=None) if psutil else 0
+    if psutil:
+        ram = psutil.virtual_memory()
+        ram_usage = ram.percent
+        ram_gb = round(ram.used / (1024**3), 1)
+        ram_total_gb = round(ram.total / (1024**3), 1)
+        ram_str = f"{ram_gb} GB / {ram_total_gb} GB"
+    else:
+        ram_usage = 0
+        ram_str = "N/A"
 
     return {
         "ollama_running": ollama_running,
-        "local_models": models if models else ["llama3.2:latest", "llama3:latest"],
+        "local_models": combined_models if ollama_running else known_stable_models,
+        "cloud_models": cloud_models,
         "active_local_model": APP_CONFIG["local_model"],
         "active_cloud_model": APP_CONFIG["cloud_model"],
         "gemini_online": gemini_online,
         "supervisor_enabled": APP_CONFIG.get("supervisor_enabled", True),
         "cpu_usage": cpu_usage,
         "ram_usage": ram_usage,
-        "ram_gb": f"{ram_gb} GB / {ram_total_gb} GB",
+        "ram_gb": ram_str,
         "system_time": datetime.datetime.now().strftime("%I:%M:%S %p"),
         "platform": "Linux" if IS_LINUX else ("Windows" if IS_WINDOWS else "macOS")
     }
 
+@app.post("/api/ollama/start")
+def start_ollama_endpoint():
+    started = ensure_ollama_running()
+    installed = get_installed_ollama_models()
+    return {
+        "success": started or len(installed) > 0,
+        "running": started or len(installed) > 0,
+        "models": installed
+    }
+
 @app.get("/api/config")
 def get_config():
-    safe_config = {k: v for k, v in APP_CONFIG.items() if k != "gemini_api_key"}
-    safe_config["has_gemini_key"] = bool(APP_CONFIG.get("gemini_api_key"))
-    return safe_config
+    return APP_CONFIG
 
 @app.post("/api/config")
 def update_config(config_update: Dict[str, Any]):
@@ -597,7 +1055,7 @@ def update_config(config_update: Dict[str, Any]):
     for k, v in config_update.items():
         if k in APP_CONFIG:
             APP_CONFIG[k] = v
-    return {"success": True, "config": get_config()}
+    return {"success": True, "config": APP_CONFIG}
 
 @app.get("/api/memory")
 def get_memory_data():
@@ -666,6 +1124,7 @@ async def chat_endpoint(req: ChatRequest):
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt is required.")
 
+    # Check for direct local system commands (alarms, volume, folder creation, jokes)
     sys_result = execute_system_action(prompt)
     if sys_result.get("success") and not sys_result.get("is_joke"):
         return {
@@ -675,6 +1134,7 @@ async def chat_endpoint(req: ChatRequest):
             "action_executed": True
         }
 
+    # Fetch existing conversation history from memory if session_id provided
     history = []
     if req.session_id:
         for s in memory.get("sessions", []):
@@ -688,7 +1148,7 @@ async def chat_endpoint(req: ChatRequest):
         persona_key=req.persona or APP_CONFIG.get("system_persona", "master_vedas"),
         model_override=req.model_override,
         use_web_search=req.use_web_search or False,
-        enable_thinking=req.enable_thinking if req.enable_thinking is not None else False,
+        enable_thinking=req.enable_thinking if req.enable_thinking is not None else True,
         attachments=req.attachments
     )
 
@@ -712,14 +1172,8 @@ def generate_image_endpoint(req: ImageGenRequest):
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
     try:
-        safe_filename = os.path.basename(file.filename)
-        if not safe_filename:
-            safe_filename = f"upload_{int(time.time())}.dat"
-
         content = await file.read()
-        if len(content) > 50 * 1024 * 1024:
-            raise HTTPException(status_code=413, detail="File size exceeds maximum 50MB limit.")
-
+        safe_filename = Path(file.filename).name if file.filename else f"upload_{int(time.time())}"
         file_path = UPLOAD_DIR / safe_filename
         file_path.write_bytes(content)
 
@@ -729,6 +1183,7 @@ async def upload_file(file: UploadFile = File(...)):
         is_pdf = False
         page_count = 0
 
+        # Robust, layout-aware PDF parsing with pypdf
         if filename_lower.endswith(".pdf") or "pdf" in file_type:
             is_pdf = True
             if PdfReader:
@@ -737,9 +1192,18 @@ async def upload_file(file: UploadFile = File(...)):
                     page_count = len(pdf_reader.pages)
                     extracted_pages = []
                     for i, page in enumerate(pdf_reader.pages):
-                        page_text = page.extract_text()
+                        try:
+                            # Use layout mode to preserve question numbers, options, columns & tables
+                            page_text = page.extract_text(extraction_mode="layout")
+                        except Exception:
+                            page_text = page.extract_text()
                         if page_text and page_text.strip():
-                            extracted_pages.append(f"--- Page {i+1} ---\n{page_text.strip()}")
+                            # Clean vertical runs and excessive spaces
+                            cleaned = re.sub(r'\n{3,}', '\n\n', page_text)
+                            lines = [re.sub(r'[ \t]{2,}', '  ', l).rstrip() for l in cleaned.split('\n')]
+                            final_page = '\n'.join(lines).strip()
+                            if final_page:
+                                extracted_pages.append(f"--- Page {i+1} ---\n{final_page}")
                     text_content = "\n\n".join(extracted_pages)
                 except Exception as pdf_err:
                     print(f"PDF extraction error: {pdf_err}")
@@ -747,12 +1211,14 @@ async def upload_file(file: UploadFile = File(...)):
             else:
                 text_content = "[PDF Reader module unavailable]"
 
+        # Handle text, markdown, and code files
         elif any(filename_lower.endswith(ext) for ext in [".txt", ".py", ".js", ".json", ".md", ".csv", ".html", ".css", ".yaml", ".sh", ".c", ".cpp", ".rs"]):
             try:
                 text_content = content.decode("utf-8", errors="ignore")
             except Exception:
                 pass
 
+        # Handle image files (convert to base64 preview)
         data_b64 = ""
         if "image" in file_type or any(filename_lower.endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp", ".gif"]):
             data_b64 = f"data:{file_type};base64," + base64.b64encode(content).decode("utf-8")
@@ -768,8 +1234,6 @@ async def upload_file(file: UploadFile = File(...)):
             "data": data_b64,
             "path": str(file_path)
         }
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"File upload failed: {e}")
 
@@ -778,22 +1242,6 @@ def execute_python_code(req: CodeExecRequest):
     code = req.code.strip()
     if not code:
         raise HTTPException(status_code=400, detail="Code string is empty.")
-
-    dangerous_patterns = [
-        r'\bshutil\.rmtree\b',
-        r'\bos\.system\s*\(\s*["\']rm\s+-rf\b',
-        r'\bos\.remove\s*\(\s*["\']/[a-z]',
-        r':\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:'
-    ]
-    for pattern in dangerous_patterns:
-        if re.search(pattern, code, re.IGNORECASE):
-            return {
-                "success": False,
-                "stdout": "",
-                "stderr": "Security Guardrail: Execution blocked due to potentially harmful system commands.",
-                "exit_code": -1,
-                "duration": "0s"
-            }
 
     try:
         start_time = time.time()
@@ -861,6 +1309,113 @@ def search_web_endpoint(query_req: Dict[str, str]):
         "wikipedia": wiki_summary
     }
 
+# ----------------- SYSTEM COMMAND ENDPOINT -----------------
+@app.post("/api/system/command")
+def system_command_endpoint(req: SystemCommandRequest):
+    result = execute_system_action(req.command)
+    return result
+
+# ----------------- FILE/FOLDER BROWSER ENDPOINTS -----------------
+@app.post("/api/files/browse")
+def browse_files(req: FileBrowseRequest):
+    try:
+        target = Path(req.path) if req.path else Path.home()
+        if not target.exists():
+            raise HTTPException(status_code=404, detail="Path does not exist.")
+        if not target.is_dir():
+            raise HTTPException(status_code=400, detail="Path is not a directory.")
+
+        items = []
+        for item in sorted(target.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
+            try:
+                stat = item.stat()
+                items.append({
+                    "name": item.name,
+                    "path": str(item),
+                    "is_dir": item.is_dir(),
+                    "size": stat.st_size if not item.is_dir() else 0,
+                    "modified": datetime.datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+                })
+            except PermissionError:
+                pass
+
+        parent = str(target.parent) if target != target.parent else None
+        return {
+            "current_path": str(target),
+            "parent": parent,
+            "items": items
+        }
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/files/read")
+def read_file(path: str):
+    try:
+        fp = Path(path)
+        if not fp.exists() or not fp.is_file():
+            raise HTTPException(status_code=404, detail="File not found.")
+        if fp.stat().st_size > 2 * 1024 * 1024:  # 2MB limit
+            raise HTTPException(status_code=400, detail="File too large to display (>2MB).")
+        content = fp.read_text(encoding="utf-8", errors="replace")
+        return {"path": str(fp), "content": content, "name": fp.name}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/files/write")
+def write_file(req: FileEditRequest):
+    try:
+        fp = Path(req.path)
+        fp.write_text(req.content, encoding="utf-8")
+        return {"success": True, "path": str(fp), "message": f"File saved: {fp.name}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/files/create")
+def create_item(req: CreateItemRequest):
+    try:
+        fp = Path(req.path)
+        if req.is_folder:
+            fp.mkdir(parents=True, exist_ok=True)
+            return {"success": True, "message": f"Folder created: {fp.name}"}
+        else:
+            fp.parent.mkdir(parents=True, exist_ok=True)
+            fp.touch(exist_ok=True)
+            return {"success": True, "message": f"File created: {fp.name}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/files/rename")
+def rename_item(req: RenameRequest):
+    try:
+        fp = Path(req.path)
+        new_path = fp.parent / req.new_name
+        fp.rename(new_path)
+        return {"success": True, "new_path": str(new_path), "message": f"Renamed to: {req.new_name}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/files/delete")
+def delete_item(path: str):
+    import shutil
+    try:
+        fp = Path(path)
+        if not fp.exists():
+            raise HTTPException(status_code=404, detail="Path does not exist.")
+        if fp.is_dir():
+            shutil.rmtree(fp)
+        else:
+            fp.unlink()
+        return {"success": True, "message": f"Deleted: {fp.name}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Serve static files and fallback index.html
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 @app.api_route("/", methods=["GET", "HEAD"])
@@ -869,6 +1424,48 @@ def serve_index():
     if index_file.exists():
         return FileResponse(index_file)
     return HTMLResponse("<h2>Vedas AI Server Running. Initializing Web Interface...</h2>")
+
+# Pre-load the default Ollama model into VRAM on startup to eliminate cold-start delay
+# Runs in background with retries so server starts even if Ollama is still booting.
+def _preload_worker():
+    ensure_ollama_running()
+    raw_model = APP_CONFIG.get("local_model", "llama3.2:latest")
+    installed = get_installed_ollama_models()
+    model = resolve_ollama_model(raw_model, installed)
+    host = APP_CONFIG.get("ollama_host", "http://127.0.0.1:11434")
+
+    for attempt in range(8):
+        try:
+            print(f"Pre-loading Ollama model '{model}' into VRAM (attempt {attempt+1}/8)...")
+            res = requests.post(
+                f"{host}/api/generate",
+                json={
+                    "model": model,
+                    "prompt": "hello",
+                    "stream": False,
+                    "keep_alive": "60m",
+                    "options": {"num_predict": 1}
+                },
+                timeout=60
+            )
+            if res.status_code == 200:
+                print(f"Model '{model}' loaded and ready in VRAM.")
+                return
+            elif res.status_code == 404:
+                installed = get_installed_ollama_models()
+                model = resolve_ollama_model(raw_model, installed)
+                print(f"Model preload 404 for '{raw_model}'; re-resolved to '{model}'")
+            else:
+                print(f"Model preload returned HTTP {res.status_code}")
+        except Exception as e:
+            print(f"Model preload attempt {attempt+1} failed: {e}")
+        time.sleep(2.5)
+    print(f"Model preload: Ollama not ready after 8 attempts — will load on first request.")
+
+def preload_ollama_model():
+    threading.Thread(target=_preload_worker, daemon=True).start()
+
+preload_ollama_model()
 
 SSL_CERT = CERTS_DIR / "cert.pem"
 SSL_KEY = CERTS_DIR / "key.pem"
@@ -887,18 +1484,8 @@ def ensure_ssl_certs():
         except Exception as e:
             print(f"SSL generation notice: {e}")
 
-def open_browser_delayed():
-    time.sleep(1.2)
-    url = "https://127.0.0.1:8000"
-    print(f"\n🌐 Launching Vedas AI Web Interface at {url} ...")
-    try:
-        webbrowser.open(url)
-    except Exception as e:
-        print(f"Browser launch notice: {e}")
-
 if __name__ == "__main__":
     ensure_ssl_certs()
-    threading.Thread(target=open_browser_delayed, daemon=True).start()
     print("=" * 60)
     print(" 🚀 VEDAS AI — WEB APPLICATION SERVER (HTTPS SECURE)")
     print(" Local Hub: https://127.0.0.1:8000 (or https://localhost:8000)")

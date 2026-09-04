@@ -1,13 +1,51 @@
-fastapi>=0.115.0
-uvicorn[standard]>=0.30.0
-pydantic>=2.8.0
-requests>=2.31.0
-psutil>=5.9.0
-pillow>=10.0.0
-pypdf>=5.0.0
-duckduckgo_search>=6.0.0
-google-genai>=1.0.0
-wikipedia>=1.4.0
-pyjokes>=0.6.0
-cryptography>=42.0.0
+# ==============================================================================
+# Vedas AI — Python Dependencies Specification
+# ==============================================================================
+
+# --- Core Web Server & API Framework ---
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+pydantic>=2.6.0
 python-multipart>=0.0.9
+websockets>=12.0
+requests>=2.31.0
+cryptography>=42.0.0
+
+# --- AI Models & LLM Integration ---
+google-genai>=0.1.0
+google-generativeai>=0.8.0
+ollama>=0.1.0
+
+# --- Web Search & Content Scraping ---
+duckduckgo-search>=6.0.0
+wikipedia>=1.4.0
+beautifulsoup4>=4.12.0
+
+# --- Document & Image Processing ---
+pypdf>=4.0.0
+pillow>=10.0.0
+
+# --- System Diagnostics & Automation ---
+psutil>=5.9.0
+pyautogui>=0.9.54
+pyjokes>=0.6.0
+
+# --- Windows-Specific Audio & System Hooks ---
+pywin32>=306; sys_platform == "win32"
+pycaw>=20240210; sys_platform == "win32"
+comtypes>=1.4.0; sys_platform == "win32"
+
+# --- Voice, Audio & Speech Recognition ---
+SpeechRecognition>=3.10.0
+pyttsx3>=2.90
+PyAudio>=0.2.14; sys_platform == "win32"
+pygame>=2.5.0
+sounddevice>=0.4.6
+numpy>=1.24.0
+
+# --- Optional / Local AI Speech & Transcription ---
+faster-whisper>=1.0.0
+vosk>=0.3.45
+
+# --- Packaging & Distribution (Optional) ---
+pyinstaller>=6.5.0

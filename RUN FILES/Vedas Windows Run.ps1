@@ -11,8 +11,14 @@ Write-Host " Location: SERVER | Major Engine: Local Ollama" -ForegroundColor Gre
 Write-Host " Web Interface: https://127.0.0.1:8000" -ForegroundColor Yellow
 Write-Host "============================================================" -ForegroundColor Cyan
 
-# Activate Virtual Environment if available
-if (Test-Path "$ScriptDir\myvenv\Scripts\Activate.ps1") {
+# Activate Virtual Environment if available (checks myenv and myvenv)
+if (Test-Path "$ScriptDir\myenv\Scripts\Activate.ps1") {
+    & "$ScriptDir\myenv\Scripts\Activate.ps1"
+} elseif (Test-Path "$ScriptDir\..\myenv\Scripts\Activate.ps1") {
+    & "$ScriptDir\..\myenv\Scripts\Activate.ps1"
+} elseif (Test-Path "$ScriptDir\..\..\myenv\Scripts\Activate.ps1") {
+    & "$ScriptDir\..\..\myenv\Scripts\Activate.ps1"
+} elseif (Test-Path "$ScriptDir\myvenv\Scripts\Activate.ps1") {
     & "$ScriptDir\myvenv\Scripts\Activate.ps1"
 } elseif (Test-Path "$ScriptDir\..\myvenv\Scripts\Activate.ps1") {
     & "$ScriptDir\..\myvenv\Scripts\Activate.ps1"

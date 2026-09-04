@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VEDAS AI</title>
+  <title>VEDAS AI — Neural Core</title>
   <meta name="description" content="Vedas AI — Advanced Autonomous Intelligence Operating System powered by Local Ollama & Gemini Supervisor.">
   <link rel="stylesheet" href="/static/css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
@@ -14,27 +14,57 @@
   <canvas id="particles-canvas"></canvas>
   <div class="ambient-glow ambient-glow-1"></div>
   <div class="ambient-glow ambient-glow-2"></div>
+  <div class="ambient-glow ambient-glow-gold"></div>
+
+  <!-- HUD Scan Lines -->
+  <div class="jarvis-scanlines" aria-hidden="true"></div>
+  <div class="jarvis-grid-overlay" aria-hidden="true"></div>
+
+  <!-- JARVIS Boot Banner (shown briefly on load) -->
+  <div id="jarvis-boot-screen" aria-live="polite">
+    <div class="jarvis-boot-inner">
+      <div class="jarvis-boot-logo">⚡</div>
+      <div class="jarvis-boot-title">VEDAS AI</div>
+      <div class="jarvis-boot-sub">Autonomous Intelligence System</div>
+      <div class="jarvis-boot-bar"><div class="jarvis-boot-fill" id="jarvis-boot-fill"></div></div>
+      <div class="jarvis-boot-status" id="jarvis-boot-status">Initializing neural matrices...</div>
+    </div>
+  </div>
+
+  <!-- JARVIS Hologram Overlay (appears when speaking) -->
+  <div id="hologram-overlay">
+    <div id="hologram-container">
+      <canvas id="hologram-canvas"></canvas>
+    </div>
+  </div>
 
   <!-- Master App Container -->
   <div id="app-container">
 
     <!-- Top Futuristic HUD -->
     <header id="top-hud">
+      <!-- JARVIS Ticker Line -->
+      <div class="jarvis-ticker-strip" aria-hidden="true">
+        <div class="jarvis-ticker-content" id="jarvis-ticker">
+          ⚡ VEDAS AI NEURAL CORE ONLINE &nbsp;•&nbsp; VEDAS AI v3.0 ACTIVE &nbsp;•&nbsp; ALL SYSTEMS NOMINAL &nbsp;•&nbsp; OLLAMA LOCAL ENGINE READY &nbsp;•&nbsp; GEMINI SUPERVISOR ARMED &nbsp;•&nbsp; MULTIMODAL REASONING ENABLED &nbsp;•&nbsp; MEMORY BANK ONLINE &nbsp;•&nbsp; IMAGE SYNTHESIS ENGINE READY &nbsp;•
+        </div>
+      </div>
+
       <div class="brand-section">
         <div class="brand-logo-badge">
           <span class="brand-icon">⚡</span>
         </div>
         <div class="brand-meta">
           <h1>VEDAS AI</h1>
-          <div class="brand-subtitle">Autonomous Multimodal Intelligence</div>
+          <div class="brand-subtitle">Autonomous Multimodal Neural Intelligence</div>
         </div>
       </div>
 
       <!-- Center Telemetry & Health Gauges -->
       <div class="hud-telemetry">
-        <div class="telemetry-chip">
+        <div class="telemetry-chip" id="hud-ollama-chip" onclick="restartOllamaService()" style="cursor:pointer;" title="⚡ Click to Reconnect / Verify Local Ollama">
           <span id="hud-ollama-dot" class="status-dot"></span>
-          <span id="hud-ollama-text">OLLAMA: STANDBY</span>
+          <span id="hud-ollama-text">⚡ CORE: STANDBY</span>
         </div>
         <div class="telemetry-chip">
           <span class="status-dot"></span>
@@ -44,22 +74,32 @@
           <span class="status-dot"></span>
           <span id="hud-ram">RAM: 0%</span>
         </div>
+        <div class="telemetry-chip jarvis-time-chip">
+          <span class="status-dot jarvis-dot-gold"></span>
+          <span id="hud-time" class="jarvis-time-display">--:-- --</span>
+        </div>
       </div>
 
       <!-- Right HUD Controls -->
       <div class="hud-actions">
         <select id="model-selector" class="model-badge-select" title="Active Intelligence Core">
-          <option value="llama3.2:latest">⚡ Local: llama3.2 (Primary)</option>
-          <option value="llama3:latest">⚡ Local: llama3</option>
-          <option value="gemini-3.6-flash">☁️ Cloud: Gemini 3.6 Flash</option>
-          <option value="gemini-3.5-flash">☁️ Cloud: Gemini 3.5 Flash</option>
-          <option value="gemini-3.1-pro-preview">☁️ Cloud: Gemini 3.1 Pro</option>
+          <option value="llama3.2:latest">⚡ Local: LLaMA 3.2 (Primary)</option>
+          <option value="llama3:latest">⚡ Local: LLaMA 3</option>
+          <option value="qwen2.5:7b">⚡ Local: Qwen 2.5 7B</option>
+          <option value="phi4:latest">⚡ Local: Phi-4</option>
+          <option value="gemini-3.7-flash">⚡ Cloud: Gemini 3.7 Flash</option>
+          <option value="gemini-3.6-flash">⚡ Cloud: Gemini 3.6 Flash</option>
+          <option value="gemini-3.5-flash">⚡ Cloud: Gemini 3.5 Flash</option>
+          <option value="gemini-3.1-pro-preview">⚡ Cloud: Gemini 3.1 Pro</option>
         </select>
-        <button class="hud-btn" id="studio-open-btn" onclick="openImageStudio()" title="Open Image Generation Studio">
+        <button class="hud-btn jarvis-btn-image" id="studio-open-btn" onclick="openImageStudio()" title="Open Image Generation Studio">
           <span>🎨</span> Image Studio
         </button>
-        <button class="hud-btn" onclick="openMemoryStudio()" title="Open Memory Bank Core">
+        <button class="hud-btn jarvis-btn-memory" onclick="openMemoryStudio()" title="Open Memory Bank Core">
           <span>🧠</span> Memory
+        </button>
+        <button class="hud-btn" id="files-open-btn" onclick="openFileManager()" title="Open File & Folder Manager">
+          <span>📁</span> Files
         </button>
       </div>
     </header>
@@ -97,6 +137,21 @@
               <option value="sarcastic_genius">Sarcastic Genius (Witty)</option>
             </select>
           </div>
+
+          <!-- System Commands Quick Panel -->
+          <div class="sys-cmds-panel">
+            <div class="sys-cmds-label">⚡ QUICK COMMANDS</div>
+            <div class="sys-cmds-grid">
+              <button class="sys-cmd-btn" onclick="runSysCmd('open notepad')" title="Open Notepad">📝 Notepad</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('open calculator')" title="Open Calculator">🧮 Calc</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('open explorer')" title="Open File Explorer">📁 Explorer</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('open chrome')" title="Open Browser">🌐 Browser</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('open task manager')" title="Task Manager">⚙️ Tasks</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('open settings')" title="Settings">🔧 Settings</button>
+              <button class="sys-cmd-btn sys-cmd-danger" onclick="confirmShutdown()" title="Shutdown System">🔴 Shutdown</button>
+              <button class="sys-cmd-btn sys-cmd-warning" onclick="confirmRestart()" title="Restart System">🔄 Restart</button>
+            </div>
+          </div>
         </div>
       </aside>
 
@@ -105,44 +160,63 @@
 
         <!-- Welcome Hero View (When conversation empty) -->
         <div id="welcome-hero">
-          <div class="hero-orb">⚡</div>
-          <h2 class="hero-title">Hello, I am Vedas</h2>
+          <!-- JARVIS HUD Data Ring -->
+          <div class="jarvis-hero-ring" aria-hidden="true">
+            <div class="jarvis-ring-inner">
+              <div class="hero-orb">⚡</div>
+            </div>
+            <svg class="jarvis-ring-svg" viewBox="0 0 200 200" aria-hidden="true">
+              <circle cx="100" cy="100" r="90" class="jarvis-ring-track"/>
+              <circle cx="100" cy="100" r="90" class="jarvis-ring-progress" id="jarvis-ring-progress"/>
+            </svg>
+          </div>
+
+          <div class="jarvis-hero-label" aria-label="VEDAS AI status">VEDAS AI — NEURAL CORE v3.0</div>
+          <h2 class="hero-title">Good day. I'm <span class="jarvis-name-highlight">VEDAS</span></h2>
           <p class="hero-tagline">
-            Your autonomous intelligence workstation. Powered primarily by local Ollama cores with Gemini cloud supervisor, high-res neural art synthesis, and PDF/multimodal analysis.
+            <span class="jarvis-quote">"At your service."</span> — Your autonomous AI intelligence. Dual-core neural reasoning via local Ollama & Gemini cloud supervisor, 8K image synthesis, multimodal PDF analysis, and live web intelligence.
           </p>
+
+          <!-- JARVIS Status Grid -->
+          <div class="jarvis-status-grid">
+            <div class="jarvis-stat-chip"><span class="jarvis-stat-dot"></span> NEURAL CORE <span class="jarvis-stat-val" id="hero-core-status">ONLINE</span></div>
+            <div class="jarvis-stat-chip"><span class="jarvis-stat-dot jarvis-dot-purple"></span> GEMINI SUP <span class="jarvis-stat-val">ARMED</span></div>
+            <div class="jarvis-stat-chip"><span class="jarvis-stat-dot jarvis-dot-gold"></span> IMAGE ENGINE <span class="jarvis-stat-val">READY</span></div>
+            <div class="jarvis-stat-chip"><span class="jarvis-stat-dot jarvis-dot-amber"></span> MEMORY BANK <span class="jarvis-stat-val">LOADED</span></div>
+          </div>
 
           <!-- Quick Action Prompts Grid -->
           <div class="quick-prompts-grid">
             <div class="quick-card" data-prompt="/image a futuristic cybernetic city with flying holographic vehicles, 8k cinematic lighting">
               <div class="quick-card-icon">🎨</div>
-              <div class="quick-card-title">AI Image Studio</div>
-              <div class="quick-card-desc">Generate 8k high-res art with FLUX neural engines.</div>
+              <div class="quick-card-title">⚡ Image Synthesis</div>
+              <div class="quick-card-desc">Generate 8K masterpieces with FLUX neural engines. Enhanced style presets.</div>
             </div>
             <div class="quick-card" data-prompt="Analyze how an AI assistant handles multi-modal reasoning and write a Python demonstration with tests.">
               <div class="quick-card-icon">💻</div>
-              <div class="quick-card-title">Code Lab Sandbox</div>
-              <div class="quick-card-desc">Write, analyze, and execute Python code in real-time.</div>
+              <div class="quick-card-title">⚡ Code Lab</div>
+              <div class="quick-card-desc">Write, analyze & execute Python. I'll review logic and suggest improvements.</div>
             </div>
             <div class="quick-card" data-prompt="Search for latest breakthroughs in quantum computing and summarize the top findings.">
               <div class="quick-card-icon">🌐</div>
-              <div class="quick-card-title">Live Web Intelligence</div>
-              <div class="quick-card-desc">Perform real-time web lookups & knowledge card synthesis.</div>
+              <div class="quick-card-title">⚡ Web Intel</div>
+              <div class="quick-card-desc">Real-time search & knowledge synthesis. Live data feeds directly to my core.</div>
             </div>
             <div class="quick-card" data-prompt="Please explain how Vedas AI architecture integrates local Ollama and cloud Gemini.">
-              <div class="quick-card-icon">⚡</div>
-              <div class="quick-card-title">Architecture Insight</div>
-              <div class="quick-card-desc">Deep-dive into dual-core intelligence & supervisory alerts.</div>
+              <div class="quick-card-icon">🤖</div>
+              <div class="quick-card-title">⚡ System Briefing</div>
+              <div class="quick-card-desc">Explore my dual-core neural architecture, supervisory layer & capabilities.</div>
             </div>
           </div>
         </div>
 
         <!-- Dynamic Chat Messages Stream -->
-        <div id="chat-messages-container"></div>
+        <div id="chat-messages-container" style="display:none;"></div>
 
         <!-- Glowing Audio Waveform Visualizer -->
         <div id="waveform-container">
           <canvas id="waveform-canvas"></canvas>
-          <span id="waveform-status-text" class="waveform-indicator-label">VEDAS: IDLE</span>
+          <span id="waveform-status-text" class="waveform-indicator-label">VEDAS AI: STANDBY</span>
         </div>
 
         <!-- Master Chat Input Dock -->
@@ -153,7 +227,7 @@
           <!-- Glass Input Box -->
           <div class="input-glass-box">
             <div class="input-row-main">
-              <textarea id="chat-input" rows="1" placeholder="Ask Vedas, drag & drop PDFs/photos, or press Ctrl+M / say 'Hello Vedas'..." autofocus></textarea>
+              <textarea id="chat-input" rows="1" placeholder="Ask Vedas, say 'open notepad', drag files, or press Ctrl+M..." autofocus></textarea>
               <button class="mic-action-btn" id="mic-btn" title="Voice Input [Hotkey: Ctrl+M or Alt+V]">
                 🎙️
               </button>
@@ -188,7 +262,7 @@
       <!-- Drawer Backdrop Overlay -->
       <div id="drawer-backdrop" onclick="closeSideCanvas()"></div>
 
-      <!-- Right Side Drawer: Image Studio / Memory Studio -->
+      <!-- Right Side Drawer: Image Studio / Memory Studio / File Manager -->
       <div id="side-canvas">
         <div class="drawer-header">
           <div class="drawer-title" id="side-canvas-title">🎨 AI Image Studio</div>
@@ -206,12 +280,39 @@
     <img id="lightbox-img" src="" alt="Fullscreen Render">
   </div>
 
+  <!-- Shutdown Confirmation Dialog -->
+  <div id="shutdown-confirm-modal" onclick="if(event.target===this)closeShutdownModal()">
+    <div class="confirm-modal-box">
+      <div class="confirm-modal-icon">⚠️</div>
+      <div class="confirm-modal-title">Confirm Shutdown</div>
+      <div class="confirm-modal-desc">System will shutdown in 5 seconds. This cannot be undone immediately.</div>
+      <div class="confirm-modal-actions">
+        <button class="confirm-btn-danger" onclick="executeShutdown()">🔴 Shutdown Now</button>
+        <button class="confirm-btn-cancel" onclick="closeShutdownModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Restart Confirmation Dialog -->
+  <div id="restart-confirm-modal" onclick="if(event.target===this)closeRestartModal()">
+    <div class="confirm-modal-box restart-modal-box">
+      <div class="confirm-modal-icon">🔄</div>
+      <div class="confirm-modal-title restart-modal-title">Confirm Restart</div>
+      <div class="confirm-modal-desc">System will reboot in 5 seconds. Save any ongoing work before proceeding.</div>
+      <div class="confirm-modal-actions">
+        <button class="confirm-btn-warning" onclick="executeRestart()">🔄 Restart Now</button>
+        <button class="confirm-btn-cancel" onclick="closeRestartModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification System -->
   <div id="toast-container"></div>
 
   <!-- Scripts -->
   <script src="/static/js/particles.js"></script>
   <script src="/static/js/waveform.js"></script>
+  <script src="/static/js/hologram.js"></script>
   <script src="/static/js/app.js"></script>
 </body>
 </html>

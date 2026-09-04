@@ -13,8 +13,14 @@ echo " Location: SERVER | Major Engine: Local Ollama"
 echo " Web Interface: https://127.0.0.1:8000"
 echo "============================================================"
 
-# Auto-detect Python 3 / venv
-if [ -f "$SCRIPT_DIR/myvenv/bin/activate" ]; then
+# Auto-detect Python 3 / venv (checks myenv and myvenv)
+if [ -f "$SCRIPT_DIR/myenv/bin/activate" ]; then
+    source "$SCRIPT_DIR/myenv/bin/activate"
+elif [ -f "$SCRIPT_DIR/../myenv/bin/activate" ]; then
+    source "$SCRIPT_DIR/../myenv/bin/activate"
+elif [ -f "$SCRIPT_DIR/../../myenv/bin/activate" ]; then
+    source "$SCRIPT_DIR/../../myenv/bin/activate"
+elif [ -f "$SCRIPT_DIR/myvenv/bin/activate" ]; then
     source "$SCRIPT_DIR/myvenv/bin/activate"
 elif [ -f "$SCRIPT_DIR/../myvenv/bin/activate" ]; then
     source "$SCRIPT_DIR/../myvenv/bin/activate"

@@ -28,12 +28,17 @@ class VedasWaveform {
     this.state = newState;
     const indicator = document.getElementById('waveform-status-text');
     if (indicator) {
-      indicator.textContent = `VEDAS: ${newState.toUpperCase()}`;
       if (newState === 'listening') {
+        indicator.textContent = 'VEDAS: LISTENING';
         indicator.style.color = '#ff2a85';
       } else if (newState === 'speaking') {
+        indicator.textContent = 'VEDAS: SPEAKING';
+        indicator.style.color = '#f5b83d';
+      } else if (newState === 'thinking') {
+        indicator.textContent = 'VEDAS: INFERRING (OLLAMA)';
         indicator.style.color = '#00f0ff';
       } else {
+        indicator.textContent = 'VEDAS: IDLE';
         indicator.style.color = '#6b7280';
       }
     }
@@ -67,17 +72,51 @@ class VedasWaveform {
       ctx.shadowColor = '#00f0ff';
       ctx.stroke();
       ctx.shadowBlur = 0;
+    } else if (state === 'thinking') {
+      // Dynamic neural pulse harmonic wave during Ollama inference
+      this.phase += 0.16;
+      const baseAmp = height * 0.36;
+      const layers = [
+        { color: '#00f0ff', freq: 0.024, speed: 1.4, width: 2.2, glow: '#00f0ff' },
+        { color: '#10b981', freq: 0.030, speed: 1.1, width: 1.8, glow: '#10b981' },
+        { color: '#a855f7', freq: 0.018, speed: 1.6, width: 1.5, glow: '#a855f7' },
+        { color: '#ffffff', freq: 0.012, speed: 0.8, width: 1.0, glow: '#ffffff' }
+      ];
+
+      layers.forEach((layer, idx) => {
+        ctx.beginPath();
+        const amp = baseAmp * (1.0 - idx * 0.18);
+        for (let x = 0; x < width; x += 3) {
+          const envelope = Math.sin(Math.PI * (x / width));
+          const y = centerY + Math.sin(x * layer.freq + this.phase * layer.speed + idx * 1.6) * amp * envelope;
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = layer.color;
+        ctx.lineWidth = layer.width;
+        ctx.shadowBlur = 14;
+        ctx.shadowColor = layer.glow;
+        ctx.stroke();
+      });
+      ctx.shadowBlur = 0;
     } else {
       // Active states: 'speaking' or 'listening'
       this.phase += (state === 'speaking' ? 0.22 : 0.14);
       const baseAmp = state === 'speaking' ? height * 0.42 : height * 0.26;
 
-      const layers = [
-        { color: '#00f0ff', freq: 0.018, speed: 1.0, width: 2.5, glow: '#00f0ff' },
-        { color: '#a855f7', freq: 0.024, speed: 1.4, width: 2.0, glow: '#a855f7' },
-        { color: '#ff2a85', freq: 0.032, speed: 0.8, width: 1.8, glow: '#ff2a85' },
-        { color: '#ffffff', freq: 0.015, speed: 1.2, width: 1.2, glow: '#ffffff' }
-      ];
+      const layers = state === 'speaking'
+        ? [
+            { color: '#f5b83d', freq: 0.018, speed: 1.0, width: 2.5, glow: '#f5b83d' },
+            { color: '#00f0ff', freq: 0.024, speed: 1.4, width: 2.0, glow: '#00f0ff' },
+            { color: '#fb8c00', freq: 0.032, speed: 0.8, width: 1.8, glow: '#fb8c00' },
+            { color: '#ffffff', freq: 0.015, speed: 1.2, width: 1.2, glow: '#ffffff' }
+          ]
+        : [
+            { color: '#00f0ff', freq: 0.018, speed: 1.0, width: 2.5, glow: '#00f0ff' },
+            { color: '#a855f7', freq: 0.024, speed: 1.4, width: 2.0, glow: '#a855f7' },
+            { color: '#ff2a85', freq: 0.032, speed: 0.8, width: 1.8, glow: '#ff2a85' },
+            { color: '#ffffff', freq: 0.015, speed: 1.2, width: 1.2, glow: '#ffffff' }
+          ];
 
       layers.forEach((layer, idx) => {
         ctx.beginPath();
