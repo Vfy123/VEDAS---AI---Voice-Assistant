@@ -33,6 +33,8 @@ const state = {
     'gemini-3.7-flash': 'Gemini 3.7 Flash',
     'gemini-3.6-flash': 'Gemini 3.6 Flash',
     'gemini-3.5-flash': 'Gemini 3.5 Flash',
+    'gemini-3.1-flash-lite': 'Gemini 3.1 Flash Lite',
+    'gemini-3.5-flash-lite': 'Gemini 3.5 Flash Lite',
     'gemini-3.1-pro-preview': 'Gemini 3.1 Pro'
   },
   // TTS State
@@ -240,6 +242,8 @@ async function fetchSystemStatus() {
             { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash' },
             { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash' },
             { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash' },
+            { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite' },
+            { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash Lite' },
             { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro' }
           ];
 
@@ -491,7 +495,8 @@ function appendMessageToDOM(role, content, meta = {}, shouldScroll = true) {
   let ttsControlsHtml = '';
   if (role === 'ai') {
     const isOllama = meta && meta.source === 'ollama';
-    const modelTag = meta && meta.model ? meta.model : 'Vedas';
+    const modelDisplayName = meta && meta.model ? (state.modelDisplayNames[meta.model] || meta.model) : (isOllama ? 'Local Ollama' : 'Gemini Cloud');
+    const modelTag = modelDisplayName;
     metaHtml = `
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
         <div class="ai-meta-tag" style="margin-bottom:0;">⚡ ${isOllama ? 'Local Ollama' : 'Gemini Cloud'}: ${modelTag}</div>
@@ -553,7 +558,8 @@ function appendAnimatedMessageToDOM(role, content, meta = {}, onComplete = null)
   bubble.className = 'message-bubble';
 
   const isOllama = meta && meta.source === 'ollama';
-  const modelTag = meta && meta.model ? meta.model : (isOllama ? 'Local Ollama' : 'Gemini Cloud');
+  const modelDisplayName = meta && meta.model ? (state.modelDisplayNames[meta.model] || meta.model) : (isOllama ? 'Local Ollama' : 'Gemini Cloud');
+  const modelTag = modelDisplayName;
   const badgeClass = isOllama ? 'ai-meta-tag ollama-active-badge' : 'ai-meta-tag';
 
   const metaDiv = document.createElement('div');
@@ -734,7 +740,8 @@ async function handleSendMessage() {
   thinkingRow.className = 'message-row ai thinking-row';
   thinkingRow.id = 'active-thinking-indicator';
   const isCloudActive = state.activeModel && state.activeModel.includes('gemini');
-  const activeLabel = isCloudActive ? `Gemini Cloud: ${state.activeModel}` : `Local Ollama: ${state.activeModel}`;
+  const activeName = state.modelDisplayNames[state.activeModel] || state.activeModel;
+  const activeLabel = isCloudActive ? `Gemini Cloud: ${activeName}` : `Local Ollama: ${activeName}`;
   thinkingRow.innerHTML = `
     <div class="avatar-badge animated-avatar">⚡</div>
     <div class="message-bubble thinking-bubble">

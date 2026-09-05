@@ -233,8 +233,19 @@ GEMINI_MODEL_CHAIN = [
     "gemini-3.7-flash",
     "gemini-3.6-flash",
     "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash-lite",
     "gemini-3.1-pro-preview",
 ]
+
+def build_gemini_chain(preferred_model: Optional[str] = None) -> List[str]:
+    """Return a model chain prioritizing preferred_model first, followed by the fallback chain."""
+    chain = list(GEMINI_MODEL_CHAIN)
+    if preferred_model:
+        if preferred_model not in chain:
+            return [preferred_model] + chain
+        return [preferred_model] + [m for m in chain if m != preferred_model]
+    return chain
 
 def gemini_generate_with_fallback(client, contents, preferred_models=None):
     """Try each Gemini model in order; fall back to the next on errors/503."""
@@ -612,9 +623,7 @@ def run_supervisor_fact_check(prompt: str, local_answer: str, cloud_model: str) 
     )
 
     # Build the model chain: prefer the passed cloud_model, then the full chain.
-    chain = list(GEMINI_MODEL_CHAIN)
-    if cloud_model and cloud_model in chain:
-        chain = [cloud_model] + [m for m in chain if m != cloud_model]
+    chain = build_gemini_chain(cloud_model)
 
     from concurrent.futures import ThreadPoolExecutor, TimeoutError
     def _execute():
@@ -750,10 +759,15 @@ def generate_ai_response(
     if model_override and "gemini" in model_override.lower():
         active_cloud_model = model_override
         if gemini_client:
+            contents = [full_prompt] + pil_images if pil_images else full_prompt
+            config = {"automatic_function_calling": {"disable": True}}
             try:
-                contents = [full_prompt] + pil_images if pil_images else full_prompt
-                used_model, resp = gemini_generate_with_fallback(gemini_client, contents)
-                active_cloud_model = used_model
+                # Direct invocation of user's explicitly selected Gemini model
+                resp = gemini_client.models.generate_content(
+                    model=active_cloud_model,
+                    contents=contents,
+                    config=config
+                )
                 return {
                     "source": "gemini_direct",
                     "model": active_cloud_model,
@@ -761,18 +775,35 @@ def generate_ai_response(
                     "search_used": bool(search_context)
                 }
             except Exception as e:
-                return {
-                    "source": "error",
-                    "model": active_cloud_model,
-                    "text": f"⚠️ Gemini Cloud Error ({active_cloud_model}): {str(e)}",
-                    "search_used": False
-                }
+                # If explicitly chosen model fails (e.g. quota limit or temporary overload),
+                # attempt fallback to other available models in the chain and alert the user.
+                print(f"Explicit Gemini model '{active_cloud_model}' failed ({type(e).__name__}: {e}). Trying fallback...")
+                fallback_chain = [m for m in GEMINI_MODEL_CHAIN if m != active_cloud_model]
+                try:
+                    used_model, resp = gemini_generate_with_fallback(gemini_client, contents, preferred_models=fallback_chain)
+                    err_msg = str(e)
+                    short_reason = "Quota limit reached" if ("429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg) else type(e).__name__
+                    return {
+                        "source": "gemini_direct",
+                        "model": used_model,
+                        "text": resp.text.strip(),
+                        "supervisor_alert": f"Requested '{active_cloud_model}' was unavailable ({short_reason}). Automatically routed to {used_model}.",
+                        "search_used": bool(search_context)
+                    }
+                except Exception as fb_err:
+                    return {
+                        "source": "error",
+                        "model": active_cloud_model,
+                        "text": f"⚠️ Gemini Cloud Error ({active_cloud_model}): {str(e)}",
+                        "search_used": False
+                    }
 
     # If images are attached and Gemini is available, prioritize Gemini Vision for best multimodal image comprehension
     if pil_images and gemini_client:
         try:
             contents = [full_prompt] + pil_images
-            used_model, resp = gemini_generate_with_fallback(gemini_client, contents)
+            chain = build_gemini_chain(active_cloud_model)
+            used_model, resp = gemini_generate_with_fallback(gemini_client, contents, preferred_models=chain)
             active_cloud_model = used_model
             return {
                 "source": "gemini_multimodal",
@@ -847,7 +878,8 @@ def generate_ai_response(
     # 2. FALLBACK: Cloud Gemini Fallback (if Ollama offline/timeout)
     if gemini_client:
         try:
-            used_model, fallback = gemini_generate_with_fallback(gemini_client, full_prompt)
+            chain = build_gemini_chain(active_cloud_model)
+            used_model, fallback = gemini_generate_with_fallback(gemini_client, full_prompt, preferred_models=chain)
             active_cloud_model = used_model
             clean_fallback = re.sub(r'^(?:Vedas|AI):\s*', '', fallback.text.strip(), flags=re.I).strip()
             return {
@@ -1006,6 +1038,8 @@ def get_system_status():
         {"id": "gemini-3.7-flash", "name": "Gemini 3.7 Flash"},
         {"id": "gemini-3.6-flash", "name": "Gemini 3.6 Flash"},
         {"id": "gemini-3.5-flash", "name": "Gemini 3.5 Flash"},
+        {"id": "gemini-3.1-flash-lite", "name": "Gemini 3.1 Flash Lite"},
+        {"id": "gemini-3.5-flash-lite", "name": "Gemini 3.5 Flash Lite"},
         {"id": "gemini-3.1-pro-preview", "name": "Gemini 3.1 Pro"},
     ]
 
