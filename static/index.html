@@ -215,48 +215,110 @@
         <!-- Dynamic Chat Messages Stream -->
         <div id="chat-messages-container" style="display:none;"></div>
 
-        <!-- Glowing Audio Waveform Visualizer -->
-        <div id="waveform-container">
-          <canvas id="waveform-canvas"></canvas>
-          <span id="waveform-status-text" class="waveform-indicator-label">VEDAS AI: STANDBY</span>
-        </div>
-
         <!-- Master Chat Input Dock -->
         <div id="input-dock">
           <!-- File Attachments Tray (PDFs, Images, Docs) -->
           <div id="attachment-tray"></div>
 
-          <!-- Glass Input Box -->
-          <div class="input-glass-box">
-            <div class="input-row-main">
-              <textarea id="chat-input" rows="1" placeholder="Ask Vedas, say 'open notepad', drag files, or press Ctrl+M..." autofocus></textarea>
-              <button class="mic-action-btn" id="mic-btn" title="Voice Input [Hotkey: Ctrl+M or Alt+V]">
-                🎙️
+          <!-- Primary Voice Dock (Default Mode) -->
+          <div id="dock-voice-mode" class="dock-mode-container active">
+            <!-- Left Shortcut Buttons: Memory, Image, Attach -->
+            <div class="dock-side-left">
+              <button class="dock-pill-btn dock-btn-memory" id="dock-btn-memory" onclick="openMemoryStudio()" title="Open Memory Bank [🧠]">
+                <span class="dock-btn-icon">🧠</span>
+                <span class="dock-btn-label">Memory</span>
               </button>
-              <button class="send-btn" id="send-btn" title="Transmit Query">
-                ➤
+              <button class="dock-pill-btn dock-btn-image" id="dock-btn-image" onclick="openImageStudio()" title="Open Image Generation Studio [🎨]">
+                <span class="dock-btn-icon">🎨</span>
+                <span class="dock-btn-label">Image</span>
+              </button>
+              <button class="dock-pill-btn dock-btn-attach" onclick="document.getElementById('file-input').click()" title="Attach PDFs, Photos, Documents, or Code [📎]">
+                <span class="dock-btn-icon">📎</span>
+                <span class="dock-btn-label">Attach</span>
               </button>
             </div>
 
-            <!-- Bottom Action Icons Bar -->
-            <div class="input-actions-bar">
-              <div class="input-tools-left">
-                <input type="file" id="file-input" multiple accept=".pdf,image/*,.txt,.py,.js,.json,.md,.csv">
-                <button class="tool-icon-btn" id="upload-trigger-btn" title="Attach PDFs, Photos, Documents, or Code">
-                  📎
+            <!-- Center Voice Unit: Big Mic Button & Larger Fluid Waveform -->
+            <div class="dock-center-unit">
+              <!-- Big Centered Mic Button -->
+              <button class="dock-big-mic-btn" id="dock-main-mic-btn" title="Voice Interaction [Hotkey: Ctrl+M / Alt+V]">
+                <div class="mic-halo-ring"></div>
+                <div class="mic-halo-pulse"></div>
+                <div class="mic-core-glow"></div>
+                <div class="mic-icon-inner">🎙️</div>
+                <span class="mic-hotkey-badge">Ctrl+M</span>
+              </button>
+
+              <!-- Pure Fluid Waveform Unit (Larger flowing wave with transcript chip below) -->
+              <div class="dock-voice-wave-unit" id="dock-voice-wave-unit" style="display:none;" onclick="toggleVoiceListening()" title="Click to finish & send voice query">
+                <div class="fluid-waveform-wrapper">
+                  <canvas id="waveform-canvas"></canvas>
+                  <div class="fluid-wave-glow"></div>
+                </div>
+                <div class="dock-speech-transcript" id="dock-waveform-transcript">Listening...</div>
+              </div>
+            </div>
+
+            <!-- Right Shortcut Buttons: Web Search, Files, Switch to Type -->
+            <div class="dock-side-right">
+              <button class="dock-pill-btn dock-btn-web" id="dock-btn-web-voice" onclick="toggleWebSearchVoice(this)" title="Toggle Live Web Search [🌐]">
+                <span class="dock-btn-icon">🌐</span>
+                <span class="dock-btn-label">Search</span>
+              </button>
+              <button class="dock-pill-btn dock-btn-files" onclick="openFileManager()" title="Open File Explorer [📁]">
+                <span class="dock-btn-icon">📁</span>
+                <span class="dock-btn-label">Files</span>
+              </button>
+              <button class="dock-pill-btn dock-btn-type" id="dock-btn-type" onclick="switchInputMode('typing')" title="Switch to Keyboard Typing Mode [⌨️]">
+                <span class="dock-btn-icon">⌨️</span>
+                <span class="dock-btn-label">Type</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Secondary Keyboard Typing Dock (Fully Fledged & Full Horizontal Width) -->
+          <div id="dock-typing-mode" class="dock-mode-container" style="display:none;">
+            <div class="input-glass-box">
+              <div class="input-row-main">
+                <textarea id="chat-input" rows="1" placeholder="Ask Vedas, say 'open notepad', drag files, or press Ctrl+M..." autofocus></textarea>
+                <button class="mic-action-btn small-side-mic" id="mic-btn" title="Voice Dictation [Hotkey: Ctrl+M or Alt+V]">
+                  🎙️
                 </button>
-                <button class="tool-icon-btn" id="web-search-toggle" title="Toggle Live Web Search">
-                  🌐
-                </button>
-                <button class="tool-icon-btn" onclick="openImageStudio()" title="Quick Image Studio">
-                  🎨
+                <button class="send-btn" id="send-btn" title="Transmit Query">
+                  ➤
                 </button>
               </div>
-              <div style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">
-                Hotkey: <code>Ctrl + M</code> for Voice • Enter to send
+
+              <!-- Bottom Action Icons Bar -->
+              <div class="input-actions-bar">
+                <div class="input-tools-left">
+                  <input type="file" id="file-input" multiple accept=".pdf,image/*,.txt,.py,.js,.json,.md,.csv">
+                  <button class="tool-icon-btn" id="upload-trigger-btn" title="Attach PDFs, Photos, Documents, or Code">
+                    📎
+                  </button>
+                  <button class="tool-icon-btn" id="web-search-toggle" title="Toggle Live Web Search">
+                    🌐
+                  </button>
+                  <button class="tool-icon-btn" onclick="openImageStudio()" title="Quick Image Studio">
+                    🎨
+                  </button>
+                  <button class="tool-icon-btn" onclick="openMemoryStudio()" title="Quick Memory Bank">
+                    🧠
+                  </button>
+                  <button class="tool-icon-btn" onclick="openFileManager()" title="File Manager">
+                    📁
+                  </button>
+                </div>
+                <div class="input-tools-right">
+                  <span class="typing-hotkey-hint">Hotkey: <code>Ctrl + M</code> for Voice • Enter to send</span>
+                  <button class="dock-mode-switch-btn" onclick="switchInputMode('voice')" title="Switch to Voice Mode">
+                    <span>🎙️</span> Voice Mode
+                  </button>
+                </div>
               </div>
             </div>
           </div>
+
         </div>
 
       </section>

@@ -42,7 +42,9 @@ const state = {
     fullText: '',
     remainingText: '',
     isPausedForConfirmation: false
-  }
+  },
+  // Interaction Mode: 'voice' | 'typing'
+  inputMode: 'voice'
 };
 
 // DOM References
@@ -51,6 +53,13 @@ const welcomeHero = document.getElementById('welcome-hero');
 const chatInput = document.getElementById('chat-input');
 const sendBtn = document.getElementById('send-btn');
 const micBtn = document.getElementById('mic-btn');
+const dockMainMicBtn = document.getElementById('dock-main-mic-btn');
+const dockVoiceMode = document.getElementById('dock-voice-mode');
+const dockTypingMode = document.getElementById('dock-typing-mode');
+const dockWaveformPod = document.getElementById('dock-waveform-pod');
+const dockWaveformTranscript = document.getElementById('dock-waveform-transcript');
+const dockWaveformTimer = document.getElementById('dock-waveform-timer');
+const dockWaveformStatus = document.getElementById('dock-waveform-status');
 const fileInput = document.getElementById('file-input');
 const attachmentTray = document.getElementById('attachment-tray');
 const sessionsList = document.getElementById('sessions-list');
@@ -64,6 +73,50 @@ const personaSelector = document.getElementById('persona-selector');
 const webSearchBtn = document.getElementById('web-search-toggle');
 const lightboxModal = document.getElementById('lightbox-modal');
 const lightboxImg = document.getElementById('lightbox-img');
+
+// ----------------- DOCK MODE SWITCHER -----------------
+function switchInputMode(mode) {
+  state.inputMode = mode;
+  const voiceDock = document.getElementById('dock-voice-mode');
+  const typingDock = document.getElementById('dock-typing-mode');
+  if (mode === 'typing') {
+    if (voiceDock) {
+      voiceDock.classList.remove('active');
+      voiceDock.style.display = 'none';
+    }
+    if (typingDock) {
+      typingDock.classList.add('active');
+      typingDock.style.display = 'block';
+    }
+    if (chatInput) {
+      setTimeout(() => {
+        chatInput.focus();
+        autoResizeChatInput();
+      }, 50);
+    }
+    showToast('Keyboard Typing Mode Armed', '⌨️');
+  } else {
+    if (typingDock) {
+      typingDock.classList.remove('active');
+      typingDock.style.display = 'none';
+    }
+    if (voiceDock) {
+      voiceDock.classList.add('active');
+      voiceDock.style.display = 'flex';
+    }
+    showToast('Voice Interaction Mode Armed', '🎙️');
+  }
+}
+window.switchInputMode = switchInputMode;
+
+function toggleWebSearchVoice(btn) {
+  state.useWebSearch = !state.useWebSearch;
+  if (btn) btn.classList.toggle('active', state.useWebSearch);
+  const typeWebBtn = document.getElementById('web-search-toggle');
+  if (typeWebBtn) typeWebBtn.classList.toggle('active', state.useWebSearch);
+  showToast(state.useWebSearch ? 'Live Web Search Armed' : 'Web Search Standby', '🌐');
+}
+window.toggleWebSearchVoice = toggleWebSearchVoice;
 
 function escapeHtml(text) {
   if (text === null || text === undefined) return '';
@@ -467,40 +520,35 @@ function appendMessageToDOM(role, content, meta = {}, shouldScroll = true) {
   const row = document.createElement('div');
   row.className = `message-row ${role === 'user' ? 'user' : 'ai'}`;
 
-  const avatar = document.createElement('div');
-  avatar.className = 'avatar-badge';
-  avatar.innerHTML = role === 'user' ? '👤' : '⚡';
-
   const bubble = document.createElement('div');
-  bubble.className = 'message-bubble';
+  bubble.className = `message-bubble ${role === 'user' ? 'user-bubble' : 'ai-bubble'}`;
 
-  // Attachments display for user messages
-  let attachmentsHtml = '';
-  if (meta && meta.attachments && meta.attachments.length > 0) {
-    attachmentsHtml = '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">';
-    meta.attachments.forEach(att => {
-      if (att.data && att.type && att.type.includes('image')) {
-        attachmentsHtml += `<img src="${att.data}" style="max-height:160px; border-radius:8px; border:1px solid rgba(0,240,255,0.3); cursor:pointer;" onclick="openLightbox('${att.data}')" />`;
-      } else if (att.is_pdf || (att.name && att.name.endsWith('.pdf'))) {
-        attachmentsHtml += `<div class="attachment-chip" style="background:rgba(239, 68, 68, 0.15); border-color:#ef4444; color:#fca5a5;">📕 ${att.name} ${att.page_count ? `(${att.page_count} pages)` : ''}</div>`;
-      } else {
-        attachmentsHtml += `<div class="attachment-chip">📄 ${att.name}</div>`;
-      }
-    });
-    attachmentsHtml += '</div>';
-  }
-
-  // Meta indicators for AI messages
-  let metaHtml = '';
-  let ttsControlsHtml = '';
-  if (role === 'ai') {
+  let headerHtml = '';
+  if (role === 'user') {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    headerHtml = `
+      <div class="message-header-bar">
+        <div class="message-header-left">
+          <div class="msg-avatar-badge user-avatar">👤</div>
+          <div class="user-meta-tag">YOU</div>
+        </div>
+        <div class="message-header-right">
+          <span class="msg-timestamp">${timeStr}</span>
+        </div>
+      </div>
+    `;
+  } else {
     const isOllama = meta && meta.source === 'ollama';
     const modelDisplayName = meta && meta.model ? (state.modelDisplayNames[meta.model] || meta.model) : (isOllama ? 'Local Ollama' : 'Gemini Cloud');
     const modelTag = modelDisplayName;
-    metaHtml = `
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-        <div class="ai-meta-tag" style="margin-bottom:0;">⚡ ${isOllama ? 'Local Ollama' : 'Gemini Cloud'}: ${modelTag}</div>
-        <div style="display:flex; gap:6px;">
+    const badgeClass = isOllama ? 'ai-meta-tag ollama-active-badge' : 'ai-meta-tag';
+    headerHtml = `
+      <div class="message-header-bar">
+        <div class="message-header-left">
+          <div class="msg-avatar-badge ai-avatar">⚡</div>
+          <div class="${badgeClass}" style="margin-bottom:0;">⚡ ${isOllama ? 'Local Ollama' : 'Gemini Cloud'}: ${modelTag}</div>
+        </div>
+        <div class="message-header-right">
           <button class="tts-bubble-btn" title="Read message aloud" onclick="speakMessageManual(this)">🔊 Read</button>
           <button class="tts-bubble-btn" title="Stop speech" onclick="stopSpeech()">⏹ Stop</button>
         </div>
@@ -508,8 +556,24 @@ function appendMessageToDOM(role, content, meta = {}, shouldScroll = true) {
     `;
 
     if (meta && meta.supervisorAlert) {
-      metaHtml += `<div class="supervisor-alert-badge">🛡️ Supervisor AI Correction: ${meta.supervisorAlert}</div>`;
+      headerHtml += `<div class="supervisor-alert-badge">🛡️ Supervisor AI Correction: ${meta.supervisorAlert}</div>`;
     }
+  }
+
+  // Attachments display for user messages
+  let attachmentsHtml = '';
+  if (meta && meta.attachments && meta.attachments.length > 0) {
+    attachmentsHtml = '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">';
+    meta.attachments.forEach(att => {
+      if (att.data && att.type && att.type.includes('image')) {
+        attachmentsHtml += `<img src="${att.data}" style="max-height:180px; border-radius:10px; border:1px solid rgba(0,240,255,0.35); cursor:pointer;" onclick="openLightbox('${att.data}')" />`;
+      } else if (att.is_pdf || (att.name && att.name.endsWith('.pdf'))) {
+        attachmentsHtml += `<div class="attachment-chip" style="background:rgba(239, 68, 68, 0.15); border-color:#ef4444; color:#fca5a5;">📕 ${att.name} ${att.page_count ? `(${att.page_count} pages)` : ''}</div>`;
+      } else {
+        attachmentsHtml += `<div class="attachment-chip">📄 ${att.name}</div>`;
+      }
+    });
+    attachmentsHtml += '</div>';
   }
 
   // Image Generation Card
@@ -527,9 +591,9 @@ function appendMessageToDOM(role, content, meta = {}, shouldScroll = true) {
     `;
   }
 
-  bubble.innerHTML = `${metaHtml}${attachmentsHtml}${renderMarkdown(content)}${imageCardHtml}`;
+  const contentHtml = `<div class="message-content-body">${renderMarkdown(content)}</div>`;
+  bubble.innerHTML = `${headerHtml}${attachmentsHtml}${contentHtml}${imageCardHtml}`;
 
-  row.appendChild(avatar);
   row.appendChild(bubble);
   chatMessagesContainer.appendChild(row);
 
@@ -546,40 +610,45 @@ function appendAnimatedMessageToDOM(role, content, meta = {}, onComplete = null)
   }
 
   if (welcomeHero) welcomeHero.style.display = 'none';
+  if (chatMessagesContainer) chatMessagesContainer.style.display = 'flex';
 
   const row = document.createElement('div');
   row.className = 'message-row ai';
 
-  const avatar = document.createElement('div');
-  avatar.className = 'avatar-badge animated-avatar';
-  avatar.innerHTML = '⚡';
-
   const bubble = document.createElement('div');
-  bubble.className = 'message-bubble';
+  bubble.className = 'message-bubble ai-bubble';
 
   const isOllama = meta && meta.source === 'ollama';
   const modelDisplayName = meta && meta.model ? (state.modelDisplayNames[meta.model] || meta.model) : (isOllama ? 'Local Ollama' : 'Gemini Cloud');
   const modelTag = modelDisplayName;
   const badgeClass = isOllama ? 'ai-meta-tag ollama-active-badge' : 'ai-meta-tag';
 
-  const metaDiv = document.createElement('div');
-  metaDiv.innerHTML = `
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+  const headerDiv = document.createElement('div');
+  headerDiv.className = 'message-header-bar';
+  headerDiv.innerHTML = `
+    <div class="message-header-left">
+      <div class="msg-avatar-badge ai-avatar animated-avatar">⚡</div>
       <div class="${badgeClass}" style="margin-bottom:0;">⚡ ${isOllama ? 'Local Ollama' : 'Gemini Cloud'}: ${modelTag}</div>
-      <div style="display:flex; gap:6px;">
-        <button class="tts-bubble-btn" title="Read message aloud" onclick="speakMessageManual(this)">🔊 Read</button>
-        <button class="tts-bubble-btn" title="Stop speech" onclick="stopSpeech()">⏹ Stop</button>
-      </div>
     </div>
-    ${meta && meta.supervisorAlert ? `<div class="supervisor-alert-badge">🛡️ Supervisor AI Correction: ${meta.supervisorAlert}</div>` : ''}
+    <div class="message-header-right">
+      <button class="tts-bubble-btn" title="Read message aloud" onclick="speakMessageManual(this)">🔊 Read</button>
+      <button class="tts-bubble-btn" title="Stop speech" onclick="stopSpeech()">⏹ Stop</button>
+    </div>
   `;
 
-  const textContainer = document.createElement('div');
-  textContainer.className = 'ai-text-stream';
+  bubble.appendChild(headerDiv);
 
-  bubble.appendChild(metaDiv);
+  if (meta && meta.supervisorAlert) {
+    const supAlert = document.createElement('div');
+    supAlert.className = 'supervisor-alert-badge';
+    supAlert.textContent = `🛡️ Supervisor AI Correction: ${meta.supervisorAlert}`;
+    bubble.appendChild(supAlert);
+  }
+
+  const textContainer = document.createElement('div');
+  textContainer.className = 'ai-text-stream message-content-body';
+
   bubble.appendChild(textContainer);
-  row.appendChild(avatar);
   row.appendChild(bubble);
   chatMessagesContainer.appendChild(row);
   scrollChatToBottom();
@@ -743,9 +812,13 @@ async function handleSendMessage() {
   const activeName = state.modelDisplayNames[state.activeModel] || state.activeModel;
   const activeLabel = isCloudActive ? `Gemini Cloud: ${activeName}` : `Local Ollama: ${activeName}`;
   thinkingRow.innerHTML = `
-    <div class="avatar-badge animated-avatar">⚡</div>
-    <div class="message-bubble thinking-bubble">
-      <div class="ai-meta-tag ${isCloudActive ? '' : 'ollama-active-badge'}">⚡ ${activeLabel}</div>
+    <div class="message-bubble thinking-bubble ai-bubble">
+      <div class="message-header-bar">
+        <div class="message-header-left">
+          <div class="msg-avatar-badge ai-avatar animated-avatar">⚡</div>
+          <div class="ai-meta-tag ${isCloudActive ? '' : 'ollama-active-badge'}" style="margin-bottom:0;">⚡ ${activeLabel}</div>
+        </div>
+      </div>
       <div class="thinking-pulse-wrapper">
         <div class="thinking-spinner"></div>
         <div class="thinking-details">
@@ -1090,7 +1163,8 @@ function onSpeechFinished(waitingForConfirmation) {
 window.speakMessageManual = function (btn) {
   const bubble = btn.closest('.message-bubble');
   if (!bubble) return;
-  const rawText = bubble.innerText;
+  const contentBody = bubble.querySelector('.message-content-body') || bubble;
+  const rawText = contentBody.innerText || bubble.innerText;
   smartSpeakResponse(rawText);
 };
 
@@ -1100,6 +1174,8 @@ window.stopSpeech = stopSpeech;
 // ----------------- VOICE ENGINE, WAKE-WORDS & HOTKEY CONVERSATION FLOW -----------------
 let recognition = null;
 let silenceTimer = null;
+let voiceElapsedTimer = null;
+let voiceStartTime = 0;
 // 3200ms allows natural conversational breathing, pausing to think, and sentence structuring
 const MIC_SILENCE_MS = 3200;
 let voiceSessionPrefix = '';
@@ -1112,25 +1188,70 @@ function clearSilenceTimer() {
   }
 }
 
+function startVoiceTimer() {
+  stopVoiceTimer();
+  voiceStartTime = Date.now();
+  voiceElapsedTimer = setInterval(() => {
+    const elapsedSec = Math.floor((Date.now() - voiceStartTime) / 1000);
+    const m = Math.floor(elapsedSec / 60);
+    const s = elapsedSec % 60;
+    const timerEl = document.getElementById('dock-waveform-timer');
+    if (timerEl) {
+      timerEl.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+  }, 500);
+}
+
+function stopVoiceTimer() {
+  if (voiceElapsedTimer) {
+    clearInterval(voiceElapsedTimer);
+    voiceElapsedTimer = null;
+  }
+  const timerEl = document.getElementById('dock-waveform-timer');
+  if (timerEl) timerEl.textContent = '0:00';
+}
+
 function applyMicUi(listening) {
-  if (micBtn) micBtn.classList.toggle('listening', listening);
-  if (chatInput) {
-    if (listening) {
+  const mainMic = document.getElementById('dock-main-mic-btn');
+  const waveUnit = document.getElementById('dock-voice-wave-unit');
+  const smallMic = document.getElementById('mic-btn');
+  const transcriptEl = document.getElementById('dock-waveform-transcript');
+
+  if (smallMic) smallMic.classList.toggle('listening', listening);
+
+  if (listening) {
+    // In Voice Mode: Hide big mic and smoothly display the fluid waveform unit
+    if (mainMic) mainMic.style.display = 'none';
+    if (waveUnit) {
+      waveUnit.style.display = 'flex';
+      if (transcriptEl) transcriptEl.textContent = 'Listening...';
+    }
+
+    if (chatInput) {
       if (!chatInput.getAttribute('data-default-placeholder')) {
         chatInput.setAttribute('data-default-placeholder', chatInput.placeholder || '');
       }
-      chatInput.placeholder = '🎙️ Listening... speak naturally (take your time, auto-sends after pause)';
-    } else {
+      chatInput.placeholder = '🎙️ Listening... speak naturally (auto-sends on pause)';
+    }
+
+    if (window.vedasWaveform) {
+      window.vedasWaveform.setState('listening');
+    }
+    setHologramState('user_speaking');
+  } else {
+    // In Voice Mode: Hide fluid waveform and restore the big center mic
+    if (waveUnit) waveUnit.style.display = 'none';
+    if (mainMic) mainMic.style.display = 'flex';
+
+    if (chatInput) {
       const def = chatInput.getAttribute('data-default-placeholder');
       if (def) chatInput.placeholder = def;
     }
-  }
-  if (listening) {
-    if (window.vedasWaveform) window.vedasWaveform.setState('listening');
-    setHologramState('user_speaking');
-  } else if (!state.isSpeaking) {
-    if (window.vedasWaveform) window.vedasWaveform.setState('idle');
-    setHologramState('idle');
+
+    if (!state.isSpeaking) {
+      if (window.vedasWaveform) window.vedasWaveform.setState('idle');
+      setHologramState('idle');
+    }
   }
 }
 
@@ -1138,6 +1259,7 @@ function haltMicForSpeech() {
   state.micArmed = false;
   state.isListening = false;
   clearSilenceTimer();
+  stopVoiceTimer();
   clearTimeout(voiceRestartDebounce);
   voiceSessionPrefix = '';
   applyMicUi(false);
@@ -1152,7 +1274,10 @@ function initVoiceEngine() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     console.warn('Speech Recognition not supported in this browser.');
-    if (micBtn) micBtn.title = 'Speech recognition not supported in browser';
+    const smallMic = document.getElementById('mic-btn');
+    const mainMic = document.getElementById('dock-main-mic-btn');
+    if (smallMic) smallMic.title = 'Speech recognition not supported in browser';
+    if (mainMic) mainMic.title = 'Speech recognition not supported in browser';
     return;
   }
 
@@ -1189,14 +1314,20 @@ function initVoiceEngine() {
     // Combine any text persisted across recognition restarts with current session
     const fullText = (voiceSessionPrefix + sessionFinal + sessionInterim).trim();
     if (fullText) {
-      chatInput.value = fullText;
-      autoResizeChatInput();
+      if (chatInput) {
+        chatInput.value = fullText;
+        autoResizeChatInput();
+      }
+      const transcriptEl = document.getElementById('dock-waveform-transcript');
+      if (transcriptEl) {
+        transcriptEl.textContent = fullText;
+      }
     }
 
     // Reset silence timer on every chunk of speech detected (resets on breathing/speaking)
     clearSilenceTimer();
     silenceTimer = setTimeout(() => {
-      const query = (chatInput.value || '').trim();
+      const query = (chatInput ? chatInput.value : '').trim();
       if (query) {
         commitVoiceTranscript(query);
       }
@@ -1241,7 +1372,7 @@ function initVoiceEngine() {
 }
 
 function commitVoiceTranscript(rawQuery) {
-  const query = (rawQuery || '').trim();
+  const query = (rawQuery || (chatInput ? chatInput.value : '') || '').trim();
   if (!query) {
     hardStopMic();
     return;
@@ -1252,12 +1383,12 @@ function commitVoiceTranscript(rawQuery) {
   if (state.currentTTS.isPausedForConfirmation) {
     hardStopMic();
     if (cleanTranscript.includes('yes') || cleanTranscript.includes('sure') || cleanTranscript.includes('read') || cleanTranscript.includes('continue') || cleanTranscript.includes('full')) {
-      chatInput.value = '';
+      if (chatInput) chatInput.value = '';
       readFullResponse();
       return;
     }
     if (cleanTranscript.includes('no') || cleanTranscript.includes('stop') || cleanTranscript.includes('never mind')) {
-      chatInput.value = '';
+      if (chatInput) chatInput.value = '';
       stopSpeech();
       return;
     }
@@ -1274,7 +1405,7 @@ function commitVoiceTranscript(rawQuery) {
     }
   }
 
-  chatInput.value = outbound;
+  if (chatInput) chatInput.value = outbound;
   hardStopMic();
   handleSendMessage();
 }
@@ -1298,7 +1429,7 @@ function beginVoiceListening() {
   state.micArmed = true;
   state.isListening = true;
   applyMicUi(true);
-  showToast('Listening... Speak naturally (pause to send)', '🎙️');
+  showToast('Listening... Speak naturally (pause or tap ➤ to send)', '🎙️');
   try {
     recognition.start();
   } catch (e) {
@@ -1312,6 +1443,7 @@ function hardStopMic() {
   state.micArmed = false;
   state.isListening = false;
   clearSilenceTimer();
+  stopVoiceTimer();
   clearTimeout(voiceRestartDebounce);
   voiceSessionPrefix = '';
   applyMicUi(false);
@@ -1334,6 +1466,11 @@ function toggleVoiceListening() {
 function stopVoiceListening() {
   hardStopMic();
 }
+
+window.toggleVoiceListening = toggleVoiceListening;
+window.beginVoiceListening = beginVoiceListening;
+window.hardStopMic = hardStopMic;
+window.commitVoiceTranscript = commitVoiceTranscript;
 
 // ----------------- PYTHON SANDBOX CODE EXECUTION -----------------
 window.executePythonSandbox = async function (encodedCode, btnElement) {
@@ -1709,6 +1846,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (sendBtn) sendBtn.addEventListener('click', handleSendMessage);
   if (micBtn) micBtn.addEventListener('click', toggleVoiceListening);
+  const mainMic = document.getElementById('dock-main-mic-btn');
+  if (mainMic) mainMic.addEventListener('click', toggleVoiceListening);
   if (fileInput) fileInput.addEventListener('change', handleFileSelect);
 
   // File Upload Trigger Button
@@ -1722,6 +1861,8 @@ document.addEventListener('DOMContentLoaded', () => {
     webSearchBtn.addEventListener('click', () => {
       state.useWebSearch = !state.useWebSearch;
       webSearchBtn.classList.toggle('active', state.useWebSearch);
+      const voiceWebBtn = document.getElementById('dock-btn-web-voice');
+      if (voiceWebBtn) voiceWebBtn.classList.toggle('active', state.useWebSearch);
       showToast(state.useWebSearch ? 'Live Web Search Armed' : 'Web Search Standby', '🌐');
     });
   }
@@ -1768,6 +1909,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (prompt.startsWith('/image') || prompt.startsWith('create an image')) {
           openImageStudio();
         } else {
+          switchInputMode('typing');
           chatInput.value = prompt;
           handleSendMessage();
         }

@@ -555,7 +555,7 @@ html, body {
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
-  max-width: 860px;
+  max-width: 1060px;
   margin: 0 auto;
   padding: 14px 20px;
   text-align: center;
@@ -565,6 +565,7 @@ html, body {
   gap: 10px;
   overflow-y: auto;
   overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 #welcome-hero::before,
@@ -677,20 +678,30 @@ html, body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 20px 24px;
+  padding: 20px 32px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
   scroll-behavior: smooth;
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .message-row {
   display: flex;
-  gap: 16px;
-  max-width: 880px;
   width: 100%;
-  margin: 0 auto;
+  box-sizing: border-box;
   animation: messageSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.message-row.user {
+  justify-content: flex-end;
+}
+
+.message-row.ai {
+  justify-content: flex-start;
 }
 
 @keyframes messageSlideIn {
@@ -698,55 +709,119 @@ html, body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.message-row.user {
-  flex-direction: row-reverse;
-}
-
-.avatar-badge {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: 1.1rem;
-}
-
-.message-row.ai .avatar-badge {
-  background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(168, 85, 247, 0.25));
-  border: 1px solid var(--border-glow);
-  box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
-}
-
-.message-row.user .avatar-badge {
-  background: linear-gradient(135deg, #374151, #1f2937);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
+/* Master Message Card Container */
 .message-bubble {
-  max-width: 84%;
-  padding: 16px 20px;
+  padding: 18px 24px;
   border-radius: var(--radius-lg);
   position: relative;
-  line-height: 1.65;
+  line-height: 1.68;
   font-size: 0.95rem;
+  box-sizing: border-box;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.5);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
+/* AI Responses: Positioned to the Left with generous breathing room */
+.message-row.ai .message-bubble {
+  width: auto;
+  max-width: 84%;
+  min-width: 320px;
+  margin-right: auto;
+  background: rgba(14, 20, 34, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: var(--text-main);
+  border-bottom-left-radius: 4px;
+}
+
+.message-row.ai .message-bubble:hover {
+  border-color: rgba(0, 240, 255, 0.35);
+  box-shadow: 0 6px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 240, 255, 0.1);
+}
+
+/* User Prompts: Positioned to the Right with distinct styling */
 .message-row.user .message-bubble {
-  background: linear-gradient(135deg, #1e293b, #0f172a);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  width: auto;
+  max-width: 76%;
+  min-width: 220px;
+  margin-left: auto;
+  background: linear-gradient(135deg, rgba(16, 28, 48, 0.95), rgba(10, 18, 34, 0.98));
+  border: 1px solid rgba(0, 240, 255, 0.3);
   color: #fff;
   border-bottom-right-radius: 4px;
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 240, 255, 0.08);
 }
 
-.message-row.ai .message-bubble {
-  background: rgba(15, 21, 34, 0.85);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-main);
-  backdrop-filter: blur(12px);
-  border-bottom-left-radius: 4px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+.message-row.user .message-bubble:hover {
+  border-color: var(--cyan-neon);
+  box-shadow: 0 6px 32px rgba(0, 0, 0, 0.6), 0 0 25px rgba(0, 240, 255, 0.2);
+}
+
+/* Message Header Bar (Embedded Avatars & Meta Tags) */
+.message-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.message-header-left,
+.message-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.msg-avatar-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.msg-avatar-badge.ai-avatar {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(168, 85, 247, 0.25));
+  border: 1px solid var(--border-glow);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
+
+.msg-avatar-badge.user-avatar {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(16, 185, 129, 0.2));
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
+}
+
+.user-meta-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: rgba(0, 240, 255, 0.08);
+  color: var(--cyan-neon);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+}
+
+.msg-timestamp {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.message-content-body {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* AI Message Badges & TTS Buttons */
@@ -755,12 +830,13 @@ html, body {
   align-items: center;
   gap: 6px;
   font-family: var(--font-mono);
-  font-size: 0.7rem;
-  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
   border-radius: 12px;
   background: rgba(0, 240, 255, 0.1);
   color: var(--cyan-neon);
-  border: 1px solid rgba(0, 240, 255, 0.2);
+  border: 1px solid rgba(0, 240, 255, 0.22);
 }
 
 .ai-meta-tag.ollama-active-badge {
@@ -776,7 +852,7 @@ html, body {
   100% { border-color: rgba(0, 240, 255, 0.6); box-shadow: 0 0 14px rgba(0, 240, 255, 0.4); }
 }
 
-.avatar-badge.animated-avatar {
+.msg-avatar-badge.animated-avatar {
   background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(16, 185, 129, 0.35));
   border: 1px solid var(--cyan-neon);
   box-shadow: 0 0 12px rgba(0, 240, 255, 0.45);
@@ -790,9 +866,13 @@ html, body {
 
 /* Thinking Indicator Bubble */
 .thinking-bubble {
-  background: rgba(10, 15, 26, 0.85) !important;
+  width: auto;
+  max-width: 84%;
+  min-width: 320px;
+  margin-right: auto;
+  background: rgba(10, 15, 26, 0.9) !important;
   border: 1px dashed rgba(0, 240, 255, 0.45) !important;
-  box-shadow: 0 0 16px rgba(0, 240, 255, 0.15) !important;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.15) !important;
 }
 
 .thinking-pulse-wrapper {
@@ -1003,49 +1083,397 @@ html, body {
 }
 
 /* ==========================================================================
-   Waveform Canvas Bar
+   Master Chat Input Dock & Dual-Mode Controls
    ========================================================================== */
-#waveform-container {
-  height: 42px;
+#input-dock {
+  padding: 10px 24px 20px 24px;
   width: 100%;
-  max-width: 880px;
+  max-width: 1060px;
   margin: 0 auto;
-  padding: 0 20px;
-  display: flex;
-  align-items: center;
   position: relative;
+  z-index: 15;
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 
-#waveform-canvas {
+.dock-mode-container {
   width: 100%;
-  height: 100%;
-  border-radius: var(--radius-md);
-  background: rgba(10, 14, 24, 0.4);
-  border: 1px solid rgba(0, 240, 255, 0.15);
+  box-sizing: border-box;
+  transition: opacity 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.waveform-indicator-label {
-  position: absolute;
-  right: 32px;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--cyan-neon);
-  letter-spacing: 1px;
-  text-transform: uppercase;
+#dock-voice-mode.active {
+  display: flex !important;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  animation: dockFadeIn 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+#dock-typing-mode.active {
+  display: block !important;
+  width: 100% !important;
+  animation: dockFadeIn 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes dockFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* ==========================================================================
-   Input Dock & Controls
+   Primary Voice Dock (Voice Mode)
    ========================================================================== */
-#input-dock {
-  padding: 6px 24px 14px 24px;
+#dock-voice-mode {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
   width: 100%;
-  max-width: 920px;
-  margin: 0 auto;
   position: relative;
-  z-index: 10;
+  padding: 6px 10px;
+  box-sizing: border-box;
+}
+
+.dock-side-left,
+.dock-side-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.dock-side-left {
+  justify-content: flex-start;
+}
+
+.dock-side-right {
+  justify-content: flex-end;
+}
+
+/* Futuristic Pill Action Buttons (Memory, Image, Attach, Web, Files, Type) */
+.dock-pill-btn {
+  background: rgba(14, 20, 34, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 240, 255, 0.22);
+  border-radius: 30px;
+  padding: 10px 18px;
+  color: #fff;
+  font-family: var(--font-main);
+  font-size: 0.86rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.dock-pill-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.15), transparent);
+  transition: left 0.6s ease;
+}
+
+.dock-pill-btn:hover::before {
+  left: 100%;
+}
+
+.dock-pill-btn:hover {
+  transform: translateY(-2px);
+  border-color: var(--cyan-neon);
+  box-shadow: 0 6px 25px rgba(0, 240, 255, 0.35), inset 0 0 12px rgba(0, 240, 255, 0.15);
+  color: #fff;
+}
+
+.dock-pill-btn:active {
+  transform: translateY(1px) scale(0.97);
+}
+
+.dock-btn-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.dock-btn-label {
+  letter-spacing: 0.3px;
+}
+
+/* Specific button theme glows */
+.dock-btn-memory:hover {
+  border-color: #a855f7;
+  box-shadow: 0 6px 25px rgba(168, 85, 247, 0.35), inset 0 0 12px rgba(168, 85, 247, 0.15);
+}
+
+.dock-btn-image:hover {
+  border-color: var(--jarvis-gold);
+  box-shadow: 0 6px 25px rgba(245, 184, 61, 0.35), inset 0 0 12px rgba(245, 184, 61, 0.15);
+}
+
+.dock-btn-attach:hover {
+  border-color: var(--cyan-neon);
+  box-shadow: 0 6px 25px rgba(0, 240, 255, 0.35), inset 0 0 12px rgba(0, 240, 255, 0.15);
+}
+
+.dock-btn-web:hover {
+  border-color: #10b981;
+  box-shadow: 0 6px 25px rgba(16, 185, 129, 0.35), inset 0 0 12px rgba(16, 185, 129, 0.15);
+}
+
+.dock-btn-web.active {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+  color: #10b981;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+}
+
+.dock-btn-files:hover {
+  border-color: var(--jarvis-gold);
+  box-shadow: 0 6px 25px rgba(245, 184, 61, 0.35), inset 0 0 12px rgba(245, 184, 61, 0.15);
+}
+
+.dock-btn-type:hover {
+  border-color: var(--cyan-neon);
+  box-shadow: 0 6px 25px rgba(0, 240, 255, 0.35), inset 0 0 12px rgba(0, 240, 255, 0.15);
+}
+
+/* ==========================================================================
+   Center Voice Unit & Big Mic Button / Fluid Waveform
+   ========================================================================== */
+.dock-center-unit {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 320px;
+  max-width: 420px;
+  min-height: 94px;
+  margin: 0 12px;
   flex-shrink: 0;
+}
+
+/* Big Center Glowing Mic Button */
+.dock-big-mic-btn {
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(0, 240, 255, 0.22), rgba(12, 17, 30, 0.95) 75%);
+  border: 2px solid rgba(0, 240, 255, 0.7);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  box-shadow: 0 0 30px rgba(0, 240, 255, 0.35), inset 0 0 18px rgba(0, 240, 255, 0.25), 0 8px 30px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  user-select: none;
+}
+
+.dock-big-mic-btn:hover {
+  transform: scale(1.09);
+  border-color: var(--cyan-neon);
+  box-shadow: 0 0 45px rgba(0, 240, 255, 0.65), inset 0 0 24px rgba(0, 240, 255, 0.4), 0 10px 36px rgba(0, 0, 0, 0.8);
+}
+
+.dock-big-mic-btn:active {
+  transform: scale(0.95);
+}
+
+/* Animated Halos around Big Mic */
+.mic-halo-ring {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(0, 240, 255, 0.4);
+  animation: rotateHalo 14s linear infinite;
+  pointer-events: none;
+}
+
+.mic-halo-pulse {
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  animation: pulseHalo 2.6s ease-out infinite;
+  pointer-events: none;
+}
+
+.mic-core-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 240, 255, 0.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.mic-icon-inner {
+  font-size: 2.2rem;
+  line-height: 1;
+  z-index: 2;
+  filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.75));
+  transition: transform 0.25s ease;
+}
+
+.dock-big-mic-btn:hover .mic-icon-inner {
+  transform: scale(1.1);
+}
+
+.mic-hotkey-badge {
+  position: absolute;
+  bottom: -22px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--cyan-neon);
+  background: rgba(10, 15, 26, 0.9);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: 12px;
+  padding: 2px 8px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s ease;
+}
+
+.dock-big-mic-btn:hover .mic-hotkey-badge {
+  border-color: var(--cyan-neon);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+}
+
+@keyframes rotateHalo {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulseHalo {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 0.25;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+/* ==========================================================================
+   Pure Fluid Waveform & Speech Transcript Unit (Larger & Cinematic)
+   ========================================================================== */
+.dock-voice-wave-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  cursor: pointer;
+  user-select: none;
+  animation: waveUnitAppear 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes waveUnitAppear {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.fluid-waveform-wrapper {
+  width: 340px;
+  height: 56px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 28px;
+}
+
+.fluid-waveform-wrapper canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 0 12px rgba(0, 240, 255, 0.7));
+}
+
+.fluid-wave-glow {
+  position: absolute;
+  inset: -6px;
+  border-radius: 34px;
+  background: radial-gradient(ellipse at center, rgba(0, 240, 255, 0.2) 0%, rgba(255, 42, 133, 0.1) 50%, transparent 80%);
+  pointer-events: none;
+  filter: blur(10px);
+  animation: waveGlowPulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes waveGlowPulse {
+  0% { opacity: 0.5; transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1.08); }
+}
+
+/* Subtle Live Speech Transcript Pill Below Waveform */
+.dock-speech-transcript {
+  background: rgba(14, 20, 34, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: 14px;
+  padding: 4px 16px;
+  font-family: var(--font-main);
+  font-size: 0.8rem;
+  color: #fff;
+  max-width: 300px;
+  min-width: 130px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 12px rgba(0, 240, 255, 0.15);
+  transition: all 0.2s ease;
+  letter-spacing: 0.2px;
+}
+
+.dock-voice-wave-unit:hover .dock-speech-transcript {
+  border-color: var(--cyan-neon);
+  box-shadow: 0 4px 20px rgba(0, 240, 255, 0.3);
+}
+
+/* ==========================================================================
+   Secondary Keyboard Typing Dock (Full Horizontal Width)
+   ========================================================================== */
+#dock-typing-mode {
+  width: 100% !important;
+  box-sizing: border-box;
 }
 
 /* File Attachment Chips Tray */
@@ -1089,17 +1517,20 @@ html, body {
   color: var(--pink-neon);
 }
 
-/* Master Input Frame */
+/* Master Input Frame - Expanded Full Width */
 .input-glass-box {
-  background: rgba(14, 19, 31, 0.8);
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(14, 19, 31, 0.88);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
-  padding: 10px 14px 10px 18px;
+  padding: 12px 18px 10px 18px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  box-shadow: var(--shadow-card), 0 0 20px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-card), 0 0 25px rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   transition: var(--transition-smooth);
 }
 
@@ -1112,10 +1543,12 @@ html, body {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
 }
 
 #chat-input {
   flex: 1;
+  width: 100%;
   background: transparent;
   border: none;
   color: #fff;
@@ -1124,7 +1557,7 @@ html, body {
   outline: none;
   resize: none;
   max-height: 140px;
-  min-height: 24px;
+  min-height: 26px;
   line-height: 1.5;
 }
 
@@ -1136,14 +1569,23 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
   padding-top: 6px;
+  width: 100%;
 }
 
-.input-tools-left {
+.input-tools-left,
+.input-tools-right {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.typing-hotkey-hint {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  margin-right: 8px;
 }
 
 .tool-icon-btn {
@@ -1174,8 +1616,8 @@ html, body {
   border-color: var(--cyan-neon);
 }
 
-/* Voice Mic Pulse Button */
-.mic-action-btn {
+/* Small Side Mic Button inside Typing Mode */
+.small-side-mic {
   width: 38px;
   height: 38px;
   border-radius: 50%;
@@ -1189,19 +1631,44 @@ html, body {
   cursor: pointer;
   transition: var(--transition-bounce);
   position: relative;
+  flex-shrink: 0;
 }
 
-.mic-action-btn:hover {
+.small-side-mic:hover {
   border-color: var(--cyan-neon);
   color: var(--cyan-neon);
   transform: scale(1.08);
 }
 
-.mic-action-btn.listening {
+.small-side-mic.listening {
   background: var(--pink-neon);
   color: #fff;
   border-color: var(--pink-neon);
   animation: micPulse 1.2s infinite;
+}
+
+/* Switch to Voice Mode Button */
+.dock-mode-switch-btn {
+  background: rgba(0, 240, 255, 0.1);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  color: var(--cyan-neon);
+  border-radius: 18px;
+  padding: 4px 12px;
+  font-family: var(--font-main);
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dock-mode-switch-btn:hover {
+  background: rgba(0, 240, 255, 0.22);
+  border-color: var(--cyan-neon);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+  transform: translateY(-1px);
 }
 
 @keyframes micPulse {
@@ -1225,6 +1692,7 @@ html, body {
   cursor: pointer;
   transition: var(--transition-bounce);
   box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+  flex-shrink: 0;
 }
 
 .send-btn:hover {
@@ -1239,6 +1707,30 @@ html, body {
 /* Hidden File Input */
 #file-input {
   display: none;
+}
+
+/* Responsive adjustments for mobile / small viewports */
+@media (max-width: 768px) {
+  #input-dock {
+    padding: 6px 12px 16px 12px;
+  }
+  .dock-pill-btn {
+    padding: 8px 12px;
+    font-size: 0.78rem;
+  }
+  .dock-btn-label {
+    display: none;
+  }
+  .dock-big-mic-btn {
+    width: 64px;
+    height: 64px;
+  }
+  .mic-icon-inner {
+    font-size: 1.7rem;
+  }
+  .dock-waveform-pod {
+    width: 95%;
+  }
 }
 
 /* ==========================================================================

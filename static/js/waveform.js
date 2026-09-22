@@ -19,26 +19,32 @@ class VedasWaveform {
 
   resize() {
     if (!this.canvas) return;
+    const parent = this.canvas.parentElement;
     const rect = this.canvas.getBoundingClientRect();
-    this.width = this.canvas.width = rect.width * window.devicePixelRatio || 600;
-    this.height = this.canvas.height = rect.height * window.devicePixelRatio || 60;
+    const parentRect = parent ? parent.getBoundingClientRect() : null;
+    const w = rect.width > 0 ? rect.width : (parentRect && parentRect.width > 0 ? parentRect.width : 200);
+    const h = rect.height > 0 ? rect.height : (parentRect && parentRect.height > 0 ? parentRect.height : 48);
+    const dpr = window.devicePixelRatio || 1;
+    this.width = this.canvas.width = w * dpr;
+    this.height = this.canvas.height = h * dpr;
   }
 
   setState(newState) {
     this.state = newState;
-    const indicator = document.getElementById('waveform-status-text');
+    this.resize();
+    const indicator = document.getElementById('dock-waveform-status') || document.getElementById('waveform-status-text');
     if (indicator) {
       if (newState === 'listening') {
-        indicator.textContent = 'VEDAS: LISTENING';
-        indicator.style.color = '#ff2a85';
+        indicator.textContent = 'LISTENING...';
+        indicator.style.color = '#00f0ff';
       } else if (newState === 'speaking') {
-        indicator.textContent = 'VEDAS: SPEAKING';
+        indicator.textContent = 'VEDAS SPEAKING';
         indicator.style.color = '#f5b83d';
       } else if (newState === 'thinking') {
-        indicator.textContent = 'VEDAS: INFERRING (OLLAMA)';
+        indicator.textContent = 'INFERRING...';
         indicator.style.color = '#00f0ff';
       } else {
-        indicator.textContent = 'VEDAS: IDLE';
+        indicator.textContent = 'STANDBY';
         indicator.style.color = '#6b7280';
       }
     }
