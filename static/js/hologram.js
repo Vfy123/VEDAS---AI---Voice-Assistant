@@ -150,10 +150,11 @@ class JarvisHologram {
     const isUser = this.state === 'user_speaking';
     const isActive = isAI || isUser;
 
-    // Color palette: JARVIS gold/amber for AI, cyan-blue for user
-    const aiColor = { r: 251, g: 176, b: 59 };   // amber/gold
-    const userColor = { r: 0, g: 212, b: 255 };   // cyan
-    const idleColor = { r: 0, g: 180, b: 200 };   // dim cyan
+    // Color palette: Dual Core — Blazing Orange & Electric Arc Cyan/Blue
+    const aiColor = { r: 255, g: 119, b: 0 };       // Intense JARVIS Orange #ff7700
+    const blueColor = { r: 0, g: 210, b: 255 };     // Electric Arc Blue #00d2ff
+    const userColor = { r: 0, g: 220, b: 255 };     // Glowing Electric Cyan
+    const idleColor = { r: 245, g: 184, b: 61 };    // Glowing Arc Gold #f5b83d
 
     let col = idleColor;
     if (isAI) col = aiColor;
@@ -165,8 +166,8 @@ class JarvisHologram {
     if (isActive) {
       const glowR = this.radius * (1.1 + 0.08 * Math.sin(this.time * 3));
       const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
-      grd.addColorStop(0, `${colStr},${0.12 * this.intensity})`);
-      grd.addColorStop(0.5, `${colStr},${0.06 * this.intensity})`);
+      grd.addColorStop(0, `${colStr},${0.14 * this.intensity})`);
+      grd.addColorStop(0.5, `rgba(0, 210, 255,${0.08 * this.intensity})`);
       grd.addColorStop(1, `${colStr},0)`);
       ctx.fillStyle = grd;
       ctx.beginPath();
@@ -177,9 +178,9 @@ class JarvisHologram {
     // Ripple waves
     this.ripples = this.ripples.filter(rip => rip.alpha > 0.02);
     for (const rip of this.ripples) {
-      const c = rip.type === 'ai' ? aiColor : userColor;
+      const c = rip.type === 'ai' ? (Math.sin(this.time * 4) > 0 ? aiColor : blueColor) : userColor;
       ctx.strokeStyle = `rgba(${c.r},${c.g},${c.b},${rip.alpha})`;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 1.6;
       ctx.setLineDash([]);
       ctx.beginPath();
       ctx.arc(cx, cy, rip.r, 0, Math.PI * 2);
@@ -188,16 +189,17 @@ class JarvisHologram {
       rip.alpha *= 0.96;
     }
 
-    // Rotating dashed rings
+    // Rotating dashed rings (alternating orange and electric cyan/blue)
     this.rings.forEach((ring, i) => {
       const ringR = ring.r * (this.canvas.width / (this.canvas.width || 200));
       const rot = this.time * ring.speed * (30 + this.intensity * 20);
       const alpha = ring.alpha * (0.5 + 0.5 * this.intensity) * (isActive ? 1 : 0.45);
+      const ringColor = (i % 2 === 1) ? `rgba(0, 210, 255,${alpha})` : `${colStr},${alpha})`;
 
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(rot);
-      ctx.strokeStyle = `${colStr},${alpha})`;
+      ctx.strokeStyle = ringColor;
       ctx.lineWidth = ring.width * (1 + this.intensity * 0.5);
       ctx.setLineDash(ring.dash);
       ctx.lineDashOffset = -this.time * 15;

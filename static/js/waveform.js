@@ -36,16 +36,16 @@ class VedasWaveform {
     if (indicator) {
       if (newState === 'listening') {
         indicator.textContent = 'LISTENING...';
-        indicator.style.color = '#00f0ff';
+        indicator.style.color = '#ff9900';
       } else if (newState === 'speaking') {
         indicator.textContent = 'VEDAS SPEAKING';
-        indicator.style.color = '#f5b83d';
+        indicator.style.color = '#ff7700';
       } else if (newState === 'thinking') {
         indicator.textContent = 'INFERRING...';
-        indicator.style.color = '#00f0ff';
+        indicator.style.color = '#ffd166';
       } else {
         indicator.textContent = 'STANDBY';
-        indicator.style.color = '#6b7280';
+        indicator.style.color = '#94a3b8';
       }
     }
   }
@@ -58,35 +58,36 @@ class VedasWaveform {
     const centerY = height / 2;
 
     if (state === 'idle') {
-      // Ambient undulating line
-      this.phase += 0.03;
+      // Ambient undulating line with dual Orange & Electric Cyan gradient
+      this.phase += 0.035;
       const gradient = ctx.createLinearGradient(0, 0, width, 0);
-      gradient.addColorStop(0, 'rgba(0, 240, 255, 0.1)');
-      gradient.addColorStop(0.5, 'rgba(0, 240, 255, 0.8)');
-      gradient.addColorStop(1, 'rgba(168, 85, 247, 0.1)');
+      gradient.addColorStop(0, 'rgba(255, 119, 0, 0.15)');
+      gradient.addColorStop(0.35, 'rgba(255, 140, 0, 0.85)');
+      gradient.addColorStop(0.7, 'rgba(0, 210, 255, 0.9)');
+      gradient.addColorStop(1, 'rgba(0, 150, 255, 0.2)');
 
       ctx.beginPath();
       ctx.moveTo(0, centerY);
       for (let x = 0; x < width; x += 4) {
         const envelope = Math.sin(Math.PI * (x / width));
-        const y = centerY + Math.sin(x * 0.015 + this.phase) * (height * 0.08) * envelope;
+        const y = centerY + Math.sin(x * 0.015 + this.phase) * (height * 0.1) * envelope;
         ctx.lineTo(x, y);
       }
       ctx.strokeStyle = gradient;
-      ctx.lineWidth = 2;
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = '#00f0ff';
+      ctx.lineWidth = 2.4;
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = '#00d2ff';
       ctx.stroke();
       ctx.shadowBlur = 0;
     } else if (state === 'thinking') {
-      // Dynamic neural pulse harmonic wave during Ollama inference
+      // Dynamic neural pulse harmonic wave with Arc Blue, Cyan, Orange & Gold
       this.phase += 0.16;
       const baseAmp = height * 0.36;
       const layers = [
-        { color: '#00f0ff', freq: 0.024, speed: 1.4, width: 2.2, glow: '#00f0ff' },
-        { color: '#10b981', freq: 0.030, speed: 1.1, width: 1.8, glow: '#10b981' },
-        { color: '#a855f7', freq: 0.018, speed: 1.6, width: 1.5, glow: '#a855f7' },
-        { color: '#ffffff', freq: 0.012, speed: 0.8, width: 1.0, glow: '#ffffff' }
+        { color: '#00d2ff', freq: 0.024, speed: 1.4, width: 2.5, glow: '#00d2ff' },
+        { color: '#ff7700', freq: 0.030, speed: 1.1, width: 2.2, glow: '#ff7700' },
+        { color: '#38bdf8', freq: 0.018, speed: 1.6, width: 1.8, glow: '#38bdf8' },
+        { color: '#ffd166', freq: 0.012, speed: 0.8, width: 1.4, glow: '#ffd166' }
       ];
 
       layers.forEach((layer, idx) => {
@@ -100,7 +101,7 @@ class VedasWaveform {
         }
         ctx.strokeStyle = layer.color;
         ctx.lineWidth = layer.width;
-        ctx.shadowBlur = 14;
+        ctx.shadowBlur = 16;
         ctx.shadowColor = layer.glow;
         ctx.stroke();
       });
@@ -112,16 +113,16 @@ class VedasWaveform {
 
       const layers = state === 'speaking'
         ? [
-            { color: '#f5b83d', freq: 0.018, speed: 1.0, width: 2.5, glow: '#f5b83d' },
-            { color: '#00f0ff', freq: 0.024, speed: 1.4, width: 2.0, glow: '#00f0ff' },
-            { color: '#fb8c00', freq: 0.032, speed: 0.8, width: 1.8, glow: '#fb8c00' },
-            { color: '#ffffff', freq: 0.015, speed: 1.2, width: 1.2, glow: '#ffffff' }
+            { color: '#ff7700', freq: 0.018, speed: 1.0, width: 2.8, glow: '#ff7700' },
+            { color: '#00d2ff', freq: 0.024, speed: 1.4, width: 2.2, glow: '#00d2ff' },
+            { color: '#ffd166', freq: 0.032, speed: 0.8, width: 1.8, glow: '#ffd166' },
+            { color: '#38bdf8', freq: 0.015, speed: 1.2, width: 1.4, glow: '#38bdf8' }
           ]
         : [
-            { color: '#00f0ff', freq: 0.018, speed: 1.0, width: 2.5, glow: '#00f0ff' },
-            { color: '#a855f7', freq: 0.024, speed: 1.4, width: 2.0, glow: '#a855f7' },
-            { color: '#ff2a85', freq: 0.032, speed: 0.8, width: 1.8, glow: '#ff2a85' },
-            { color: '#ffffff', freq: 0.015, speed: 1.2, width: 1.2, glow: '#ffffff' }
+            { color: '#00d2ff', freq: 0.020, speed: 1.3, width: 2.6, glow: '#00d2ff' },
+            { color: '#ff9900', freq: 0.026, speed: 1.1, width: 2.0, glow: '#ff9900' },
+            { color: '#38bdf8', freq: 0.015, speed: 1.5, width: 1.6, glow: '#38bdf8' },
+            { color: '#ffffff', freq: 0.032, speed: 0.8, width: 1.2, glow: '#ffffff' }
           ];
 
       layers.forEach((layer, idx) => {
@@ -135,7 +136,7 @@ class VedasWaveform {
         }
         ctx.strokeStyle = layer.color;
         ctx.lineWidth = layer.width;
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 14;
         ctx.shadowColor = layer.glow;
         ctx.stroke();
       });

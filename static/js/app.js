@@ -387,10 +387,11 @@ async function loadSessionsAndMemory() {
 }
 
 function renderSidebarSessions() {
-  if (!sessionsList) return;
-  sessionsList.innerHTML = '';
-  if (state.sessions.length === 0) {
-    sessionsList.innerHTML = '<div style="color:var(--text-dim); font-size:0.8rem; padding:8px;">No recent sessions.</div>';
+  const el = document.getElementById('sessions-list');
+  if (!el) return;
+  el.innerHTML = '';
+  if (!state.sessions || state.sessions.length === 0) {
+    el.innerHTML = '<div style="color:var(--text-dim); font-size:0.8rem; padding:8px;">No recent sessions.</div>';
     return;
   }
 
@@ -401,16 +402,17 @@ function renderSidebarSessions() {
       <span class="session-title">💬 ${sess.title || 'New Conversation'}</span>
       <button class="session-del-btn" title="Delete Session" onclick="deleteSession('${sess.id}', event)">✕</button>
     `;
-    item.onclick = () => loadSession(sess.id);
-    sessionsList.appendChild(item);
+    item.onclick = () => window.loadSession(sess.id);
+    el.appendChild(item);
   });
 }
 
 function renderSidebarMemory() {
-  if (!memoryList) return;
-  memoryList.innerHTML = '';
-  if (state.memoryNotes.length === 0) {
-    memoryList.innerHTML = `
+  const el = document.getElementById('memory-list');
+  if (!el) return;
+  el.innerHTML = '';
+  if (!state.memoryNotes || state.memoryNotes.length === 0) {
+    el.innerHTML = `
       <div class="sidebar-empty-state">
         <span class="sidebar-empty-icon">🧠</span>
         <div class="sidebar-empty-title">Memory Bank Empty</div>
@@ -428,11 +430,11 @@ function renderSidebarMemory() {
       <span class="session-title" style="max-width:180px;">📌 ${escapeHtml(note)}</span>
       <button class="session-del-btn" title="Forget Note" onclick="deleteMemoryNote(${idx}, event)">✕</button>
     `;
-    memoryList.appendChild(item);
+    el.appendChild(item);
   });
 }
 
-function startNewChat() {
+window.startNewChat = function() {
   state.currentSessionId = String(Date.now());
   state.inConversationMode = false;
   const newSession = {
@@ -441,20 +443,23 @@ function startNewChat() {
     messages: []
   };
   state.sessions.unshift(newSession);
+  if (window.switchSidebarTab) window.switchSidebarTab('sessions');
+  if (window.switchMainView) window.switchMainView('chat');
   renderSidebarSessions();
   renderChatMessages([]);
   showToast('New Conversation', '🚀');
-}
+};
 
-function loadSession(sessionId) {
+window.loadSession = function(sessionId) {
   state.currentSessionId = sessionId;
   state.inConversationMode = false;
+  if (window.switchMainView) window.switchMainView('chat');
   renderSidebarSessions();
   const session = state.sessions.find(s => s.id === sessionId);
   if (session) {
     renderChatMessages(session.messages || []);
   }
-}
+};
 
 async function deleteSession(sessionId, event) {
   event.stopPropagation();
@@ -1883,23 +1888,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Sidebar Tab Switching
+  // Sidebar Tab Switching (Authoritative)
   const sessionTabBtn = document.getElementById('tab-sessions-btn');
+  const commandsTabBtn = document.getElementById('tab-commands-btn');
   const memoryTabBtn = document.getElementById('tab-memory-btn');
-  if (sessionTabBtn && memoryTabBtn) {
-    sessionTabBtn.onclick = () => {
-      sessionTabBtn.classList.add('active');
-      memoryTabBtn.classList.remove('active');
-      sessionsList.style.display = 'flex';
-      memoryList.style.display = 'none';
-    };
-    memoryTabBtn.onclick = () => {
-      memoryTabBtn.classList.add('active');
-      sessionTabBtn.classList.remove('active');
-      sessionsList.style.display = 'none';
-      memoryList.style.display = 'flex';
-    };
-  }
+  if (sessionTabBtn) sessionTabBtn.onclick = () => window.switchSidebarTab('sessions');
+  if (commandsTabBtn) commandsTabBtn.onclick = () => window.switchSidebarTab('commands');
+  if (memoryTabBtn) memoryTabBtn.onclick = () => window.switchSidebarTab('memory');
 
   // Quick Action Card triggers from Welcome Hero
   document.querySelectorAll('.quick-card').forEach(card => {
@@ -2268,3 +2263,522 @@ function formatBytes(bytes) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
+
+// ==============================================================================
+// CODEX & TABBED NAVIGATION ENGINE
+// ==============================================================================
+
+let currentFixedCode = '';
+
+window.switchMainView = function(viewName) {
+  const chatStage = document.getElementById('chat-stage');
+  const codexStage = document.getElementById('codex-stage');
+  const navChat = document.getElementById('nav-tab-chat');
+  const navCodex = document.getElementById('nav-tab-codex');
+
+  if (viewName === 'codex') {
+    if (chatStage) chatStage.style.display = 'none';
+    if (codexStage) {
+      codexStage.style.display = 'flex';
+      initCodexEditor();
+    }
+    if (navChat) navChat.classList.remove('active');
+    if (navCodex) navCodex.classList.add('active');
+    showToast('Codex Code Studio Online', '💻');
+  } else {
+    if (codexStage) codexStage.style.display = 'none';
+    if (chatStage) chatStage.style.display = 'flex';
+    if (navCodex) navCodex.classList.remove('active');
+    if (navChat) navChat.classList.add('active');
+  }
+};
+
+window.switchSidebarTab = function(tabName) {
+  const tabSessionsBtn = document.getElementById('tab-sessions-btn');
+  const tabCommandsBtn = document.getElementById('tab-commands-btn');
+  const tabMemoryBtn = document.getElementById('tab-memory-btn');
+  const viewSessions = document.getElementById('sidebar-sessions-view');
+  const viewCommands = document.getElementById('sidebar-commands-view');
+  const viewMemory = document.getElementById('sidebar-memory-view');
+
+  [tabSessionsBtn, tabCommandsBtn, tabMemoryBtn].forEach(b => b && b.classList.remove('active'));
+  [viewSessions, viewCommands, viewMemory].forEach(v => v && (v.style.display = 'none'));
+
+  if (tabName === 'commands') {
+    if (tabCommandsBtn) tabCommandsBtn.classList.add('active');
+    if (viewCommands) viewCommands.style.display = 'flex';
+  } else if (tabName === 'memory') {
+    if (tabMemoryBtn) tabMemoryBtn.classList.add('active');
+    if (viewMemory) viewMemory.style.display = 'flex';
+    renderSidebarMemory();
+  } else {
+    // 'sessions' or 'chats'
+    if (tabSessionsBtn) tabSessionsBtn.classList.add('active');
+    if (viewSessions) viewSessions.style.display = 'flex';
+    renderSidebarSessions();
+    if (window.switchMainView) {
+      window.switchMainView('chat');
+    }
+  }
+};
+
+window.runSysCmd = async function(cmdText) {
+  showToast(`Executing: ${cmdText}...`, '⚡');
+  try {
+    const res = await fetch('/api/system/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: cmdText })
+    });
+    const data = await res.json();
+    if (data.executed || data.status === 'ok') {
+      showToast(data.feedback || `Executed: ${cmdText}`, '✅');
+    } else {
+      showToast(data.feedback || data.detail || 'Command complete', '⚡');
+    }
+  } catch (err) {
+    showToast(`Command error: ${err.message}`, '❌');
+  }
+};
+
+window.confirmRestart = function() {
+  if (confirm('Are you sure you want to RESTART this workstation?')) {
+    window.runSysCmd('restart pc');
+  }
+};
+
+window.confirmShutdown = function() {
+  if (confirm('Are you sure you want to SHUT DOWN this workstation?')) {
+    window.runSysCmd('shutdown');
+  }
+};
+
+window.switchCmdCategory = function(catName) {
+  const btnApps = document.getElementById('cmd-cat-apps-btn');
+  const btnUtils = document.getElementById('cmd-cat-utils-btn');
+  const btnPower = document.getElementById('cmd-cat-power-btn');
+  const panelApps = document.getElementById('cmd-panel-apps');
+  const panelUtils = document.getElementById('cmd-panel-utils');
+  const panelPower = document.getElementById('cmd-panel-power');
+
+  [btnApps, btnUtils, btnPower].forEach(b => b && b.classList.remove('active'));
+  [panelApps, panelUtils, panelPower].forEach(p => p && (p.style.display = 'none'));
+
+  if (catName === 'utils') {
+    if (btnUtils) btnUtils.classList.add('active');
+    if (panelUtils) panelUtils.style.display = 'flex';
+  } else if (catName === 'power') {
+    if (btnPower) btnPower.classList.add('active');
+    if (panelPower) panelPower.style.display = 'flex';
+  } else {
+    if (btnApps) btnApps.classList.add('active');
+    if (panelApps) panelApps.style.display = 'flex';
+  }
+};
+
+window.switchCodexTab = function(tabName) {
+  const btnCheck = document.getElementById('codex-tab-check-btn');
+  const btnFix = document.getElementById('codex-tab-fix-btn');
+  const btnConsole = document.getElementById('codex-tab-console-btn');
+  const viewCheck = document.getElementById('codex-view-check');
+  const viewFix = document.getElementById('codex-view-fix');
+  const viewConsole = document.getElementById('codex-view-console');
+
+  [btnCheck, btnFix, btnConsole].forEach(b => b && b.classList.remove('active'));
+  [viewCheck, viewFix, viewConsole].forEach(v => v && (v.style.display = 'none'));
+
+  if (tabName === 'fix') {
+    if (btnFix) btnFix.classList.add('active');
+    if (viewFix) viewFix.style.display = 'flex';
+  } else if (tabName === 'console') {
+    if (btnConsole) btnConsole.classList.add('active');
+    if (viewConsole) viewConsole.style.display = 'flex';
+  } else {
+    if (btnCheck) btnCheck.classList.add('active');
+    if (viewCheck) viewCheck.style.display = 'flex';
+  }
+};
+
+function initCodexEditor() {
+  const editor = document.getElementById('codex-editor');
+  const lineNumbers = document.getElementById('codex-line-numbers');
+  if (!editor || !lineNumbers) return;
+
+  function updateLines() {
+    const text = editor.value || '';
+    const lines = text.split('\n').length || 1;
+    let nums = '';
+    for (let i = 1; i <= lines; i++) {
+      nums += i + '\n';
+    }
+    lineNumbers.textContent = nums;
+    const lineCountEl = document.getElementById('codex-line-count');
+    const charCountEl = document.getElementById('codex-char-count');
+    if (lineCountEl) lineCountEl.textContent = `Lines: ${lines}`;
+    if (charCountEl) charCountEl.textContent = `Chars: ${text.length}`;
+  }
+
+  editor.removeEventListener('input', updateLines);
+  editor.addEventListener('input', updateLines);
+
+  editor.addEventListener('scroll', () => {
+    lineNumbers.scrollTop = editor.scrollTop;
+  });
+
+  // Enable Tab indentation inside editor
+  editor.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      editor.value = editor.value.substring(0, start) + '    ' + editor.value.substring(end);
+      editor.selectionStart = editor.selectionEnd = start + 4;
+      updateLines();
+    }
+  });
+
+  updateLines();
+}
+
+window.checkCodexCode = async function() {
+  const editor = document.getElementById('codex-editor');
+  const langSelect = document.getElementById('codex-lang-select');
+  const statusPill = document.getElementById('codex-status-pill');
+  const reportBox = document.getElementById('codex-report-box');
+  const checkBtn = document.getElementById('codex-check-btn');
+
+  const code = editor ? editor.value.trim() : '';
+  if (!code) {
+    showToast('Please enter code into the editor to check.', '⚠️');
+    return;
+  }
+
+  const lang = langSelect ? langSelect.value : 'python';
+
+  switchCodexTab('check');
+  if (statusPill) {
+    statusPill.className = 'codex-status-pill checking';
+    statusPill.textContent = 'Checking...';
+  }
+  if (checkBtn) checkBtn.disabled = true;
+
+  reportBox.innerHTML = `
+    <div style="text-align:center; padding:30px; color:var(--cyan-neon);">
+      <div class="studio-spinner" style="margin:0 auto 12px auto;"></div>
+      <div style="font-weight:600;">Scanning AST syntax & neural logic matrices...</div>
+      <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Inspecting edge cases, runtime safety, and performance...</div>
+    </div>
+  `;
+
+  try {
+    const res = await fetch('/api/codex/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        language: lang,
+        model: state.activeModel
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Code check failed');
+
+    const isValid = data.valid;
+    const staticCheck = data.static_check || {};
+    const syntaxErr = staticCheck.syntax_error;
+    const warnings = staticCheck.warnings || [];
+
+    if (statusPill) {
+      if (syntaxErr) {
+        statusPill.className = 'codex-status-pill error';
+        statusPill.textContent = 'Syntax Error';
+      } else if (!isValid || (warnings && warnings.length > 0)) {
+        statusPill.className = 'codex-status-pill warning';
+        statusPill.textContent = 'Issues Found';
+      } else {
+        statusPill.className = 'codex-status-pill valid';
+        statusPill.textContent = 'Valid & Clean';
+      }
+    }
+
+    let syntaxHtml = '';
+    if (syntaxErr) {
+      syntaxHtml = `
+        <div class="codex-syntax-err-card">
+          <div style="font-weight:700; color:#ef4444; margin-bottom:4px;">❌ Syntax Error on Line ${syntaxErr.line}, Col ${syntaxErr.column}:</div>
+          <div style="color:#fca5a5; font-family:var(--font-mono);">${escapeHtml(syntaxErr.message)}</div>
+          ${syntaxErr.text ? `<pre style="background:rgba(0,0,0,0.4); padding:6px; margin-top:6px; border-radius:4px; color:#fff;">${escapeHtml(syntaxErr.text)}</pre>` : ''}
+        </div>
+      `;
+    }
+
+    let staticWarningsHtml = '';
+    if (warnings.length > 0) {
+      staticWarningsHtml = `<div style="margin-bottom:12px;">` + warnings.map(w => `
+        <div class="codex-diag-banner warning" style="margin-bottom:6px; font-size:0.82rem;">
+          <span>⚠️</span> Line ${w.line}: ${escapeHtml(w.message)}
+        </div>
+      `).join('') + `</div>`;
+    }
+
+    const bannerClass = syntaxErr ? 'error' : (warnings.length > 0 || !isValid ? 'warning' : 'valid');
+    const bannerIcon = syntaxErr ? '❌' : (warnings.length > 0 || !isValid ? '⚠️' : '✅');
+    const bannerText = syntaxErr ? 'Syntax Error Detected' : (warnings.length > 0 || !isValid ? 'Warnings / Logical Vulnerabilities Detected' : 'Code Verified: Valid & Operational');
+
+    reportBox.innerHTML = `
+      <div class="codex-diag-banner ${bannerClass}">
+        <span>${bannerIcon}</span>
+        <span>${bannerText}</span>
+        <span style="margin-left:auto; font-size:0.75rem; font-family:var(--font-mono); opacity:0.8;">Engine: ${escapeHtml(data.model || 'Vedas Core')}</span>
+      </div>
+      ${syntaxHtml}
+      ${staticWarningsHtml}
+      <div class="codex-analysis-markdown">
+        ${renderMarkdown(data.analysis || '')}
+      </div>
+    `;
+
+    showToast(syntaxErr ? 'Syntax error flagged' : 'Code analysis complete', syntaxErr ? '❌' : '🔍');
+  } catch (err) {
+    if (statusPill) {
+      statusPill.className = 'codex-status-pill error';
+      statusPill.textContent = 'Check Failed';
+    }
+    reportBox.innerHTML = `
+      <div class="codex-diag-banner error">
+        <span>❌</span> Analysis Error: ${escapeHtml(err.message)}
+      </div>
+    `;
+    showToast('Check failed: ' + err.message, '⚠️');
+  } finally {
+    if (checkBtn) checkBtn.disabled = false;
+  }
+};
+
+window.fixCodexCode = async function() {
+  const editor = document.getElementById('codex-editor');
+  const langSelect = document.getElementById('codex-lang-select');
+  const statusPill = document.getElementById('codex-status-pill');
+  const fixBox = document.getElementById('codex-fix-box');
+  const fixBtn = document.getElementById('codex-fix-btn');
+
+  const code = editor ? editor.value.trim() : '';
+  if (!code) {
+    showToast('Please enter code into the editor to fix.', '⚠️');
+    return;
+  }
+
+  const lang = langSelect ? langSelect.value : 'python';
+
+  switchCodexTab('fix');
+  if (statusPill) {
+    statusPill.className = 'codex-status-pill fixing';
+    statusPill.textContent = 'Fixing...';
+  }
+  if (fixBtn) fixBtn.disabled = true;
+
+  fixBox.innerHTML = `
+    <div style="text-align:center; padding:30px; color:#c084fc;">
+      <div class="studio-spinner" style="margin:0 auto 12px auto; border-top-color:#c084fc;"></div>
+      <div style="font-weight:600;">Neural Auto-Repair Engine active...</div>
+      <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Resolving syntax errors, fixing logic pitfalls & refactoring...</div>
+    </div>
+  `;
+
+  try {
+    const res = await fetch('/api/codex/fix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        language: lang,
+        model: state.activeModel
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Code fix failed');
+
+    currentFixedCode = data.fixed_code || '';
+
+    if (statusPill) {
+      statusPill.className = 'codex-status-pill valid';
+      statusPill.textContent = 'Repaired';
+    }
+
+    fixBox.innerHTML = `
+      <div class="codex-fix-header-actions">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-weight:600; color:#34d399;">✨ Corrected Code</span>
+          <span style="font-size:0.72rem; font-family:var(--font-mono); color:var(--text-muted);">${escapeHtml(data.model || 'Vedas Neural Core')}</span>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="codex-apply-btn" onclick="applyCodexFix()">🚀 Apply Fix to Editor</button>
+          <button class="codex-mini-btn" onclick="copyCodexFixedCode()">📋 Copy</button>
+        </div>
+      </div>
+
+      <pre class="codex-fixed-pre"><code>${escapeHtml(currentFixedCode)}</code></pre>
+
+      <div class="codex-fix-explanation">
+        <div style="font-weight:700; color:var(--cyan-neon); margin-bottom:6px;">🛠️ Fix Breakdown & Changes:</div>
+        <div class="codex-analysis-markdown">${renderMarkdown(data.explanation || '')}</div>
+      </div>
+    `;
+
+    showToast('Code repaired by Codex!', '✨');
+  } catch (err) {
+    if (statusPill) {
+      statusPill.className = 'codex-status-pill error';
+      statusPill.textContent = 'Fix Failed';
+    }
+    fixBox.innerHTML = `
+      <div class="codex-diag-banner error">
+        <span>❌</span> Code Fix Failed: ${escapeHtml(err.message)}
+      </div>
+    `;
+    showToast('Fix failed: ' + err.message, '⚠️');
+  } finally {
+    if (fixBtn) fixBtn.disabled = false;
+  }
+};
+
+window.applyCodexFix = function() {
+  if (!currentFixedCode) return;
+  const editor = document.getElementById('codex-editor');
+  if (editor) {
+    editor.value = currentFixedCode;
+    initCodexEditor();
+    showToast('Fixed code applied to editor!', '🚀');
+    checkCodexCode();
+  }
+};
+
+window.copyCodexFixedCode = function() {
+  if (!currentFixedCode) return;
+  navigator.clipboard.writeText(currentFixedCode).then(() => {
+    showToast('Fixed code copied to clipboard!', '📋');
+  });
+};
+
+window.copyCodexEditorCode = function() {
+  const editor = document.getElementById('codex-editor');
+  if (editor && editor.value) {
+    navigator.clipboard.writeText(editor.value).then(() => {
+      showToast('Source code copied to clipboard!', '📋');
+    });
+  }
+};
+
+window.clearCodexEditor = function() {
+  const editor = document.getElementById('codex-editor');
+  if (editor) {
+    editor.value = '';
+    initCodexEditor();
+    const statusPill = document.getElementById('codex-status-pill');
+    if (statusPill) {
+      statusPill.className = 'codex-status-pill standby';
+      statusPill.textContent = 'Ready';
+    }
+    const reportBox = document.getElementById('codex-report-box');
+    if (reportBox) {
+      reportBox.innerHTML = `
+        <div class="codex-empty-report">
+          <div class="codex-empty-icon">🔍</div>
+          <div class="codex-empty-title">Codex Ready for Inspection</div>
+          <div class="codex-empty-desc">Enter your code on the left and click <strong>Check Code</strong> to run AST syntax validation, logic bug hunting, and neural security analysis.</div>
+        </div>
+      `;
+    }
+    showToast('Editor cleared', '🧹');
+  }
+};
+
+window.runCodexCode = async function() {
+  const editor = document.getElementById('codex-editor');
+  const langSelect = document.getElementById('codex-lang-select');
+  const consoleOutput = document.getElementById('codex-console-output');
+  const runBtn = document.getElementById('codex-run-btn');
+
+  const code = editor ? editor.value.trim() : '';
+  if (!code) {
+    showToast('Please enter code into the editor to run.', '⚠️');
+    return;
+  }
+
+  const lang = langSelect ? langSelect.value : 'python';
+  if (lang !== 'python') {
+    showToast(`Sandbox execution currently supports Python. For ${lang}, use 'Check Code' or 'Fix Code'.`, 'ℹ️');
+  }
+
+  switchCodexTab('console');
+  if (runBtn) {
+    runBtn.disabled = true;
+    runBtn.textContent = '⏳ Running...';
+  }
+  if (consoleOutput) {
+    consoleOutput.textContent = `$ Running python sandbox...\n`;
+  }
+
+  try {
+    const res = await fetch('/api/execute-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+
+    const result = await res.json();
+    if (consoleOutput) {
+      if (result.success) {
+        consoleOutput.innerHTML = `<span style="color:#34d399;">$ Process completed successfully (${result.duration})</span>\n\n${escapeHtml(result.stdout || '(No standard output)')}`;
+      } else {
+        consoleOutput.innerHTML = `<span style="color:#f87171;">$ Process exited with error (Exit Code: ${result.exit_code}, ${result.duration})</span>\n\n<span style="color:#fca5a5;">${escapeHtml(result.stderr || result.stdout)}</span>`;
+      }
+    }
+    showToast(result.success ? 'Execution Finished' : 'Execution Error', result.success ? '▶' : '⚠️');
+  } catch (err) {
+    if (consoleOutput) {
+      consoleOutput.innerHTML = `<span style="color:#f87171;">$ Sandbox error: ${escapeHtml(err.message)}</span>`;
+    }
+    showToast('Execution failed: ' + err.message, '❌');
+  } finally {
+    if (runBtn) {
+      runBtn.disabled = false;
+      runBtn.textContent = '▶ Run Sandbox';
+    }
+  }
+};
+
+window.loadCodexSample = function() {
+  const editor = document.getElementById('codex-editor');
+  const langSelect = document.getElementById('codex-lang-select');
+  if (!editor) return;
+
+  if (langSelect) langSelect.value = 'python';
+
+  editor.value = `# Sample Python Program with Multiple Syntax & Logic Bugs
+def calculate_metrics(numbers, factor=2, cache=[]):
+    cache.append(numbers)
+    total = 0
+    for i in range(len(numbers)):
+        # Bug 1: Off-by-one / IndexError potential
+        val = numbers[i]
+        
+        # Bug 2: ZeroDivisionError potential
+        average = val / (val - 5)
+        
+        total += val * factor
+        
+    # Bug 3: Syntax / variable scope typo
+    return {"total": total, "avg": average, "history": cache
+
+# Test run
+sample_data = [10, 5, 20]
+result = calculate_metrics(sample_data)
+print("Result:", result)
+`;
+  initCodexEditor();
+  showToast('Loaded sample buggy code. Click "Check Code" or "Fix Code (AI)"!', '💡');
+};
+

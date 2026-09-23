@@ -1,16 +1,16 @@
 @echo off
 :: ==============================================================================
-:: Vedas AI — Windows Workstation Launcher
-:: Auto-detects Python / venv, verifies Ollama, starts HTTPS server & opens browser
+:: Vedas AI — Windows Desktop Application Launcher
+:: Auto-detects Python / venv, verifies Ollama, starts server & opens App Window
 :: ==============================================================================
 
-title Vedas AI — Command Center
+title Vedas AI — Desktop Application
 cd /d "%~dp0"
 
 echo ============================================================
-echo  [36m VEDAS AI -- WINDOWS RUNTIME LAUNCHER [0m
-echo  Location: SERVER ^| Major Engine: Local Ollama
-echo  Web Interface: https://127.0.0.1:8000
+echo  [36m VEDAS AI -- DESKTOP APPLICATION RUNTIME [0m
+echo  Engine: Google Chrome App Mode ^| AI Core: Ollama + Gemini
+echo  Target: Standalone Window (Zero Browser Chrome)
 echo ============================================================
 
 :: Check for virtual environment (checks myenv and myvenv)
@@ -39,13 +39,15 @@ if %errorlevel% equ 0 (
     )
 )
 
-:: Run Vedas AI Web from SERVER
-if exist "..\SERVER\run_vedas_web.py" (
+:: Launch Vedas Desktop App Window
+if exist "..\run_vedas_desktop.py" (
+    python "..\run_vedas_desktop.py"
+) else if exist "run_vedas_desktop.py" (
+    python "run_vedas_desktop.py"
+) else if exist "..\SERVER\run_vedas_web.py" (
     python "..\SERVER\run_vedas_web.py"
 ) else if exist "SERVER\run_vedas_web.py" (
     python "SERVER\run_vedas_web.py"
-) else if exist "Vedas AI Web Group\SERVER\run_vedas_web.py" (
-    python "Vedas AI Web Group\SERVER\run_vedas_web.py"
 )
 
 pause

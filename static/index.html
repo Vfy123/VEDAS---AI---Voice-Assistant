@@ -3,8 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VEDAS AI — Neural Core</title>
-  <meta name="description" content="Vedas AI — Advanced Autonomous Intelligence Operating System powered by Local Ollama & Gemini Supervisor.">
+  <title>VEDAS AI 3.5 Pro — Neural Core</title>
+  <meta name="description" content="Vedas AI 3.5 Pro — Advanced Autonomous Intelligence Operating System powered by Local Ollama & Gemini Supervisor.">
+  <meta name="theme-color" content="#030712">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="/static/css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
 </head>
@@ -15,6 +18,8 @@
   <div class="ambient-glow ambient-glow-1"></div>
   <div class="ambient-glow ambient-glow-2"></div>
   <div class="ambient-glow ambient-glow-gold"></div>
+  <div class="ambient-glow ambient-glow-blue"></div>
+  <div class="ambient-glow ambient-glow-blue-2"></div>
 
   <!-- HUD Scan Lines -->
   <div class="jarvis-scanlines" aria-hidden="true"></div>
@@ -46,7 +51,7 @@
       <!-- JARVIS Ticker Line -->
       <div class="jarvis-ticker-strip" aria-hidden="true">
         <div class="jarvis-ticker-content" id="jarvis-ticker">
-          ⚡ VEDAS AI NEURAL CORE ONLINE &nbsp;•&nbsp; VEDAS AI v3.0 ACTIVE &nbsp;•&nbsp; ALL SYSTEMS NOMINAL &nbsp;•&nbsp; OLLAMA LOCAL ENGINE READY &nbsp;•&nbsp; GEMINI SUPERVISOR ARMED &nbsp;•&nbsp; MULTIMODAL REASONING ENABLED &nbsp;•&nbsp; MEMORY BANK ONLINE &nbsp;•&nbsp; IMAGE SYNTHESIS ENGINE READY &nbsp;•
+          ⚡ VEDAS AI 3.5 PRO NEURAL CORE ONLINE &nbsp;•&nbsp; VEDAS AI 3.5 PRO ACTIVE &nbsp;•&nbsp; ALL SYSTEMS NOMINAL &nbsp;•&nbsp; OLLAMA LOCAL ENGINE READY &nbsp;•&nbsp; GEMINI SUPERVISOR ARMED &nbsp;•&nbsp; MULTIMODAL REASONING ENABLED &nbsp;•&nbsp; MEMORY BANK ONLINE &nbsp;•&nbsp; IMAGE SYNTHESIS ENGINE READY &nbsp;•
         </div>
       </div>
 
@@ -55,7 +60,7 @@
           <span class="brand-icon">⚡</span>
         </div>
         <div class="brand-meta">
-          <h1>VEDAS AI</h1>
+          <h1>VEDAS AI <span class="jarvis-label-tag">3.5 PRO</span></h1>
           <div class="brand-subtitle">Autonomous Multimodal Neural Intelligence</div>
         </div>
       </div>
@@ -80,8 +85,27 @@
         </div>
       </div>
 
-      <!-- Right HUD Controls -->
+      <!-- Right HUD Controls & View Tabs -->
       <div class="hud-actions">
+        <!-- Main View Switcher Tabs -->
+        <div class="hud-view-switcher">
+          <button class="hud-nav-tab active" id="nav-tab-chat" onclick="switchMainView('chat')" title="AI Chat & Multimodal Assistant">
+            <span>💬</span> Assistant
+          </button>
+          <button class="hud-nav-tab" id="nav-tab-codex" onclick="switchMainView('codex')" title="Codex: Code Verification & AI Auto-Repair">
+            <span>💻</span> Codex
+          </button>
+          <button class="hud-nav-tab" id="nav-tab-image" onclick="openImageStudio()" title="Open Image Generation Studio">
+            <span>🎨</span> Image
+          </button>
+          <button class="hud-nav-tab" id="nav-tab-memory" onclick="openMemoryStudio()" title="Open Memory Bank Core">
+            <span>🧠</span> Memory
+          </button>
+          <button class="hud-nav-tab" id="nav-tab-files" onclick="openFileManager()" title="Open File & Folder Manager">
+            <span>📁</span> Files
+          </button>
+        </div>
+
         <select id="model-selector" class="model-badge-select" title="Active Intelligence Core">
           <option value="llama3.2:latest">⚡ Local: LLaMA 3.2 (Primary)</option>
           <option value="llama3:latest">⚡ Local: LLaMA 3</option>
@@ -94,37 +118,83 @@
           <option value="gemini-3.5-flash-lite">⚡ Cloud: Gemini 3.5 Flash Lite</option>
           <option value="gemini-3.1-pro-preview">⚡ Cloud: Gemini 3.1 Pro</option>
         </select>
-        <button class="hud-btn jarvis-btn-image" id="studio-open-btn" onclick="openImageStudio()" title="Open Image Generation Studio">
-          <span>🎨</span> Image Studio
-        </button>
-        <button class="hud-btn jarvis-btn-memory" onclick="openMemoryStudio()" title="Open Memory Bank Core">
-          <span>🧠</span> Memory
-        </button>
-        <button class="hud-btn" id="files-open-btn" onclick="openFileManager()" title="Open File & Folder Manager">
-          <span>📁</span> Files
-        </button>
       </div>
     </header>
 
     <!-- Main Workspace Area -->
     <main id="main-workspace">
 
-      <!-- Left Sidebar: History & Memory -->
+      <!-- Left Sidebar: History, Commands & Memory -->
       <aside id="sidebar">
         <button class="sidebar-new-chat-btn" onclick="startNewChat()">
           <span>+</span> New Conversation
         </button>
 
-        <!-- Navigation Tabs -->
+        <!-- Navigation Tabs: Chats | Commands | Memory -->
         <div class="sidebar-tabs">
-          <button class="sidebar-tab-btn active" id="tab-sessions-btn">Recent Chats</button>
-          <button class="sidebar-tab-btn" id="tab-memory-btn">Memory Bank</button>
+          <button class="sidebar-tab-btn active" id="tab-sessions-btn" onclick="switchSidebarTab('sessions')">💬 Chats</button>
+          <button class="sidebar-tab-btn" id="tab-commands-btn" onclick="switchSidebarTab('commands')">⚡ Commands</button>
+          <button class="sidebar-tab-btn" id="tab-memory-btn" onclick="switchSidebarTab('memory')">🧠 Memory</button>
         </div>
 
-        <!-- Sessions / Memory List Container -->
-        <div class="sidebar-content-area">
+        <!-- Tab 1: Sessions List Container -->
+        <div class="sidebar-content-area" id="sidebar-sessions-view">
           <div id="sessions-list" style="display:flex; flex-direction:column; gap:4px;"></div>
-          <div id="memory-list" style="display:none; flex-direction:column; gap:4px;"></div>
+        </div>
+
+        <!-- Tab 2: Sectioned Commands View -->
+        <div class="sidebar-content-area" id="sidebar-commands-view" style="display:none;">
+          <div class="cmd-category-tabs">
+            <button class="cmd-cat-btn active" id="cmd-cat-apps-btn" onclick="switchCmdCategory('apps')">📱 Apps</button>
+            <button class="cmd-cat-btn" id="cmd-cat-utils-btn" onclick="switchCmdCategory('utils')">🎛️ Audio/Tools</button>
+            <button class="cmd-cat-btn" id="cmd-cat-power-btn" onclick="switchCmdCategory('power')">🛡️ Power</button>
+          </div>
+
+          <!-- Sub-category 1: Desktop Apps -->
+          <div class="cmd-category-panel active" id="cmd-panel-apps">
+            <div class="sys-cmds-grid">
+              <button class="sys-cmd-btn" onclick="runSysCmd('open notepad')" title="Open Notepad">📝 Notepad</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('open calculator')" title="Open Calculator">🧮 Calculator</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('open explorer')" title="Open File Explorer">📁 Explorer</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('open chrome')" title="Open Web Browser">🌐 Browser</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('open task manager')" title="Open Task Manager">⚙️ Tasks</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('open settings')" title="Open Windows Settings">🔧 Settings</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('open terminal')" title="Open Command Prompt / Terminal">💻 Terminal</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('open paint')" title="Open MS Paint">🎨 Paint</button>
+            </div>
+          </div>
+
+          <!-- Sub-category 2: Utilities & Audio -->
+          <div class="cmd-category-panel" id="cmd-panel-utils" style="display:none;">
+            <div class="sys-cmds-grid">
+              <button class="sys-cmd-btn" onclick="runSysCmd('screenshot')" title="Take Screen Capture">📸 Screenshot</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('mute')" title="Toggle System Mute">🔇 Mute / Unmute</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('set volume to 50')" title="Set Volume to 50%">🔊 Vol: 50%</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('set volume to 100')" title="Set Volume to 100%">🔊 Vol: Max</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('what is my ip')" title="Check Local & Network IP">📶 Network IP</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('tell me a joke')" title="Tell an AI Joke">😄 Tell Joke</button>
+            </div>
+          </div>
+
+          <!-- Sub-category 3: Power & System Control -->
+          <div class="cmd-category-panel" id="cmd-panel-power" style="display:none;">
+            <div class="sys-cmds-grid">
+              <button class="sys-cmd-btn" onclick="runSysCmd('lock screen')" title="Lock Workstation">🔒 Lock Screen</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('sleep')" title="Put Computer to Sleep">💤 Sleep Mode</button>
+              <button class="sys-cmd-btn sys-cmd-warning" onclick="confirmRestart()" title="Restart Computer">🔄 Restart PC</button>
+              <button class="sys-cmd-btn sys-cmd-danger" onclick="confirmShutdown()" title="Shutdown Computer">🔴 Shutdown</button>
+              <button class="sys-cmd-btn" onclick="runSysCmd('cancel shutdown')" title="Abort Scheduled Shutdown">⏹ Cancel Action</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Memory List Container -->
+        <div class="sidebar-content-area" id="sidebar-memory-view" style="display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-size:0.8rem; font-weight:600; color:var(--cyan-neon);">🧠 STORED KNOWLEDGE</span>
+            <button class="codex-mini-btn" onclick="openMemoryStudio()">+ Add Note</button>
+          </div>
+          <div id="memory-list" style="display:flex; flex-direction:column; gap:4px;"></div>
         </div>
 
         <!-- Sidebar Footer & Persona Picker -->
@@ -138,21 +208,6 @@
               <option value="creative_muse">Creative Muse (Visionary)</option>
               <option value="sarcastic_genius">Sarcastic Genius (Witty)</option>
             </select>
-          </div>
-
-          <!-- System Commands Quick Panel -->
-          <div class="sys-cmds-panel">
-            <div class="sys-cmds-label">⚡ QUICK COMMANDS</div>
-            <div class="sys-cmds-grid">
-              <button class="sys-cmd-btn" onclick="runSysCmd('open notepad')" title="Open Notepad">📝 Notepad</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('open calculator')" title="Open Calculator">🧮 Calc</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('open explorer')" title="Open File Explorer">📁 Explorer</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('open chrome')" title="Open Browser">🌐 Browser</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('open task manager')" title="Task Manager">⚙️ Tasks</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('open settings')" title="Settings">🔧 Settings</button>
-              <button class="sys-cmd-btn sys-cmd-danger" onclick="confirmShutdown()" title="Shutdown System">🔴 Shutdown</button>
-              <button class="sys-cmd-btn sys-cmd-warning" onclick="confirmRestart()" title="Restart System">🔄 Restart</button>
-            </div>
           </div>
         </div>
       </aside>
@@ -173,7 +228,7 @@
             </svg>
           </div>
 
-          <div class="jarvis-hero-label" aria-label="VEDAS AI status">VEDAS AI — NEURAL CORE v3.0</div>
+          <div class="jarvis-hero-label" aria-label="VEDAS AI status">VEDAS AI 3.5 PRO — NEURAL CORE ACTIVE</div>
           <h2 class="hero-title">Good day. I'm <span class="jarvis-name-highlight">VEDAS</span></h2>
           <p class="hero-tagline">
             <span class="jarvis-quote">"At your service."</span> — Your autonomous AI intelligence. Dual-core neural reasoning via local Ollama & Gemini cloud supervisor, 8K image synthesis, multimodal PDF analysis, and live web intelligence.
@@ -322,6 +377,113 @@
         </div>
 
       </section>
+
+      <!-- Codex Neural Code Studio Stage -->
+      <section id="codex-stage" style="display:none;">
+        <!-- Codex Top Toolbar -->
+        <div class="codex-toolbar">
+          <div class="codex-toolbar-left">
+            <div class="codex-brand-chip">
+              <span class="codex-icon">💻</span>
+              <span class="codex-brand-name">CODEX</span>
+              <span class="codex-brand-badge">Neural Code Verifier & Repair</span>
+            </div>
+            <select id="codex-lang-select" class="codex-select" title="Source Language">
+              <option value="python">🐍 Python</option>
+              <option value="javascript">🟨 JavaScript</option>
+              <option value="typescript">🔷 TypeScript</option>
+              <option value="html">🌐 HTML / CSS</option>
+              <option value="java">☕ Java</option>
+              <option value="cpp">⚙️ C++ / C</option>
+              <option value="csharp">💜 C# (.NET)</option>
+              <option value="go">🐹 Go</option>
+              <option value="rust">🦀 Rust</option>
+              <option value="sql">🗄️ SQL</option>
+              <option value="bash">💻 Shell / Bash</option>
+            </select>
+          </div>
+
+          <div class="codex-toolbar-right">
+            <button class="codex-btn codex-btn-sample" onclick="loadCodexSample()" title="Load sample buggy code for testing">
+              💡 Sample Bug
+            </button>
+            <button class="codex-btn codex-btn-clear" onclick="clearCodexEditor()" title="Clear editor">
+              🧹 Clear
+            </button>
+            <button class="codex-btn codex-btn-run" id="codex-run-btn" onclick="runCodexCode()" title="Run code in local sandbox">
+              ▶ Run Sandbox
+            </button>
+            <button class="codex-btn codex-btn-check" id="codex-check-btn" onclick="checkCodexCode()" title="Static verification & deep AI bug check">
+              🔍 Check Code
+            </button>
+            <button class="codex-btn codex-btn-fix" id="codex-fix-btn" onclick="fixCodexCode()" title="AI auto-repair and fix code">
+              🛠️ Fix Code (AI)
+            </button>
+          </div>
+        </div>
+
+        <!-- Codex Main Split Workspace -->
+        <div class="codex-grid">
+          <!-- Editor Column -->
+          <div class="codex-panel codex-editor-panel">
+            <div class="codex-panel-header">
+              <span class="codex-panel-title">📝 Source Code Editor</span>
+              <div class="codex-editor-meta">
+                <span id="codex-line-count">Lines: 1</span>
+                <span id="codex-char-count">Chars: 0</span>
+                <button class="codex-mini-btn" onclick="copyCodexEditorCode()" title="Copy editor content">📋 Copy</button>
+              </div>
+            </div>
+            <div class="codex-editor-wrapper">
+              <div class="codex-line-numbers" id="codex-line-numbers">1</div>
+              <textarea id="codex-editor" class="codex-code-input" spellcheck="false" placeholder="# Paste or write your code here...&#10;# Click 'Check Code' to verify correctness.&#10;# Click 'Fix Code (AI)' to have Vedas repair all bugs."></textarea>
+            </div>
+          </div>
+
+          <!-- Output & Analysis Column -->
+          <div class="codex-panel codex-output-panel">
+            <div class="codex-panel-header">
+              <div class="codex-output-tabs">
+                <button class="codex-tab-btn active" id="codex-tab-check-btn" onclick="switchCodexTab('check')">🔍 Diagnostics & Report</button>
+                <button class="codex-tab-btn" id="codex-tab-fix-btn" onclick="switchCodexTab('fix')">🛠️ Fixed Code & Diff</button>
+                <button class="codex-tab-btn" id="codex-tab-console-btn" onclick="switchCodexTab('console')">▶ Terminal Console</button>
+              </div>
+              <div id="codex-status-pill" class="codex-status-pill standby">Ready</div>
+            </div>
+
+            <!-- Sub-tab 1: Check Report -->
+            <div class="codex-tab-content active" id="codex-view-check">
+              <div class="codex-report-box" id="codex-report-box">
+                <div class="codex-empty-report">
+                  <div class="codex-empty-icon">🔍</div>
+                  <div class="codex-empty-title">Codex Ready for Inspection</div>
+                  <div class="codex-empty-desc">Enter your code on the left and click <strong>Check Code</strong> to run AST syntax validation, logic bug hunting, and neural security analysis.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sub-tab 2: Fixed Code View -->
+            <div class="codex-tab-content" id="codex-view-fix" style="display:none;">
+              <div class="codex-fix-box" id="codex-fix-box">
+                <div class="codex-empty-report">
+                  <div class="codex-empty-icon">🛠️</div>
+                  <div class="codex-empty-title">No Fix Generated Yet</div>
+                  <div class="codex-empty-desc">Click <strong>Fix Code (AI)</strong> to have Vedas diagnose all flaws, reconstruct the clean working code, and explain every fix.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sub-tab 3: Terminal Console -->
+            <div class="codex-tab-content" id="codex-view-console" style="display:none;">
+              <div class="codex-console-box" id="codex-console-box">
+                <pre class="codex-console-output" id="codex-console-output">$ Ready. Click 'Run Sandbox' to execute code.</pre>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
 
       <!-- Drawer Backdrop Overlay -->
       <div id="drawer-backdrop" onclick="closeSideCanvas()"></div>

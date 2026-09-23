@@ -31,7 +31,7 @@ import base64
 import io
 import shutil
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, FileResponse
@@ -126,6 +126,7 @@ def bootstrap_persistent_data():
     # 1. Seed or migrate memory into the accessible 'memory/' folder
     legacy_memory = APP_DIR / "memory.json"
     seed_memory = RESOURCE_DIR / "memory.json"
+    seed_memory_dir = RESOURCE_DIR / "memory" / "memory.json"
     if not MEMORY_FILE.exists():
         if legacy_memory.exists() and legacy_memory.resolve() != MEMORY_FILE.resolve():
             try:
@@ -135,6 +136,11 @@ def bootstrap_persistent_data():
         elif seed_memory.exists() and seed_memory.resolve() != MEMORY_FILE.resolve():
             try:
                 MEMORY_FILE.write_bytes(seed_memory.read_bytes())
+            except Exception as e:
+                print(f"Seed memory notice: {e}")
+        elif seed_memory_dir.exists() and seed_memory_dir.resolve() != MEMORY_FILE.resolve():
+            try:
+                MEMORY_FILE.write_bytes(seed_memory_dir.read_bytes())
             except Exception as e:
                 print(f"Seed memory notice: {e}")
         else:
@@ -216,8 +222,11 @@ memory = load_memory()
 
 # Helper: Get Gemini Client
 def get_gemini_client():
-    api_key = os.environ.get("GEMINI_API_KEY") or APP_CONFIG.get("gemini_api_key", "").strip()
-    if not api_key or api_key == "YOUR_API_KEY_HERE":
+    api_key = (os.environ.get("GEMINI_API_KEY") or APP_CONFIG.get("gemini_api_key", "")).strip()
+    if not api_key or api_key in ("YOUR_API_KEY_HERE", "NONE", "null", "undefined"):
+        return None
+    # Filter out invalid OAuth access token strings passed as API key
+    if api_key.startswith("AQ."):
         return None
     if not genai:
         return None
@@ -454,6 +463,19 @@ class RenameRequest(BaseModel):
 class DeleteItemRequest(BaseModel):
     path: str
 
+class CodexCheckRequest(BaseModel):
+    code: str
+    language: Optional[str] = "python"
+    model: Optional[str] = None
+
+class CodexFixRequest(BaseModel):
+    code: str
+    language: Optional[str] = "python"
+    issues: Optional[List[str]] = None
+    instruction: Optional[str] = None
+    model: Optional[str] = None
+
+
 
 # ----------------- SYSTEM ACTION RUNNER -----------------
 def execute_system_action(command_str: str) -> Dict[str, Any]:
@@ -682,9 +704,14 @@ def generate_ai_response(
 
     # Build history context
     history_lines = []
-    for h in history[-8:]:
-        role = "User" if h.get("role") == "user" else "Vedas"
-        history_lines.append(f"{role}: {h.get('content') or h.get('text', '')}")
+    if history:
+        for h in history[-8:]:
+            if isinstance(h, dict):
+                role = "User" if h.get("role") == "user" else "Vedas"
+                content = h.get("content") or h.get("text", "")
+                history_lines.append(f"{role}: {content}")
+            elif isinstance(h, str):
+                history_lines.append(h)
     history_text = "\n".join(history_lines)
 
     # Process Attachments (PDFs, Images, Documents, Code)
@@ -696,16 +723,18 @@ def generate_ai_response(
     effective_attachments = list(attachments) if attachments else []
     if not effective_attachments and history:
         for h in reversed(history[-8:]):
-            prev_meta = h.get("meta")
-            if isinstance(prev_meta, dict):
-                prev_atts = prev_meta.get("attachments", [])
-                if prev_atts:
-                    effective_attachments = prev_atts
-                    break
+            if isinstance(h, dict):
+                prev_meta = h.get("meta")
+                if isinstance(prev_meta, dict):
+                    prev_atts = prev_meta.get("attachments", [])
+                    if prev_atts:
+                        effective_attachments = prev_atts
+                        break
 
     if effective_attachments:
         for att in effective_attachments:
-            name = att.get("name", "file")
+            if isinstance(att, dict):
+                name = att.get("name", "file")
             att_type = att.get("type", "")
             data_b64 = att.get("data", "")
             text_content = att.get("text_content", "")
@@ -755,6 +784,15 @@ def generate_ai_response(
     active_cloud_model = APP_CONFIG["cloud_model"]
     gemini_client = get_gemini_client()
 
+    # Determine primary local Ollama target model
+    target_ollama_model = model_override if (model_override and "gemini" not in model_override.lower()) else active_local_model
+    installed_models = get_installed_ollama_models()
+    if not installed_models:
+        ensure_ollama_running()
+        installed_models = get_installed_ollama_models()
+    if installed_models:
+        target_ollama_model = resolve_ollama_model(target_ollama_model, installed_models)
+
     # If user explicitly picked Gemini model
     if model_override and "gemini" in model_override.lower():
         active_cloud_model = model_override
@@ -762,7 +800,6 @@ def generate_ai_response(
             contents = [full_prompt] + pil_images if pil_images else full_prompt
             config = {"automatic_function_calling": {"disable": True}}
             try:
-                # Direct invocation of user's explicitly selected Gemini model
                 resp = gemini_client.models.generate_content(
                     model=active_cloud_model,
                     contents=contents,
@@ -775,8 +812,6 @@ def generate_ai_response(
                     "search_used": bool(search_context)
                 }
             except Exception as e:
-                # If explicitly chosen model fails (e.g. quota limit or temporary overload),
-                # attempt fallback to other available models in the chain and alert the user.
                 print(f"Explicit Gemini model '{active_cloud_model}' failed ({type(e).__name__}: {e}). Trying fallback...")
                 fallback_chain = [m for m in GEMINI_MODEL_CHAIN if m != active_cloud_model]
                 try:
@@ -787,18 +822,13 @@ def generate_ai_response(
                         "source": "gemini_direct",
                         "model": used_model,
                         "text": resp.text.strip(),
-                        "supervisor_alert": f"Requested '{active_cloud_model}' was unavailable ({short_reason}). Automatically routed to {used_model}.",
+                        "supervisor_alert": f"Requested '{active_cloud_model}' was unavailable ({short_reason}). Routed to {used_model}.",
                         "search_used": bool(search_context)
                     }
                 except Exception as fb_err:
-                    return {
-                        "source": "error",
-                        "model": active_cloud_model,
-                        "text": f"⚠️ Gemini Cloud Error ({active_cloud_model}): {str(e)}",
-                        "search_used": False
-                    }
+                    print(f"All Gemini cloud models failed ({fb_err}); falling through to Local Ollama...")
 
-    # If images are attached and Gemini is available, prioritize Gemini Vision for best multimodal image comprehension
+    # If images are attached and Gemini is available, attempt Gemini Vision
     if pil_images and gemini_client:
         try:
             contents = [full_prompt] + pil_images
@@ -812,24 +842,12 @@ def generate_ai_response(
                 "search_used": bool(search_context)
             }
         except Exception as e:
-            print(f"Gemini Vision Error: {e}")
+            print(f"Gemini Vision notice: {e}")
 
     # 1. PRIMARY: Query Local Ollama (Major Engine)
-    target_ollama_model = model_override if (model_override and "gemini" not in model_override.lower()) else active_local_model
-
-    # Check installed models on the local Ollama daemon (ensure daemon is up)
-    installed_models = get_installed_ollama_models()
-    if not installed_models:
-        ensure_ollama_running()
-        installed_models = get_installed_ollama_models()
-
-    if installed_models:
-        target_ollama_model = resolve_ollama_model(target_ollama_model, installed_models)
-
     ollama_text = None
     _t0 = time.time()
     try:
-        # Context window expanded to 16,384 tokens for documents; predict tokens expanded for complete answer keys
         ctx_size = 16384 if (has_pdf or len(full_prompt) > 3500) else 8192
         max_predict = 2048 if has_pdf else 600
 
@@ -853,17 +871,18 @@ def generate_ai_response(
             ollama_text = res.json().get("response", "").strip()
             print(f"Ollama '{target_ollama_model}' responded in {round(time.time()-_t0,2)}s ({len(ollama_text)} chars)")
         else:
-            print(f"Ollama returned HTTP {res.status_code}: {res.text[:120]} (after {round(time.time()-_t0,2)}s)")
+            print(f"Ollama returned HTTP {res.status_code}: {res.text[:120]}")
     except Exception as e:
         print(f"Ollama inference error/timeout ({target_ollama_model}) after {round(time.time()-_t0,2)}s: {e}")
 
     if ollama_text:
         ollama_text = re.sub(r'^(?:Vedas|AI):\s*', '', ollama_text, flags=re.I).strip()
-        # Non-blocking supervisor fact-check if enabled
-        supervisor_correction = None
-        if APP_CONFIG.get("supervisor_enabled") and gemini_client:
+        alert = None
+        if model_override and "gemini" in model_override.lower():
+            alert = f"Cloud Gemini ({model_override}) unauthenticated or offline. Answered instantly by Local Ollama ({target_ollama_model})."
+        elif APP_CONFIG.get("supervisor_enabled") and gemini_client:
             try:
-                supervisor_correction = run_supervisor_fact_check(prompt, ollama_text, active_cloud_model)
+                alert = run_supervisor_fact_check(prompt, ollama_text, active_cloud_model)
             except Exception as se:
                 print(f"Supervisor check ignored: {se}")
 
@@ -871,7 +890,7 @@ def generate_ai_response(
             "source": "ollama",
             "model": target_ollama_model,
             "text": ollama_text,
-            "supervisor_alert": supervisor_correction,
+            "supervisor_alert": alert,
             "search_used": bool(search_context)
         }
 
@@ -889,17 +908,35 @@ def generate_ai_response(
                 "search_used": bool(search_context)
             }
         except Exception as e:
-            return {
-                "source": "error",
-                "model": "none",
-                "text": f"⚠️ Gemini Fallback Error ({active_cloud_model}): {str(e)}\n\n(Ensure Ollama is running with `ollama run {target_ollama_model}`).",
-                "search_used": False
-            }
+            print(f"Gemini fallback notice: {e}")
+
+    # 3. FINAL ATTEMPT: Try other installed Ollama models if any
+    if installed_models:
+        for alt_m in installed_models:
+            if alt_m != target_ollama_model:
+                try:
+                    res = requests.post(
+                        f"{APP_CONFIG.get('ollama_host', 'http://127.0.0.1:11434')}/api/generate",
+                        json={"model": alt_m, "prompt": full_prompt, "stream": False, "keep_alive": "30m"},
+                        timeout=40
+                    )
+                    if res.status_code == 200:
+                        txt = res.json().get("response", "").strip()
+                        if txt:
+                            return {
+                                "source": "ollama",
+                                "model": alt_m,
+                                "text": txt,
+                                "supervisor_alert": f"Routed to alternative local model '{alt_m}'.",
+                                "search_used": bool(search_context)
+                            }
+                except Exception:
+                    pass
 
     return {
         "source": "offline",
         "model": "none",
-        "text": f"⚠️ Both Local Ollama (`{target_ollama_model}`) and Cloud Gemini are currently unreachable.\n\nTo start Ollama locally, run: `ollama run {target_ollama_model}`.",
+        "text": f"⚠️ Local Ollama (`{target_ollama_model}`) is starting up or model is being loaded. Please try your question again in a moment.",
         "search_used": False
     }
 
@@ -1089,6 +1126,12 @@ def update_config(config_update: Dict[str, Any]):
     for k, v in config_update.items():
         if k in APP_CONFIG:
             APP_CONFIG[k] = v
+    # Persist to config.json
+    cfg_file = APP_DIR / "config.json"
+    try:
+        cfg_file.write_text(json.dumps(APP_CONFIG, indent=2), encoding="utf-8")
+    except Exception as e:
+        print(f"Config save notice: {e}")
     return {"success": True, "config": APP_CONFIG}
 
 @app.get("/api/memory")
@@ -1310,6 +1353,202 @@ def execute_python_code(req: CodeExecRequest):
             "exit_code": -1,
             "duration": "0s"
         }
+
+# ----------------- CODEX STATIC & NEURAL ANALYSIS ENGINE -----------------
+import ast
+
+def static_check_python_code(code: str) -> Dict[str, Any]:
+    try:
+        parsed = ast.parse(code)
+        compile(code, "<codex>", "exec")
+        warnings = []
+        for node in ast.walk(parsed):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for default in node.args.defaults:
+                    if isinstance(default, (ast.List, ast.Dict, ast.Set)):
+                        warnings.append({
+                            "line": default.lineno,
+                            "type": "warning",
+                            "message": f"Mutable default argument ({type(default).__name__.lower()}) in function '{node.name}'. Use None as default."
+                        })
+            elif isinstance(node, ast.ExceptHandler):
+                if node.type is None:
+                    warnings.append({
+                        "line": node.lineno,
+                        "type": "warning",
+                        "message": "Bare 'except:' catches SystemExit and KeyboardInterrupt. Use 'except Exception:' instead."
+                    })
+        return {
+            "valid_syntax": True,
+            "syntax_error": None,
+            "warnings": warnings
+        }
+    except SyntaxError as e:
+        return {
+            "valid_syntax": False,
+            "syntax_error": {
+                "line": e.lineno or 1,
+                "column": e.offset or 1,
+                "text": e.text.strip() if e.text else "",
+                "message": e.msg or "SyntaxError"
+            },
+            "warnings": []
+        }
+    except Exception as e:
+        return {
+            "valid_syntax": False,
+            "syntax_error": {
+                "line": 1,
+                "column": 1,
+                "text": "",
+                "message": str(e)
+            },
+            "warnings": []
+        }
+
+def run_codex_llm(prompt: str, model_override: Optional[str] = None) -> Tuple[str, str]:
+    """Runs a dedicated Codex prompt against local Ollama or Gemini."""
+    active_local_model = APP_CONFIG.get("local_model", "llama3.2:latest")
+    active_cloud_model = APP_CONFIG.get("cloud_model", "gemini-3.7-flash")
+    gemini_client = get_gemini_client()
+
+    if model_override and "gemini" in model_override.lower():
+        if gemini_client:
+            try:
+                config = {"automatic_function_calling": {"disable": True}}
+                resp = gemini_client.models.generate_content(
+                    model=model_override,
+                    contents=prompt,
+                    config=config
+                )
+                return resp.text.strip(), model_override
+            except Exception:
+                pass
+
+    target_ollama = model_override if (model_override and "gemini" not in model_override.lower()) else active_local_model
+    installed = get_installed_ollama_models()
+    if installed:
+        target_ollama = resolve_ollama_model(target_ollama, installed)
+    
+    try:
+        ollama_endpoint = APP_CONFIG.get("ollama_host", "http://127.0.0.1:11434")
+        res = requests.post(
+            f"{ollama_endpoint}/api/generate",
+            json={
+                "model": target_ollama,
+                "prompt": prompt,
+                "stream": False,
+                "keep_alive": "60m",
+                "options": {
+                    "temperature": 0.2,
+                    "num_ctx": 8192,
+                    "num_predict": 2048
+                }
+            },
+            timeout=45
+        )
+        if res.status_code == 200:
+            ans = res.json().get("response", "").strip()
+            if ans:
+                return ans, f"Local Ollama ({target_ollama})"
+    except Exception as e:
+        print(f"Ollama Codex query notice: {e}")
+
+    if gemini_client:
+        try:
+            used_model, resp = gemini_generate_with_fallback(gemini_client, prompt, preferred_models=[active_cloud_model])
+            return resp.text.strip(), f"Gemini Cloud ({used_model})"
+        except Exception as e:
+            print(f"Gemini Codex fallback error: {e}")
+
+    return "⚠️ Neural engine unreachable. Please ensure Ollama or Gemini is active.", "Offline"
+
+def extract_code_and_explanation(ai_response: str, language: str = "python") -> Tuple[str, str]:
+    pattern = r"```(?:[a-zA-Z0-9_+#-]+)?\r?\n([\s\S]*?)```"
+    match = re.search(pattern, ai_response)
+    if match:
+        fixed_code = match.group(1).strip()
+        explanation = ai_response[match.end():].strip()
+        if not explanation:
+            explanation = ai_response[:match.start()].strip()
+    else:
+        fixed_code = ai_response.strip()
+        explanation = "Code reconstructed by Codex Neural Engine."
+    return fixed_code, explanation
+
+@app.post("/api/codex/check")
+def codex_check_code(req: CodexCheckRequest):
+    code = req.code.strip()
+    if not code:
+        raise HTTPException(status_code=400, detail="Code string is empty.")
+
+    lang = (req.language or "python").lower()
+    static_res = {"valid_syntax": True, "syntax_error": None, "warnings": []}
+    
+    if lang == "python":
+        static_res = static_check_python_code(code)
+
+    prompt = (
+        f"You are CODEX, the elite static code analysis and verification engine inside VEDAS AI.\n"
+        f"Inspect the following {lang.upper()} code for syntax correctness, runtime exceptions, logic flaws, type bugs, performance bottlenecks, and security vulnerabilities.\n\n"
+        f"```{lang}\n{code}\n```\n\n"
+        f"Provide your analysis in clean Markdown with:\n"
+        f"### 1. Overall Status\n"
+        f"State either **[VALID & OPTIMAL]**, **[WARNINGS DETECTED]**, or **[CRITICAL ERRORS FOUND]**.\n\n"
+        f"### 2. Issues & Diagnostics\n"
+        f"List issues with Severity (Critical / Bug / Warning / Suggestion), Affected Line/Function, and Impact.\n\n"
+        f"### 3. Edge Cases & Logic Analysis\n"
+        f"Examine edge cases (e.g., null/None, division by zero, bounds, unhandled exceptions, type coercion).\n\n"
+        f"### 4. Code Quality & Performance Rating\n"
+        f"Provide a 1-10 rating with a concise 1-sentence verdict."
+    )
+
+    ai_analysis, model_used = run_codex_llm(prompt, req.model)
+
+    is_valid = static_res["valid_syntax"] and ("CRITICAL ERRORS FOUND" not in ai_analysis)
+
+    return {
+        "success": True,
+        "valid": is_valid,
+        "static_check": static_res,
+        "analysis": ai_analysis,
+        "model": model_used,
+        "language": lang
+    }
+
+@app.post("/api/codex/fix")
+def codex_fix_code(req: CodexFixRequest):
+    code = req.code.strip()
+    if not code:
+        raise HTTPException(status_code=400, detail="Code string is empty.")
+
+    lang = (req.language or "python").lower()
+    user_inst = f"\nUser Additional Instructions: {req.instruction}" if req.instruction else ""
+
+    prompt = (
+        f"You are CODEX, the elite autonomous code repair and refactoring engine inside VEDAS AI.\n"
+        f"Your task is to fix ALL syntax errors, runtime exceptions, logic flaws, type mismatches, and edge-case bugs in the following {lang.upper()} code.\n"
+        f"{user_inst}\n\n"
+        f"Input Code:\n```{lang}\n{code}\n```\n\n"
+        f"MANDATORY FORMAT:\n"
+        f"1. Output the complete, fully corrected, production-ready code inside a single ```{lang} code block.\n"
+        f"2. Below the code block, provide a section titled:\n"
+        f"### 🛠️ Fixes Applied:\n"
+        f"- List each specific fix made and why it was necessary."
+    )
+
+    ai_response, model_used = run_codex_llm(prompt, req.model)
+    fixed_code, explanation = extract_code_and_explanation(ai_response, lang)
+
+    return {
+        "success": True,
+        "fixed_code": fixed_code,
+        "explanation": explanation,
+        "raw_response": ai_response,
+        "model": model_used,
+        "language": lang
+    }
+
 
 @app.post("/api/search")
 def search_web_endpoint(query_req: Dict[str, str]):

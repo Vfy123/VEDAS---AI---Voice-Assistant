@@ -42,8 +42,25 @@
       this.vx = (Math.random() - 0.5) * 0.7;
       this.vy = (Math.random() - 0.5) * 0.7;
       this.radius = Math.random() * 2 + 1;
-      this.baseColor = Math.random() > 0.4 ? 'rgba(0, 240, 255,' : 'rgba(168, 85, 247,';
-      this.alpha = Math.random() * 0.5 + 0.2;
+      const r = Math.random();
+      if (r > 0.65) {
+        // High-voltage Electric Cyan / Arc Blue
+        this.baseColor = 'rgba(0, 210, 255,';
+        this.glowColor = '#00d2ff';
+      } else if (r > 0.45) {
+        // Cyber Azure / Royal Blue
+        this.baseColor = 'rgba(56, 189, 248,';
+        this.glowColor = '#38bdf8';
+      } else if (r > 0.22) {
+        // JARVIS Blazing Orange
+        this.baseColor = 'rgba(255, 119, 0,';
+        this.glowColor = '#ff7700';
+      } else {
+        // Glowing Gold
+        this.baseColor = 'rgba(245, 184, 61,';
+        this.glowColor = '#f5b83d';
+      }
+      this.alpha = Math.random() * 0.55 + 0.3;
     }
 
     update() {
@@ -70,8 +87,8 @@
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
       ctx.fillStyle = `${this.baseColor}${this.alpha})`;
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = this.baseColor.includes('0, 240, 255') ? '#00f0ff' : '#a855f7';
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = this.glowColor;
       ctx.fill();
       ctx.shadowBlur = 0;
     }
