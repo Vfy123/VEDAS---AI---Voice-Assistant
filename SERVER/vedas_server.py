@@ -181,7 +181,7 @@ _load_local_env()
 APP_CONFIG = {
     "local_model": "llama3.2:latest",
     "cloud_model": "gemini-3.7-flash",
-    "gemini_api_key": os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6KX5_yBc637Holp_TTpgXMgv9B8VlF_PDzJTAelGnTXag"),
+    "gemini_api_key": os.environ.get("GEMINI_API_KEY", ""),
     "ollama_host": "http://127.0.0.1:11434",
     "speech_rate": 1.0,
     "wake_word_enabled": True,
