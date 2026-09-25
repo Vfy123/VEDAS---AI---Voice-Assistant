@@ -24,13 +24,22 @@ import multiprocessing
 from pathlib import Path
 from typing import Optional, Tuple, List
 
-# Ensure UTF-8 output on Windows consoles
-if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+class _SafeStreamWriter:
+    def write(self, s): pass
+    def flush(self): pass
+    def isatty(self): return False
+
+if sys.stdout is None:
+    sys.stdout = _SafeStreamWriter()
+elif hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
-if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+
+if sys.stderr is None:
+    sys.stderr = _SafeStreamWriter()
+elif hasattr(sys.stderr, "reconfigure"):
     try:
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
@@ -51,19 +60,12 @@ if str(ROOT_DIR) not in sys.path:
 
 HOST = "127.0.0.1"
 PORT = 8000
-APP_NAME = "VEDAS AI 3.5 Pro"
-APP_WINDOW_TITLE = "VEDAS AI 3.5 Pro — Neural Core"
+APP_NAME = "VEDAS AI 3.7 Pro"
+APP_WINDOW_TITLE = "VEDAS AI 3.7 Pro — Neural Core"
 
 
 def get_server_url() -> str:
-    """Determine whether HTTPS or HTTP should be used based on available certificates."""
-    try:
-        from vedas_server import SSL_CERT, SSL_KEY, ensure_ssl_certs
-        ensure_ssl_certs()
-        if SSL_CERT.exists() and SSL_KEY.exists():
-            return f"https://{HOST}:{PORT}"
-    except Exception:
-        pass
+    """Returns local server HTTP URL."""
     return f"http://{HOST}:{PORT}"
 
 
@@ -213,24 +215,35 @@ def get_app_profile_dir() -> Path:
     return base
 
 
+def cleanup_stale_profile_lock(profile_dir: Path):
+    """Safely cleans up stale lock files from previous sessions to prevent instant-close."""
+    for lock_name in ["lockfile", "SingletonLock", "SingletonSocket", "SingletonCookie"]:
+        lock_p = profile_dir / lock_name
+        if lock_p.exists():
+            try:
+                lock_p.unlink()
+            except Exception:
+                pass
+
+
 def launch_app_window(url: str, width: int = 1440, height: int = 900) -> Optional[subprocess.Popen]:
     """
-    Launches Google Chrome (or Chromium fallback) in 100% borderless Standalone App Mode.
+    Launches VEDAS AI in 100% borderless Standalone App Mode.
     Zero URL bar, zero browser tabs, zero browser menus.
     """
     chrome_exe = find_chrome_executable()
-    selected_name = "Google Chrome"
     selected_exe = chrome_exe
 
     if not selected_exe:
         fallbacks = find_fallback_app_browsers()
         if fallbacks:
-            selected_name, selected_exe = fallbacks[0]
+            _, selected_exe = fallbacks[0]
 
     profile_dir = get_app_profile_dir()
+    cleanup_stale_profile_lock(profile_dir)
 
     if selected_exe:
-        print(f"✨ Launching VEDAS AI Standalone Desktop Window via {selected_name} Engine...")
+        print("✨ Launching VEDAS AI Standalone Desktop Neural Environment...")
         
         flags = [
             selected_exe,
@@ -239,16 +252,20 @@ def launch_app_window(url: str, width: int = 1440, height: int = 900) -> Optiona
             f"--window-position=center",
             f"--user-data-dir={str(profile_dir)}",
             "--app-id=vedas-ai-neural-core",
+            "--test-type",
+            "--disable-infobars",
+            "--force-dark-mode",
+            "--enable-features=WebUIDarkMode",
             "--disable-features=Translate,OptimizationHints,MediaRouter",
             "--no-first-run",
             "--no-default-browser-check",
             "--disable-default-apps",
             "--disable-extensions",
             "--disable-component-update",
-            "--ignore-certificate-errors",
-            "--allow-insecure-localhost",
             "--enable-gpu-rasterization",
             "--enable-zero-copy",
+            "--disk-cache-size=0",
+            "--media-cache-size=0",
         ]
 
         try:
@@ -260,10 +277,10 @@ def launch_app_window(url: str, width: int = 1440, height: int = 900) -> Optiona
             proc = subprocess.Popen(flags, creationflags=creationflags)
             return proc
         except Exception as e:
-            print(f"⚠️ Error starting app window via {selected_name}: {e}")
+            print(f"⚠️ Error starting desktop window: {e}")
 
-    # Fallback to standard web browser if no Chromium app engine is found
-    print("🌐 Launching via default system browser...")
+    # Fallback to standard web browser if no standalone app engine is found
+    print("🌐 Launching VEDAS AI Neural Interface...")
     import webbrowser
     webbrowser.open(url)
     return None
@@ -274,13 +291,8 @@ def run_server():
     try:
         import uvicorn
         os.chdir(str(APP_DIR))
-        from vedas_server import app, SSL_CERT, SSL_KEY, ensure_ssl_certs
-        ensure_ssl_certs()
-
-        if SSL_CERT.exists() and SSL_KEY.exists():
-            uvicorn.run(app, host=HOST, port=PORT, ssl_certfile=str(SSL_CERT), ssl_keyfile=str(SSL_KEY), reload=False, log_level="warning")
-        else:
-            uvicorn.run(app, host=HOST, port=PORT, reload=False, log_level="warning")
+        from vedas_server import app
+        uvicorn.run(app, host=HOST, port=PORT, reload=False, log_level="warning")
     except Exception as e:
         print(f"\n❌ Server Error: {e}")
 
@@ -289,8 +301,8 @@ def main():
     multiprocessing.freeze_support()
 
     print("=" * 65)
-    print(" ⚡ VEDAS AI — AUTONOMOUS DESKTOP APPLICATION")
-    print(" Mode: Standalone Desktop Window (Zero Browser Chrome)")
+    print(" ⚡ VEDAS AI — AUTONOMOUS DESKTOP WORKSTATION")
+    print(" Mode: Standalone Neural Interface")
     print(" Intelligence: Local Ollama + Gemini 3.7 Flash Cloud Engine")
     print(f" Target Endpoint: {get_server_url()}")
     print("=" * 65)
@@ -319,22 +331,27 @@ def main():
     # If launched as an attached process, monitor window lifecycle
     if app_proc:
         try:
-            print("🚀 VEDAS AI Desktop App Window is active.")
+            print("🚀 VEDAS AI 3.7 Pro Desktop App Window is active.")
             app_proc.wait()
-            print("\n⚡ VEDAS AI Desktop Window closed. Exiting cleanly...")
+            print("\n⚡ VEDAS AI Desktop Window closed. Terminating terminal cleanly...")
+            time.sleep(0.1)
+            os._exit(0)
         except KeyboardInterrupt:
             print("\n⚡ Interrupted by user. Shutting down...")
             try:
                 app_proc.terminate()
             except Exception:
                 pass
+            os._exit(0)
     elif server_thread:
         try:
             while server_thread.is_alive():
                 time.sleep(0.5)
         except KeyboardInterrupt:
             print("\n⚡ Exiting VEDAS AI.")
+            os._exit(0)
 
 
 if __name__ == "__main__":
     main()
+

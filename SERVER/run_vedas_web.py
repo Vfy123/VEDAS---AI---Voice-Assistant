@@ -51,13 +51,6 @@ HOST = "127.0.0.1"
 
 
 def get_url():
-    try:
-        from vedas_server import SSL_CERT, SSL_KEY, ensure_ssl_certs
-        ensure_ssl_certs()
-        if SSL_CERT.exists() and SSL_KEY.exists():
-            return f"https://{HOST}:{PORT}"
-    except Exception:
-        pass
     return f"http://{HOST}:{PORT}"
 
 
@@ -123,8 +116,13 @@ def launch_client():
     if exe_path:
         profile_dir = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "VedasAI" / "AppRuntime"
         profile_dir.mkdir(parents=True, exist_ok=True)
+        for lock_name in ["lockfile", "SingletonLock", "SingletonSocket", "SingletonCookie"]:
+            lock_p = profile_dir / lock_name
+            if lock_p.exists():
+                try: lock_p.unlink()
+                except Exception: pass
         
-        print(f"\n✨ Launching VEDAS AI App Window via {engine_name}...")
+        print("\n✨ Initializing VEDAS AI Standalone Desktop Neural Environment...")
         flags = [
             exe_path,
             f"--app={url}",
@@ -132,20 +130,22 @@ def launch_client():
             "--window-position=center",
             f"--user-data-dir={str(profile_dir)}",
             "--app-id=vedas-ai-neural-core",
+            "--test-type",
+            "--disable-infobars",
+            "--force-dark-mode",
+            "--enable-features=WebUIDarkMode",
             "--disable-features=Translate,OptimizationHints,MediaRouter",
             "--no-first-run",
             "--no-default-browser-check",
             "--disable-default-apps",
             "--disable-extensions",
-            "--ignore-certificate-errors",
-            "--allow-insecure-localhost",
         ]
         try:
             creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" and hasattr(subprocess, "CREATE_NEW_PROCESS_GROUP") else 0
             subprocess.Popen(flags, creationflags=creationflags)
             return
         except Exception as e:
-            print(f"⚠️ App mode launch notice: {e}")
+            print(f"⚠️ App launch notice: {e}")
 
     # Fallback to standard browser
     print(f"\n🌐 Opening Vedas AI at {url} ...")
@@ -171,13 +171,8 @@ def main():
     try:
         import uvicorn
         os.chdir(str(APP_DIR))
-        from vedas_server import app, SSL_CERT, SSL_KEY, ensure_ssl_certs
-        ensure_ssl_certs()
-
-        if SSL_CERT.exists() and SSL_KEY.exists():
-            uvicorn.run(app, host=HOST, port=PORT, ssl_certfile=str(SSL_CERT), ssl_keyfile=str(SSL_KEY), reload=False)
-        else:
-            uvicorn.run(app, host=HOST, port=PORT, reload=False)
+        from vedas_server import app
+        uvicorn.run(app, host=HOST, port=PORT, reload=False)
     except KeyboardInterrupt:
         print("\n⚡ Vedas AI Server stopped gracefully.")
     except Exception as e:

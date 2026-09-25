@@ -3,374 +3,332 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VEDAS AI 3.5 Pro — Neural Core</title>
-  <meta name="description" content="Vedas AI 3.5 Pro — Advanced Autonomous Intelligence Operating System powered by Local Ollama & Gemini Supervisor.">
-  <meta name="theme-color" content="#030712">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="stylesheet" href="/static/css/style.css">
+  <title>VEDAS AI 3.7 Pro — Neural Intelligence Core</title>
+  <meta name="description" content="VEDAS AI 3.7 Pro — Autonomous Multimodal Neural Intelligence Operating System. Powered by Local Ollama & Gemini Supervisor.">
+  <meta name="theme-color" content="#050914">
+  <link rel="stylesheet" href="/static/css/style.css?v=3.7.0">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
 </head>
 <body>
 
   <!-- Interactive Background Canvas & Ambience -->
   <canvas id="particles-canvas"></canvas>
-  <div class="ambient-glow ambient-glow-1"></div>
-  <div class="ambient-glow ambient-glow-2"></div>
-  <div class="ambient-glow ambient-glow-gold"></div>
-  <div class="ambient-glow ambient-glow-blue"></div>
-  <div class="ambient-glow ambient-glow-blue-2"></div>
+  <div class="ambient-glow ambient-glow-blue-primary"></div>
+  <div class="ambient-glow ambient-glow-orange-primary"></div>
 
-  <!-- HUD Scan Lines -->
-  <div class="jarvis-scanlines" aria-hidden="true"></div>
-  <div class="jarvis-grid-overlay" aria-hidden="true"></div>
-
-  <!-- JARVIS Boot Banner (shown briefly on load) -->
-  <div id="jarvis-boot-screen" aria-live="polite">
-    <div class="jarvis-boot-inner">
-      <div class="jarvis-boot-logo">⚡</div>
-      <div class="jarvis-boot-title">VEDAS AI</div>
-      <div class="jarvis-boot-sub">Autonomous Intelligence System</div>
-      <div class="jarvis-boot-bar"><div class="jarvis-boot-fill" id="jarvis-boot-fill"></div></div>
-      <div class="jarvis-boot-status" id="jarvis-boot-status">Initializing neural matrices...</div>
-    </div>
-  </div>
-
-  <!-- JARVIS Hologram Overlay (appears when speaking) -->
-  <div id="hologram-overlay">
-    <div id="hologram-container">
-      <canvas id="hologram-canvas"></canvas>
-    </div>
-  </div>
-
-  <!-- Master App Container -->
+  <!-- Master App Shell (Sidebar Layout) -->
   <div id="app-container">
 
-    <!-- Top Futuristic HUD -->
-    <header id="top-hud">
-      <!-- JARVIS Ticker Line -->
-      <div class="jarvis-ticker-strip" aria-hidden="true">
-        <div class="jarvis-ticker-content" id="jarvis-ticker">
-          ⚡ VEDAS AI 3.5 PRO NEURAL CORE ONLINE &nbsp;•&nbsp; VEDAS AI 3.5 PRO ACTIVE &nbsp;•&nbsp; ALL SYSTEMS NOMINAL &nbsp;•&nbsp; OLLAMA LOCAL ENGINE READY &nbsp;•&nbsp; GEMINI SUPERVISOR ARMED &nbsp;•&nbsp; MULTIMODAL REASONING ENABLED &nbsp;•&nbsp; MEMORY BANK ONLINE &nbsp;•&nbsp; IMAGE SYNTHESIS ENGINE READY &nbsp;•
-        </div>
-      </div>
-
-      <div class="brand-section">
-        <div class="brand-logo-badge">
+    <!-- ==============================================================================
+         LEFT SIDEBAR NAVIGATION (Electric Blue & Neon Orange Aesthetic)
+         ============================================================================== -->
+    <aside id="sidebar">
+      
+      <!-- Brand Header -->
+      <div class="sidebar-brand" onclick="switchView('chat')" title="VEDAS AI 3.7 Pro">
+        <div class="brand-badge-glow">
           <span class="brand-icon">⚡</span>
         </div>
-        <div class="brand-meta">
-          <h1>VEDAS AI <span class="jarvis-label-tag">3.5 PRO</span></h1>
-          <div class="brand-subtitle">Autonomous Multimodal Neural Intelligence</div>
+        <div class="brand-text">
+          <div class="brand-title">VEDAS AI <span class="brand-pro-pill">3.7 PRO</span></div>
+          <div class="brand-tagline">Neural Intelligence Core</div>
         </div>
       </div>
 
-      <!-- Center Telemetry & Health Gauges -->
-      <div class="hud-telemetry">
-        <div class="telemetry-chip" id="hud-ollama-chip" onclick="restartOllamaService()" style="cursor:pointer;" title="⚡ Click to Reconnect / Verify Local Ollama">
-          <span id="hud-ollama-dot" class="status-dot"></span>
-          <span id="hud-ollama-text">⚡ CORE: STANDBY</span>
-        </div>
-        <div class="telemetry-chip">
-          <span class="status-dot"></span>
-          <span id="hud-cpu">CPU: 0%</span>
-        </div>
-        <div class="telemetry-chip">
-          <span class="status-dot"></span>
-          <span id="hud-ram">RAM: 0%</span>
-        </div>
-        <div class="telemetry-chip jarvis-time-chip">
-          <span class="status-dot jarvis-dot-gold"></span>
-          <span id="hud-time" class="jarvis-time-display">--:-- --</span>
-        </div>
-      </div>
+      <!-- New Chat Action Button -->
+      <button class="sidebar-new-chat-btn" onclick="startNewChat()">
+        <span class="btn-icon">✨</span>
+        <span class="btn-text">New Conversation</span>
+      </button>
 
-      <!-- Right HUD Controls & View Tabs -->
-      <div class="hud-actions">
-        <!-- Main View Switcher Tabs -->
-        <div class="hud-view-switcher">
-          <button class="hud-nav-tab active" id="nav-tab-chat" onclick="switchMainView('chat')" title="AI Chat & Multimodal Assistant">
-            <span>💬</span> Assistant
-          </button>
-          <button class="hud-nav-tab" id="nav-tab-codex" onclick="switchMainView('codex')" title="Codex: Code Verification & AI Auto-Repair">
-            <span>💻</span> Codex
-          </button>
-          <button class="hud-nav-tab" id="nav-tab-image" onclick="openImageStudio()" title="Open Image Generation Studio">
-            <span>🎨</span> Image
-          </button>
-          <button class="hud-nav-tab" id="nav-tab-memory" onclick="openMemoryStudio()" title="Open Memory Bank Core">
-            <span>🧠</span> Memory
-          </button>
-          <button class="hud-nav-tab" id="nav-tab-files" onclick="openFileManager()" title="Open File & Folder Manager">
-            <span>📁</span> Files
-          </button>
-        </div>
-
-        <select id="model-selector" class="model-badge-select" title="Active Intelligence Core">
-          <option value="llama3.2:latest">⚡ Local: LLaMA 3.2 (Primary)</option>
-          <option value="llama3:latest">⚡ Local: LLaMA 3</option>
-          <option value="qwen2.5:7b">⚡ Local: Qwen 2.5 7B</option>
-          <option value="phi4:latest">⚡ Local: Phi-4</option>
-          <option value="gemini-3.7-flash">⚡ Cloud: Gemini 3.7 Flash</option>
-          <option value="gemini-3.6-flash">⚡ Cloud: Gemini 3.6 Flash</option>
-          <option value="gemini-3.5-flash">⚡ Cloud: Gemini 3.5 Flash</option>
-          <option value="gemini-3.1-flash-lite">⚡ Cloud: Gemini 3.1 Flash Lite</option>
-          <option value="gemini-3.5-flash-lite">⚡ Cloud: Gemini 3.5 Flash Lite</option>
-          <option value="gemini-3.1-pro-preview">⚡ Cloud: Gemini 3.1 Pro</option>
-        </select>
-      </div>
-    </header>
-
-    <!-- Main Workspace Area -->
-    <main id="main-workspace">
-
-      <!-- Left Sidebar: History, Commands & Memory -->
-      <aside id="sidebar">
-        <button class="sidebar-new-chat-btn" onclick="startNewChat()">
-          <span>+</span> New Conversation
+      <!-- Main Navigation Menu -->
+      <nav class="sidebar-nav" aria-label="Main Navigation">
+        <button class="nav-item active" id="nav-item-chat" onclick="switchView('chat')">
+          <span class="nav-icon">💬</span>
+          <span class="nav-label">AI Chatbot</span>
+          <span class="nav-badge" id="chat-badge">Online</span>
         </button>
 
-        <!-- Navigation Tabs: Chats | Commands | Memory -->
-        <div class="sidebar-tabs">
-          <button class="sidebar-tab-btn active" id="tab-sessions-btn" onclick="switchSidebarTab('sessions')">💬 Chats</button>
-          <button class="sidebar-tab-btn" id="tab-commands-btn" onclick="switchSidebarTab('commands')">⚡ Commands</button>
-          <button class="sidebar-tab-btn" id="tab-memory-btn" onclick="switchSidebarTab('memory')">🧠 Memory</button>
+        <button class="nav-item" id="nav-item-codex" onclick="switchView('codex')">
+          <span class="nav-icon">💻</span>
+          <span class="nav-label">Codex Code Lab</span>
+        </button>
+
+        <button class="nav-item" id="nav-item-image" onclick="switchView('image')">
+          <span class="nav-icon">🎨</span>
+          <span class="nav-label">8K Image Studio</span>
+        </button>
+
+        <button class="nav-item" id="nav-item-memory" onclick="switchView('memory')">
+          <span class="nav-icon">🧠</span>
+          <span class="nav-label">Memory Bank</span>
+        </button>
+
+        <button class="nav-item" id="nav-item-files" onclick="switchView('files')">
+          <span class="nav-icon">📁</span>
+          <span class="nav-label">Workspace Files</span>
+        </button>
+
+        <button class="nav-item" id="nav-item-commands" onclick="switchView('commands')">
+          <span class="nav-icon">⚡</span>
+          <span class="nav-label">System Controls</span>
+        </button>
+
+        <button class="nav-item" id="nav-item-settings" onclick="switchView('settings')">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label">Settings</span>
+        </button>
+      </nav>
+
+      <!-- Sidebar History Sessions -->
+      <div class="sidebar-history-section">
+        <div class="history-header">
+          <span class="history-title">RECENT CHATS</span>
+          <button class="history-clear-btn" onclick="clearAllSessions()" title="Clear History">🧹</button>
         </div>
+        <div class="history-list" id="sessions-list"></div>
+      </div>
 
-        <!-- Tab 1: Sessions List Container -->
-        <div class="sidebar-content-area" id="sidebar-sessions-view">
-          <div id="sessions-list" style="display:flex; flex-direction:column; gap:4px;"></div>
-        </div>
-
-        <!-- Tab 2: Sectioned Commands View -->
-        <div class="sidebar-content-area" id="sidebar-commands-view" style="display:none;">
-          <div class="cmd-category-tabs">
-            <button class="cmd-cat-btn active" id="cmd-cat-apps-btn" onclick="switchCmdCategory('apps')">📱 Apps</button>
-            <button class="cmd-cat-btn" id="cmd-cat-utils-btn" onclick="switchCmdCategory('utils')">🎛️ Audio/Tools</button>
-            <button class="cmd-cat-btn" id="cmd-cat-power-btn" onclick="switchCmdCategory('power')">🛡️ Power</button>
-          </div>
-
-          <!-- Sub-category 1: Desktop Apps -->
-          <div class="cmd-category-panel active" id="cmd-panel-apps">
-            <div class="sys-cmds-grid">
-              <button class="sys-cmd-btn" onclick="runSysCmd('open notepad')" title="Open Notepad">📝 Notepad</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('open calculator')" title="Open Calculator">🧮 Calculator</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('open explorer')" title="Open File Explorer">📁 Explorer</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('open chrome')" title="Open Web Browser">🌐 Browser</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('open task manager')" title="Open Task Manager">⚙️ Tasks</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('open settings')" title="Open Windows Settings">🔧 Settings</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('open terminal')" title="Open Command Prompt / Terminal">💻 Terminal</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('open paint')" title="Open MS Paint">🎨 Paint</button>
+      <!-- Sidebar Footer Telemetry -->
+      <div class="sidebar-footer">
+        <div class="telemetry-mini-card">
+          <div class="telemetry-row">
+            <div class="status-indicator">
+              <span class="status-dot dot-green" id="sidebar-ollama-dot"></span>
+              <span class="status-text" id="sidebar-core-text">Ollama: Online</span>
             </div>
+            <span class="telemetry-val" id="sidebar-cpu-val">CPU: 0%</span>
           </div>
-
-          <!-- Sub-category 2: Utilities & Audio -->
-          <div class="cmd-category-panel" id="cmd-panel-utils" style="display:none;">
-            <div class="sys-cmds-grid">
-              <button class="sys-cmd-btn" onclick="runSysCmd('screenshot')" title="Take Screen Capture">📸 Screenshot</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('mute')" title="Toggle System Mute">🔇 Mute / Unmute</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('set volume to 50')" title="Set Volume to 50%">🔊 Vol: 50%</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('set volume to 100')" title="Set Volume to 100%">🔊 Vol: Max</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('what is my ip')" title="Check Local & Network IP">📶 Network IP</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('tell me a joke')" title="Tell an AI Joke">😄 Tell Joke</button>
+          <div class="telemetry-row">
+            <div class="status-indicator">
+              <span class="status-dot dot-orange" id="sidebar-gemini-dot"></span>
+              <span class="status-text">Gemini: Ready</span>
             </div>
-          </div>
-
-          <!-- Sub-category 3: Power & System Control -->
-          <div class="cmd-category-panel" id="cmd-panel-power" style="display:none;">
-            <div class="sys-cmds-grid">
-              <button class="sys-cmd-btn" onclick="runSysCmd('lock screen')" title="Lock Workstation">🔒 Lock Screen</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('sleep')" title="Put Computer to Sleep">💤 Sleep Mode</button>
-              <button class="sys-cmd-btn sys-cmd-warning" onclick="confirmRestart()" title="Restart Computer">🔄 Restart PC</button>
-              <button class="sys-cmd-btn sys-cmd-danger" onclick="confirmShutdown()" title="Shutdown Computer">🔴 Shutdown</button>
-              <button class="sys-cmd-btn" onclick="runSysCmd('cancel shutdown')" title="Abort Scheduled Shutdown">⏹ Cancel Action</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tab 3: Memory List Container -->
-        <div class="sidebar-content-area" id="sidebar-memory-view" style="display:none;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <span style="font-size:0.8rem; font-weight:600; color:var(--cyan-neon);">🧠 STORED KNOWLEDGE</span>
-            <button class="codex-mini-btn" onclick="openMemoryStudio()">+ Add Note</button>
-          </div>
-          <div id="memory-list" style="display:flex; flex-direction:column; gap:4px;"></div>
-        </div>
-
-        <!-- Sidebar Footer & Persona Picker -->
-        <div class="sidebar-footer">
-          <div class="persona-select-container">
-            <label for="persona-selector">System Persona</label>
-            <select id="persona-selector" class="persona-select">
-              <option value="master_vedas">Master Vedas (Omniscient AI)</option>
-              <option value="cyber_coder">Cyber Coder (Full-Stack Engineer)</option>
-              <option value="deep_thinker">Deep Thinker (Logic & Math)</option>
-              <option value="creative_muse">Creative Muse (Visionary)</option>
-              <option value="sarcastic_genius">Sarcastic Genius (Witty)</option>
-            </select>
+            <span class="telemetry-val" id="sidebar-ram-val">RAM: 0%</span>
           </div>
         </div>
-      </aside>
+      </div>
 
-      <!-- Center Chat & Visual Stage -->
-      <section id="chat-stage">
+    </aside>
 
-        <!-- Welcome Hero View (When conversation empty) -->
-        <div id="welcome-hero">
-          <!-- JARVIS HUD Data Ring -->
-          <div class="jarvis-hero-ring" aria-hidden="true">
-            <div class="jarvis-ring-inner">
-              <div class="hero-orb">⚡</div>
+    <!-- ==============================================================================
+         MAIN CONTENT AREA
+         ============================================================================== -->
+    <main id="main-content">
+
+      <!-- ==============================================================================
+           VIEW: AI CHATBOT (Primary Default Intelligence Hub)
+           ============================================================================== -->
+      <section class="app-view active" id="view-chat">
+        
+        <!-- Chat Stage Header Bar -->
+        <div class="chat-header-bar">
+          <div class="chat-header-left">
+            <div class="chat-header-avatar">⚡</div>
+            <div class="chat-header-info">
+              <div class="chat-header-title">VEDAS AI Assistant</div>
+              <div class="chat-header-sub">Multimodal Neural Chat • Vision & Voice Core</div>
             </div>
-            <svg class="jarvis-ring-svg" viewBox="0 0 200 200" aria-hidden="true">
-              <circle cx="100" cy="100" r="90" class="jarvis-ring-track"/>
-              <circle cx="100" cy="100" r="90" class="jarvis-ring-progress" id="jarvis-ring-progress"/>
-            </svg>
           </div>
 
-          <div class="jarvis-hero-label" aria-label="VEDAS AI status">VEDAS AI 3.5 PRO — NEURAL CORE ACTIVE</div>
-          <h2 class="hero-title">Good day. I'm <span class="jarvis-name-highlight">VEDAS</span></h2>
-          <p class="hero-tagline">
-            <span class="jarvis-quote">"At your service."</span> — Your autonomous AI intelligence. Dual-core neural reasoning via local Ollama & Gemini cloud supervisor, 8K image synthesis, multimodal PDF analysis, and live web intelligence.
-          </p>
+          <div class="chat-header-right">
+            <!-- Model Switcher -->
+            <div class="control-select-wrapper">
+              <span class="select-label">Model:</span>
+              <select id="model-selector" class="chat-model-select" title="Active Intelligence Core">
+                <option value="llama3.2:latest">⚡ Local: LLaMA 3.2 (Primary)</option>
+                <option value="llama3:latest">⚡ Local: LLaMA 3</option>
+                <option value="qwen2.5:7b">⚡ Local: Qwen 2.5 7B</option>
+                <option value="phi4:latest">⚡ Local: Phi-4</option>
+                <option value="gemini-3.7-flash">⚡ Cloud: Gemini 3.7 Flash</option>
+                <option value="gemini-3.6-flash">⚡ Cloud: Gemini 3.6 Flash</option>
+                <option value="gemini-3.5-flash">⚡ Cloud: Gemini 3.5 Flash</option>
+                <option value="gemini-3.1-flash-lite">⚡ Cloud: Gemini 3.1 Flash Lite</option>
+                <option value="gemini-3.5-flash-lite">⚡ Cloud: Gemini 3.5 Flash Lite</option>
+                <option value="gemini-3.1-pro-preview">⚡ Cloud: Gemini 3.1 Pro</option>
+              </select>
+            </div>
 
-          <!-- JARVIS Status Grid -->
-          <div class="jarvis-status-grid">
-            <div class="jarvis-stat-chip"><span class="jarvis-stat-dot"></span> NEURAL CORE <span class="jarvis-stat-val" id="hero-core-status">ONLINE</span></div>
-            <div class="jarvis-stat-chip"><span class="jarvis-stat-dot jarvis-dot-purple"></span> GEMINI SUP <span class="jarvis-stat-val">ARMED</span></div>
-            <div class="jarvis-stat-chip"><span class="jarvis-stat-dot jarvis-dot-gold"></span> IMAGE ENGINE <span class="jarvis-stat-val">READY</span></div>
-            <div class="jarvis-stat-chip"><span class="jarvis-stat-dot jarvis-dot-amber"></span> MEMORY BANK <span class="jarvis-stat-val">LOADED</span></div>
-          </div>
+            <!-- Persona Switcher -->
+            <div class="control-select-wrapper">
+              <span class="select-label">Persona:</span>
+              <select id="persona-selector" class="chat-persona-select" title="System Persona">
+                <option value="master_vedas">Master Vedas (Omniscient)</option>
+                <option value="cyber_coder">Cyber Coder (Engineer)</option>
+                <option value="deep_thinker">Deep Thinker (Logic & Math)</option>
+                <option value="creative_muse">Creative Muse (Visionary)</option>
+                <option value="sarcastic_genius">Sarcastic Genius (Witty)</option>
+              </select>
+            </div>
 
-          <!-- Quick Action Prompts Grid -->
-          <div class="quick-prompts-grid">
-            <div class="quick-card" data-prompt="/image a futuristic cybernetic city with flying holographic vehicles, 8k cinematic lighting">
-              <div class="quick-card-icon">🎨</div>
-              <div class="quick-card-title">⚡ Image Synthesis</div>
-              <div class="quick-card-desc">Generate 8K masterpieces with FLUX neural engines. Enhanced style presets.</div>
-            </div>
-            <div class="quick-card" data-prompt="Analyze how an AI assistant handles multi-modal reasoning and write a Python demonstration with tests.">
-              <div class="quick-card-icon">💻</div>
-              <div class="quick-card-title">⚡ Code Lab</div>
-              <div class="quick-card-desc">Write, analyze & execute Python. I'll review logic and suggest improvements.</div>
-            </div>
-            <div class="quick-card" data-prompt="Search for latest breakthroughs in quantum computing and summarize the top findings.">
-              <div class="quick-card-icon">🌐</div>
-              <div class="quick-card-title">⚡ Web Intel</div>
-              <div class="quick-card-desc">Real-time search & knowledge synthesis. Live data feeds directly to my core.</div>
-            </div>
-            <div class="quick-card" data-prompt="Please explain how Vedas AI architecture integrates local Ollama and cloud Gemini.">
-              <div class="quick-card-icon">🤖</div>
-              <div class="quick-card-title">⚡ System Briefing</div>
-              <div class="quick-card-desc">Explore my dual-core neural architecture, supervisory layer & capabilities.</div>
-            </div>
+            <!-- Quick Action Chips -->
+            <button class="chat-hdr-chip" onclick="cycleTheme()" title="Switch Vibrant Cyber Color Palette">
+              🎨 <span class="chip-txt">Theme</span>
+            </button>
+            <button class="chat-hdr-chip" onclick="toggleFullscreen()" title="Toggle Fullscreen Neural Interface">
+              ⛶ <span class="chip-txt">Fullscreen</span>
+            </button>
+
+            <button class="chat-hdr-btn" onclick="startNewChat()" title="Start Fresh Conversation">
+              <span>+</span> New
+            </button>
           </div>
         </div>
 
-        <!-- Dynamic Chat Messages Stream -->
-        <div id="chat-messages-container" style="display:none;"></div>
+        <!-- Chat Conversation Stage (Full Width, Centered, Clean) -->
+        <div class="chat-stage-wrapper">
+          <div class="chat-stage-body" id="chat-stage-body">
+            
+            <!-- Empty State Hero (Prompt Suggestions) -->
+            <div id="welcome-hero" class="chat-welcome-hero">
+              <div class="chat-hero-orb">⚡</div>
+              <div class="chat-hero-status">VEDAS AI 3.7 PRO — READY</div>
+              <h2 class="chat-hero-title">How can I assist you today?</h2>
+              <p class="chat-hero-desc">
+                Speak directly, write and debug code, capture your screen for vision QA, attach PDFs, or synthesize 8K visuals.
+              </p>
 
-        <!-- Master Chat Input Dock -->
-        <div id="input-dock">
-          <!-- File Attachments Tray (PDFs, Images, Docs) -->
+              <div class="chat-quick-cards-grid">
+                <div class="quick-card" onclick="triggerScreenVision()" title="Capture and analyze active desktop window">
+                  <div class="quick-card-icon">📸</div>
+                  <div class="quick-card-title">Real-Time Screen Vision</div>
+                  <div class="quick-card-desc">Capture active desktop window & let Vedas inspect errors, UI, or code.</div>
+                </div>
+                <div class="quick-card" onclick="switchView('codex')" title="Open Codex Code Lab">
+                  <div class="quick-card-icon">💻</div>
+                  <div class="quick-card-title">Codex Neural Code Lab</div>
+                  <div class="quick-card-desc">Write, verify & execute Python algorithms with sub-50ms AST diagnostics.</div>
+                </div>
+                <div class="quick-card" onclick="triggerQuickWebSearch()" title="Instant Live Web Search">
+                  <div class="quick-card-icon">🌐</div>
+                  <div class="quick-card-title">Deep Web Intelligence</div>
+                  <div class="quick-card-desc">Instant multi-source search with live citations and real-time 2026 data.</div>
+                </div>
+                <div class="quick-card" onclick="switchView('image')" title="Open 8K Image Studio">
+                  <div class="quick-card-icon">🎨</div>
+                  <div class="quick-card-title">8K Creative Visuals</div>
+                  <div class="quick-card-desc">Generate photorealistic cinematic renders with cyber aesthetics.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Active Chat Messages Stream -->
+            <div id="chat-messages-container" style="display:none;"></div>
+
+          </div>
+
+          <!-- Floating Voice "Read in Full?" Prompt Bar (Bottom Area, One-Line Capsule) -->
+          <div id="voice-read-full-panel" class="voice-read-full-bar" style="display:none;">
+            <div class="vrf-bar-left">
+              <span class="vrf-pulse-orb">🎙️</span>
+              <span class="vrf-bar-title" id="vrf-title">Should I read it to you in full?</span>
+              <span class="vrf-progress-chip" id="vrf-progress-chip">25% Preview</span>
+            </div>
+            <div class="vrf-bar-actions">
+              <button class="vrf-btn vrf-btn-yes" id="vrf-btn-yes" onclick="readFullResponseSpeech()">
+                <span>✨</span> Yes, Read Full
+              </button>
+              <button class="vrf-btn vrf-btn-no" onclick="dismissReadFullPrompt(true)">
+                <span>⏹️</span> No
+              </button>
+              <button class="vrf-bar-close" onclick="dismissReadFullPrompt(false)" title="Dismiss">✕</button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Master Chat Voice & Action Dock (Single-Line Symmetrical Interface) -->
+        <div class="chat-master-dock">
+          
+          <!-- Hidden File Input for Attachments -->
+          <input type="file" id="file-input" multiple accept=".pdf,image/*,.txt,.py,.js,.json,.md,.csv" style="display:none;">
+
+          <!-- File / Vision Attachments Tray -->
           <div id="attachment-tray"></div>
 
-          <!-- Primary Voice Dock (Default Mode) -->
-          <div id="dock-voice-mode" class="dock-mode-container active">
-            <!-- Left Shortcut Buttons: Memory, Image, Attach -->
-            <div class="dock-side-left">
-              <button class="dock-pill-btn dock-btn-memory" id="dock-btn-memory" onclick="openMemoryStudio()" title="Open Memory Bank [🧠]">
-                <span class="dock-btn-icon">🧠</span>
-                <span class="dock-btn-label">Memory</span>
+          <!-- MODE 1: VOICE DOCK (Default 1-Line Mode with Centered Big Mic Orb) -->
+          <div class="dock-symmetrical-bar" id="dock-voice-mode">
+            
+            <!-- LEFT TOOLS WING (1 Line) -->
+            <div class="dock-wing dock-wing-left">
+              <button class="dock-tool-btn" onclick="document.getElementById('file-input').click()" title="Attach Document, Code or PDF [📎]">
+                <span class="dock-icon">📎</span>
+                <span class="dock-text">Attach</span>
               </button>
-              <button class="dock-pill-btn dock-btn-image" id="dock-btn-image" onclick="openImageStudio()" title="Open Image Generation Studio [🎨]">
-                <span class="dock-btn-icon">🎨</span>
-                <span class="dock-btn-label">Image</span>
+              <button class="dock-tool-btn dock-btn-vision" onclick="triggerScreenVision()" title="Capture and analyze active screen with AI Vision">
+                <span class="dock-icon">📸</span>
+                <span class="dock-text">Screen Vision</span>
               </button>
-              <button class="dock-pill-btn dock-btn-attach" onclick="document.getElementById('file-input').click()" title="Attach PDFs, Photos, Documents, or Code [📎]">
-                <span class="dock-btn-icon">📎</span>
-                <span class="dock-btn-label">Attach</span>
+              <button class="dock-tool-btn" onclick="switchView('image')" title="8K Neural Image Studio">
+                <span class="dock-icon">🎨</span>
+                <span class="dock-text">8K Image</span>
+              </button>
+              <button class="dock-tool-btn" onclick="switchView('memory')" title="Persistent Memory Bank">
+                <span class="dock-icon">🧠</span>
+                <span class="dock-text">Memory</span>
               </button>
             </div>
 
-            <!-- Center Voice Unit: Big Mic Button & Larger Fluid Waveform -->
-            <div class="dock-center-unit">
-              <!-- Big Centered Mic Button -->
-              <button class="dock-big-mic-btn" id="dock-main-mic-btn" title="Voice Interaction [Hotkey: Ctrl+M / Alt+V]">
-                <div class="mic-halo-ring"></div>
-                <div class="mic-halo-pulse"></div>
-                <div class="mic-core-glow"></div>
-                <div class="mic-icon-inner">🎙️</div>
-                <span class="mic-hotkey-badge">Ctrl+M</span>
-              </button>
-
-              <!-- Pure Fluid Waveform Unit (Larger flowing wave with transcript chip below) -->
-              <div class="dock-voice-wave-unit" id="dock-voice-wave-unit" style="display:none;" onclick="toggleVoiceListening()" title="Click to finish & send voice query">
-                <div class="fluid-waveform-wrapper">
-                  <canvas id="waveform-canvas"></canvas>
-                  <div class="fluid-wave-glow"></div>
-                </div>
-                <div class="dock-speech-transcript" id="dock-waveform-transcript">Listening...</div>
+            <!-- CENTER VOICE HUB: Large Prominent Mic Orb with Waveform & Transcript -->
+            <div class="dock-center-voice-core">
+              <div class="dock-wave-container">
+                <canvas id="chat-waveform" width="360" height="38"></canvas>
               </div>
+              <div class="dock-voice-unit">
+                <div class="voice-ring ring-outer-blue"></div>
+                <div class="voice-ring ring-middle-orange"></div>
+                <div class="voice-ring ring-inner-cyan"></div>
+                <button class="voice-main-mic-orb" id="chat-mic-orb-btn" onclick="toggleVoiceListening()" title="Click or Press Ctrl+M to Speak">
+                  <span class="mic-glyph" id="chat-mic-glyph">🎙️</span>
+                  <div class="mic-pulse-aura"></div>
+                </button>
+              </div>
+              <div class="dock-voice-caption" id="chat-voice-transcript">Click the orb or press Ctrl+M to talk</div>
             </div>
 
-            <!-- Right Shortcut Buttons: Web Search, Files, Switch to Type -->
-            <div class="dock-side-right">
-              <button class="dock-pill-btn dock-btn-web" id="dock-btn-web-voice" onclick="toggleWebSearchVoice(this)" title="Toggle Live Web Search [🌐]">
-                <span class="dock-btn-icon">🌐</span>
-                <span class="dock-btn-label">Search</span>
+            <!-- RIGHT TOOLS WING (1 Line) -->
+            <div class="dock-wing dock-wing-right">
+              <button class="dock-tool-btn dock-btn-type" id="type-mode-toggle" onclick="setDockMode('type')" title="Switch to Keyboard Typing Bar">
+                <span class="dock-icon">⌨️</span>
+                <span class="dock-text">Type</span>
               </button>
-              <button class="dock-pill-btn dock-btn-files" onclick="openFileManager()" title="Open File Explorer [📁]">
-                <span class="dock-btn-icon">📁</span>
-                <span class="dock-btn-label">Files</span>
+              <button class="dock-tool-btn dock-btn-search" id="web-search-toggle" onclick="toggleWebSearch(this)" title="Toggle Instant Live Web Search">
+                <span class="dock-icon">🌐</span>
+                <span class="dock-text">Live Search</span>
+                <span class="search-indicator-dot" id="search-dot"></span>
               </button>
-              <button class="dock-pill-btn dock-btn-type" id="dock-btn-type" onclick="switchInputMode('typing')" title="Switch to Keyboard Typing Mode [⌨️]">
-                <span class="dock-btn-icon">⌨️</span>
-                <span class="dock-btn-label">Type</span>
+              <button class="dock-tool-btn" onclick="switchView('files')" title="Workspace File Browser">
+                <span class="dock-icon">📁</span>
+                <span class="dock-text">Files</span>
+              </button>
+              <button class="dock-tool-btn" onclick="switchView('codex')" title="Codex Code Lab IDE">
+                <span class="dock-icon">💻</span>
+                <span class="dock-text">Code Lab</span>
               </button>
             </div>
+
           </div>
 
-          <!-- Secondary Keyboard Typing Dock (Fully Fledged & Full Horizontal Width) -->
-          <div id="dock-typing-mode" class="dock-mode-container" style="display:none;">
-            <div class="input-glass-box">
-              <div class="input-row-main">
-                <textarea id="chat-input" rows="1" placeholder="Ask Vedas, say 'open notepad', drag files, or press Ctrl+M..." autofocus></textarea>
-                <button class="mic-action-btn small-side-mic" id="mic-btn" title="Voice Dictation [Hotkey: Ctrl+M or Alt+V]">
-                  🎙️
-                </button>
-                <button class="send-btn" id="send-btn" title="Transmit Query">
-                  ➤
-                </button>
-              </div>
-
-              <!-- Bottom Action Icons Bar -->
-              <div class="input-actions-bar">
-                <div class="input-tools-left">
-                  <input type="file" id="file-input" multiple accept=".pdf,image/*,.txt,.py,.js,.json,.md,.csv">
-                  <button class="tool-icon-btn" id="upload-trigger-btn" title="Attach PDFs, Photos, Documents, or Code">
-                    📎
-                  </button>
-                  <button class="tool-icon-btn" id="web-search-toggle" title="Toggle Live Web Search">
-                    🌐
-                  </button>
-                  <button class="tool-icon-btn" onclick="openImageStudio()" title="Quick Image Studio">
-                    🎨
-                  </button>
-                  <button class="tool-icon-btn" onclick="openMemoryStudio()" title="Quick Memory Bank">
-                    🧠
-                  </button>
-                  <button class="tool-icon-btn" onclick="openFileManager()" title="File Manager">
-                    📁
-                  </button>
-                </div>
-                <div class="input-tools-right">
-                  <span class="typing-hotkey-hint">Hotkey: <code>Ctrl + M</code> for Voice • Enter to send</span>
-                  <button class="dock-mode-switch-btn" onclick="switchInputMode('voice')" title="Switch to Voice Mode">
-                    <span>🎙️</span> Voice Mode
-                  </button>
-                </div>
-              </div>
+          <!-- MODE 2: TYPING DOCK (Single-Line Bar Replaces Mic in Place) -->
+          <div class="dock-typing-bar-wrapper" id="dock-typing-mode" style="display:none;">
+            <div class="dock-typing-bar">
+              <button class="typing-mode-switch-btn" onclick="setDockMode('voice')" title="Switch back to Voice Mode">
+                <span>🎙️</span>
+                <span class="typing-switch-text">Voice Mode</span>
+              </button>
+              
+              <button class="typing-attach-btn" onclick="document.getElementById('file-input').click()" title="Attach File [📎]">
+                📎
+              </button>
+              
+              <textarea id="chat-input" rows="1" placeholder="Ask Vedas anything, paste code, say 'look at my screen', or press Enter to send..."></textarea>
+              
+              <button class="typing-send-btn" id="send-btn" onclick="handleSendMessage()" title="Send Message (Enter)">
+                ➤ Send
+              </button>
+              <button class="typing-stop-btn" id="stop-btn" onclick="stopAllAIResponse()" title="Stop AI Response (Esc)" style="display:none;">
+                ⏹️ Stop
+              </button>
             </div>
           </div>
 
@@ -378,15 +336,16 @@
 
       </section>
 
-      <!-- Codex Neural Code Studio Stage -->
-      <section id="codex-stage" style="display:none;">
-        <!-- Codex Top Toolbar -->
+      <!-- ==============================================================================
+           VIEW: CODEX NEURAL CODE STUDIO (Fast AST & Auto-Repair IDE)
+           ============================================================================== -->
+      <section class="app-view" id="view-codex" style="display:none;">
         <div class="codex-toolbar">
           <div class="codex-toolbar-left">
             <div class="codex-brand-chip">
               <span class="codex-icon">💻</span>
               <span class="codex-brand-name">CODEX</span>
-              <span class="codex-brand-badge">Neural Code Verifier & Repair</span>
+              <span class="codex-brand-badge">Neural Code Lab</span>
             </div>
             <select id="codex-lang-select" class="codex-select" title="Source Language">
               <option value="python">🐍 Python</option>
@@ -401,30 +360,34 @@
               <option value="sql">🗄️ SQL</option>
               <option value="bash">💻 Shell / Bash</option>
             </select>
+            <select id="codex-model-select" class="codex-select" title="Codex AI Model">
+              <option value="gemini-3.8-flash">⚡ Hyper-Fast: Gemini 3.8 Flash (&lt;1s)</option>
+              <option value="gemini-3.7-flash">⚡ Cloud: Gemini 3.7 Flash</option>
+              <option value="llama3.2:latest">⚡ Local: LLaMA 3.2</option>
+              <option value="qwen2.5:7b">⚡ Local: Qwen 2.5 7B</option>
+            </select>
           </div>
 
           <div class="codex-toolbar-right">
-            <button class="codex-btn codex-btn-sample" onclick="loadCodexSample()" title="Load sample buggy code for testing">
+            <button class="codex-btn codex-btn-sample" onclick="loadCodexSample()" title="Load sample bug code">
               💡 Sample Bug
             </button>
             <button class="codex-btn codex-btn-clear" onclick="clearCodexEditor()" title="Clear editor">
               🧹 Clear
             </button>
-            <button class="codex-btn codex-btn-run" id="codex-run-btn" onclick="runCodexCode()" title="Run code in local sandbox">
+            <button class="codex-btn codex-btn-run" id="codex-run-btn" onclick="runCodexCode()" title="Run code in sandbox">
               ▶ Run Sandbox
             </button>
-            <button class="codex-btn codex-btn-check" id="codex-check-btn" onclick="checkCodexCode()" title="Static verification & deep AI bug check">
+            <button class="codex-btn codex-btn-check" id="codex-check-btn" onclick="checkCodexCode()" title="Instant AST syntax check & deep bug scan">
               🔍 Check Code
             </button>
-            <button class="codex-btn codex-btn-fix" id="codex-fix-btn" onclick="fixCodexCode()" title="AI auto-repair and fix code">
+            <button class="codex-btn codex-btn-fix" id="codex-fix-btn" onclick="fixCodexCode()" title="AI Auto-Repair code flaws">
               🛠️ Fix Code (AI)
             </button>
           </div>
         </div>
 
-        <!-- Codex Main Split Workspace -->
         <div class="codex-grid">
-          <!-- Editor Column -->
           <div class="codex-panel codex-editor-panel">
             <div class="codex-panel-header">
               <span class="codex-panel-title">📝 Source Code Editor</span>
@@ -436,11 +399,10 @@
             </div>
             <div class="codex-editor-wrapper">
               <div class="codex-line-numbers" id="codex-line-numbers">1</div>
-              <textarea id="codex-editor" class="codex-code-input" spellcheck="false" placeholder="# Paste or write your code here...&#10;# Click 'Check Code' to verify correctness.&#10;# Click 'Fix Code (AI)' to have Vedas repair all bugs."></textarea>
+              <textarea id="codex-editor" class="codex-code-input" spellcheck="false" placeholder="# Paste or write your code here...&#10;# Click 'Check Code' for instant diagnostics.&#10;# Click 'Fix Code (AI)' to have Vedas automatically repair all bugs."></textarea>
             </div>
           </div>
 
-          <!-- Output & Analysis Column -->
           <div class="codex-panel codex-output-panel">
             <div class="codex-panel-header">
               <div class="codex-output-tabs">
@@ -451,59 +413,535 @@
               <div id="codex-status-pill" class="codex-status-pill standby">Ready</div>
             </div>
 
-            <!-- Sub-tab 1: Check Report -->
             <div class="codex-tab-content active" id="codex-view-check">
               <div class="codex-report-box" id="codex-report-box">
                 <div class="codex-empty-report">
                   <div class="codex-empty-icon">🔍</div>
                   <div class="codex-empty-title">Codex Ready for Inspection</div>
-                  <div class="codex-empty-desc">Enter your code on the left and click <strong>Check Code</strong> to run AST syntax validation, logic bug hunting, and neural security analysis.</div>
+                  <div class="codex-empty-desc">Enter your code on the left and click <strong>Check Code</strong> for instant AST syntax checking, logic bug hunting, and security analysis.</div>
                 </div>
               </div>
             </div>
 
-            <!-- Sub-tab 2: Fixed Code View -->
             <div class="codex-tab-content" id="codex-view-fix" style="display:none;">
               <div class="codex-fix-box" id="codex-fix-box">
                 <div class="codex-empty-report">
                   <div class="codex-empty-icon">🛠️</div>
                   <div class="codex-empty-title">No Fix Generated Yet</div>
-                  <div class="codex-empty-desc">Click <strong>Fix Code (AI)</strong> to have Vedas diagnose all flaws, reconstruct the clean working code, and explain every fix.</div>
+                  <div class="codex-empty-desc">Click <strong>Fix Code (AI)</strong> to have Vedas diagnose all flaws, reconstruct clean working code, and explain every fix.</div>
                 </div>
               </div>
             </div>
 
-            <!-- Sub-tab 3: Terminal Console -->
             <div class="codex-tab-content" id="codex-view-console" style="display:none;">
               <div class="codex-console-box" id="codex-console-box">
-                <pre class="codex-console-output" id="codex-console-output">$ Ready. Click 'Run Sandbox' to execute code.</pre>
+                <pre class="codex-console-output" id="codex-console-output">$ Ready. Click 'Run Sandbox' to execute code in sandbox.</pre>
               </div>
             </div>
-
           </div>
         </div>
       </section>
 
+      <!-- ==============================================================================
+           VIEW: 8K IMAGE STUDIO (Neural Diffusion Studio)
+           ============================================================================== -->
+      <section class="app-view" id="view-image" style="display:none;">
+        <div class="studio-page-container">
+          <div class="studio-header">
+            <div class="studio-badge">🎨 NEURAL SYNTHESIS</div>
+            <h2 class="studio-title">8K AI Image Generation Studio</h2>
+            <p class="studio-desc">Synthesize cinematic art, concept designs, wallpapers, and photorealistic renders.</p>
+          </div>
 
-      <!-- Drawer Backdrop Overlay -->
-      <div id="drawer-backdrop" onclick="closeSideCanvas()"></div>
+          <div class="image-studio-grid">
+            <div class="studio-controls-panel">
+              <div class="studio-form-group">
+                <label for="image-prompt-input">Prompt Description</label>
+                <textarea id="image-prompt-input" rows="3" placeholder="Describe the scene in detail... e.g. A futuristic cybernetic samurai in a glowing rain-soaked Tokyo street with blue and orange neon lights, 8k cinematic"></textarea>
+              </div>
 
-      <!-- Right Side Drawer: Image Studio / Memory Studio / File Manager -->
-      <div id="side-canvas">
-        <div class="drawer-header">
-          <div class="drawer-title" id="side-canvas-title">🎨 AI Image Studio</div>
-          <button class="drawer-close-btn" onclick="closeSideCanvas()" title="Close Panel (Esc)">✕</button>
+              <!-- Quick Inspiration Prompts -->
+              <div class="studio-form-group">
+                <label>Inspiration Prompts (Click to Use):</label>
+                <div class="studio-tag-chips">
+                  <button type="button" class="tag-chip" onclick="setImagePrompt('A futuristic cybernetic samurai in glowing rain-soaked Neo-Tokyo street with neon blue and bright orange reflections, 8k octane render')">⚡ Cyberpunk Samurai</button>
+                  <button type="button" class="tag-chip" onclick="setImagePrompt('Hyperrealistic quantum artificial intelligence neural core floating in deep space, glowing electric cyan and ember gold filaments, ultra detailed')">🧠 Neural Quantum Core</button>
+                  <button type="button" class="tag-chip" onclick="setImagePrompt('Cinematic sci-fi command workstation with holographic blueprints, glowing dark blue and orange displays, 8k photorealistic')">💻 Cyber Workstation</button>
+                </div>
+              </div>
+
+              <div class="studio-row">
+                <div class="studio-form-group flex-1">
+                  <label for="image-style-select">Visual Style</label>
+                  <select id="image-style-select">
+                    <option value="cinematic">🎬 Cinematic Cyberpunk</option>
+                    <option value="photorealistic">📸 Ultra Photorealistic 8K</option>
+                    <option value="anime">✨ Anime & Concept Art</option>
+                    <option value="fantasy">🔮 Epic Fantasy</option>
+                    <option value="3d-render">💎 Octane 3D Render</option>
+                    <option value="digital-art">🖌️ Modern Digital Art</option>
+                  </select>
+                </div>
+
+                <div class="studio-form-group flex-1">
+                  <label for="image-ratio-select">Aspect Ratio</label>
+                  <select id="image-ratio-select">
+                    <option value="1:1">1:1 Square (1024x1024)</option>
+                    <option value="16:9">16:9 Widescreen (1280x720)</option>
+                    <option value="9:16">9:16 Mobile Story (720x1280)</option>
+                    <option value="4:3">4:3 Standard (1024x768)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="studio-btn-row">
+                <button class="studio-generate-btn" id="image-gen-btn" onclick="executeImageGeneration()">
+                  <span>✨</span> Generate 8K Image
+                </button>
+              </div>
+            </div>
+
+            <div class="studio-preview-panel">
+              <div class="image-preview-wrapper" id="image-preview-box">
+                <div class="image-placeholder-content">
+                  <span class="ph-icon">🎨</span>
+                  <span class="ph-title">Ready for Image Synthesis</span>
+                  <span class="ph-desc">Enter your prompt on the left and click <strong>Generate 8K Image</strong> to synthesize a high-resolution render.</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="drawer-body" id="side-canvas-body"></div>
+      </section>
+
+      <!-- ==============================================================================
+           VIEW: MEMORY BANK
+           ============================================================================== -->
+      <section class="app-view" id="view-memory" style="display:none;">
+        <div class="memory-page-container">
+          <div class="memory-header">
+            <div class="memory-badge">🧠 NEURAL MEMORY CORE</div>
+            <h2 class="memory-title">Persistent Knowledge & Long-Term Memory</h2>
+            <p class="memory-desc">Information stored here is recalled across all conversations by VEDAS AI.</p>
+          </div>
+
+          <div class="memory-add-card">
+            <input type="text" id="memory-new-input" placeholder="Add a new fact or instruction for VEDAS to remember (e.g. My preferred language is Python, my project is VedasAI)..." />
+            <button class="memory-add-btn" onclick="addCustomMemoryNote()">
+              <span>+</span> Add Fact
+            </button>
+          </div>
+
+          <div class="memory-list-card">
+            <div class="memory-card-header">
+              <span class="card-title">STORED MEMORY NOTES</span>
+              <button class="memory-clear-btn" onclick="clearAllMemoryNotes()">🧹 Clear All</button>
+            </div>
+            <div id="memory-items-container" class="memory-items-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==============================================================================
+           VIEW: FILE EXPLORER
+           ============================================================================== -->
+      <section class="app-view" id="view-files" style="display:none;">
+        <div class="files-page-container">
+          <div class="files-header">
+            <div class="files-badge">📁 WORKSPACE EXPLORER</div>
+            <h2 class="files-title">Local Files & Project Workspace</h2>
+            <p class="files-desc">Browse, preview, edit and upload files to your active workspace.</p>
+          </div>
+
+          <div class="files-browser-card">
+            <div class="files-toolbar">
+              <div class="files-tools-left">
+                <button class="files-nav-btn" id="files-up-btn" onclick="navigateFileUp()" title="Go Up Directory">⬆️ Up</button>
+                <div class="files-path-bar" id="files-current-path">C:\Users\...</div>
+              </div>
+              <div class="files-tools-right">
+                <input type="text" class="files-search-input" id="files-search-input" placeholder="🔍 Filter files..." oninput="filterFilesList(this.value)" />
+                <button class="files-action-btn" onclick="refreshFileList()" title="Refresh File List">🔄 Refresh</button>
+              </div>
+            </div>
+            <div class="files-content-grid">
+              <div class="files-tree-pane" id="files-tree-list"></div>
+              <div class="files-viewer-pane" id="files-viewer-box">
+                <div class="files-empty-viewer">Select a file on the left to preview or inspect its contents.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==============================================================================
+           VIEW 8: SYSTEM COMMANDS & WORKSTATION AUTOMATION
+           ============================================================================== -->
+      <section class="app-view" id="view-commands" style="display:none;">
+        <div class="commands-page-container">
+          <div class="commands-header">
+            <div class="commands-badge">⚡ WORKSTATION AUTOMATION</div>
+            <h2 class="commands-title">System Control Center</h2>
+            <p class="commands-desc">Trigger native Windows tools, media volume, screen utilities, and power actions.</p>
+          </div>
+
+          <!-- Horizontal Command Center Navigation Tabs -->
+          <div class="commands-nav-tabs">
+            <button class="cmd-tab-btn active" id="cmd-tab-audio" onclick="switchCommandsTab('audio')">
+              <span>🎛️</span> Audio & Utility
+            </button>
+            <button class="cmd-tab-btn" id="cmd-tab-apps" onclick="switchCommandsTab('apps')">
+              <span>📱</span> Native Applications
+            </button>
+            <button class="cmd-tab-btn" id="cmd-tab-power" onclick="switchCommandsTab('power')">
+              <span>🛡️</span> Power & Security
+            </button>
+          </div>
+
+          <!-- TAB 1: AUDIO & UTILITIES -->
+          <div class="cmd-tab-panel active" id="cmd-panel-audio">
+            <div class="cmd-full-card">
+              <div class="cmd-card-headline">
+                <span class="cmd-head-icon">🔊</span>
+                <div>
+                  <div class="cmd-head-title">Audio & Workstation Utilities</div>
+                  <div class="cmd-head-sub">Control volume levels, capture screens, and query network status.</div>
+                </div>
+              </div>
+              <div class="sys-tiles-grid">
+                <button class="sys-action-tile" onclick="runSysCmd('mute')">
+                  <span class="tile-icon">🔇</span>
+                  <span class="tile-label">Mute / Unmute</span>
+                  <span class="tile-sub">Toggle audio output</span>
+                </button>
+                <button class="sys-action-tile" onclick="runSysCmd('set volume to 25')">
+                  <span class="tile-icon">🔈</span>
+                  <span class="tile-label">Volume 25%</span>
+                  <span class="tile-sub">Low ambient volume</span>
+                </button>
+                <button class="sys-action-tile" onclick="runSysCmd('set volume to 50')">
+                  <span class="tile-icon">🔉</span>
+                  <span class="tile-label">Volume 50%</span>
+                  <span class="tile-sub">Balanced volume</span>
+                </button>
+                <button class="sys-action-tile" onclick="runSysCmd('set volume to 75')">
+                  <span class="tile-icon">🔊</span>
+                  <span class="tile-label">Volume 75%</span>
+                  <span class="tile-sub">High output volume</span>
+                </button>
+                <button class="sys-action-tile" onclick="runSysCmd('set volume to 100')">
+                  <span class="tile-icon">📢</span>
+                  <span class="tile-label">Volume 100%</span>
+                  <span class="tile-sub">Maximum volume</span>
+                </button>
+                <button class="sys-action-tile highlight-cyan" onclick="runSysCmd('screenshot')">
+                  <span class="tile-icon">📸</span>
+                  <span class="tile-label">Take Screenshot</span>
+                  <span class="tile-sub">Save desktop snapshot</span>
+                </button>
+                <button class="sys-action-tile" onclick="runSysCmd('what is my ip')">
+                  <span class="tile-icon">📶</span>
+                  <span class="tile-label">Network IP Address</span>
+                  <span class="tile-sub">Inspect local/public IP</span>
+                </button>
+                <button class="sys-action-tile" onclick="runSysCmd('tell me a joke')">
+                  <span class="tile-icon">😄</span>
+                  <span class="tile-label">Developer Joke</span>
+                  <span class="tile-sub">Read hilarious programming joke</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: NATIVE APPLICATIONS -->
+          <div class="cmd-tab-panel" id="cmd-panel-apps" style="display:none;">
+            <div class="cmd-full-card">
+              <div class="cmd-card-headline">
+                <span class="cmd-head-icon">🚀</span>
+                <div>
+                  <div class="cmd-head-title">Installed Native Applications</div>
+                  <div class="cmd-head-sub">Instant launcher for editors, terminals, browsers, and Windows utilities.</div>
+                </div>
+              </div>
+              <div class="sys-tiles-grid">
+                <button class="sys-action-tile highlight-cyan" onclick="runSysCmd('open terminal')">
+                  <span class="tile-icon">💻</span>
+                  <span class="tile-label">Windows Terminal</span>
+                  <span class="tile-sub">PowerShell / Command Prompt</span>
+                </button>
+                <button class="sys-action-tile" onclick="runSysCmd('open chrome')">
+                  <span class="tile-icon">🌐</span>
+                  <span class="tile-label">Web Browser</span>
+                  <span class="tile-sub">Google Chrome / Default Browser</span>
+                </button>
+                <button class="sys-action-tile" onclick="runSysCmd('open explorer')">
+                  <span class="tile-icon">📁</span>
+                  <span class="tile-label">File Explorer</span>
+                  <span class="tile-sub">Browse local folders & drives</span>
+                </button>
+                <button class="sys-action-tile" onclick="runSysCmd('open notepad')">
+                  <span class="tile-icon">📝</span>
+                  <span class="tile-label">Notepad</span>
+                  <span class="tile-sub">Quick text & scratchpad</span>
+                </button>
+                <button class="sys-action-tile" onclick="runSysCmd('open calculator')">
+                  <span class="tile-icon">🧮</span>
+                  <span class="tile-label">Calculator</span>
+                  <span class="tile-sub">Standard / Scientific math</span>
+                </button>
+                <button class="sys-action-tile" onclick="runSysCmd('open task manager')">
+                  <span class="tile-icon">⚙️</span>
+                  <span class="tile-label">Task Manager</span>
+                  <span class="tile-sub">Monitor CPU, RAM & processes</span>
+                </button>
+                <button class="sys-action-tile" onclick="runSysCmd('open settings')">
+                  <span class="tile-icon">🔧</span>
+                  <span class="tile-label">Windows Settings</span>
+                  <span class="tile-sub">System configuration & devices</span>
+                </button>
+                <button class="sys-action-tile" onclick="runSysCmd('open paint')">
+                  <span class="tile-icon">🎨</span>
+                  <span class="tile-label">MS Paint</span>
+                  <span class="tile-sub">Drawing & image sketch</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: POWER & SECURITY -->
+          <div class="cmd-tab-panel" id="cmd-panel-power" style="display:none;">
+            <div class="cmd-full-card">
+              <div class="cmd-card-headline">
+                <span class="cmd-head-icon">🛡️</span>
+                <div>
+                  <div class="cmd-head-title">Power, Security & Workstation Lifecycle</div>
+                  <div class="cmd-head-sub">Lock screen, reboot, sleep mode, or execute graceful shutdown.</div>
+                </div>
+              </div>
+              <div class="sys-tiles-grid">
+                <button class="sys-action-tile" onclick="runSysCmd('lock screen')">
+                  <span class="tile-icon">🔒</span>
+                  <span class="tile-label">Lock Workstation</span>
+                  <span class="tile-sub">Secure active desktop session</span>
+                </button>
+                <button class="sys-action-tile" onclick="runSysCmd('sleep')">
+                  <span class="tile-icon">💤</span>
+                  <span class="tile-label">Sleep Mode</span>
+                  <span class="tile-sub">Low-power standby state</span>
+                </button>
+                <button class="sys-action-tile sys-tile-warning" onclick="confirmRestart()">
+                  <span class="tile-icon">🔄</span>
+                  <span class="tile-label">Restart PC</span>
+                  <span class="tile-sub">Reboot operating system</span>
+                </button>
+                <button class="sys-action-tile sys-tile-danger" onclick="confirmShutdown()">
+                  <span class="tile-icon">🔴</span>
+                  <span class="tile-label">Shutdown PC</span>
+                  <span class="tile-sub">Power off system safely</span>
+                </button>
+                <button class="sys-action-tile highlight-green" onclick="runSysCmd('cancel shutdown')">
+                  <span class="tile-icon">⏹</span>
+                  <span class="tile-label">Abort Shutdown</span>
+                  <span class="tile-sub">Cancel pending timer shutdown</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ==============================================================================
+           VIEW 9: SETTINGS
+           ============================================================================== -->
+      <section class="app-view" id="view-settings">
+        <div class="settings-page-container">
+          <div class="settings-header">
+            <div class="settings-badge">⚙️ SYSTEM CONFIGURATION</div>
+            <h2 class="settings-title">Settings & Customization</h2>
+            <p class="settings-desc">Configure AI models, speech synthesis engines, theme glow colors, and preferences.</p>
+          </div>
+
+          <div class="settings-tabs-bar">
+            <button class="settings-tab-btn active" id="set-tab-ai" onclick="switchSettingsSubTab('ai')">🤖 AI Engine & Models</button>
+            <button class="settings-tab-btn" id="set-tab-voice" onclick="switchSettingsSubTab('voice')">🎙️ Voice & TTS</button>
+            <button class="settings-tab-btn" id="set-tab-theme" onclick="switchSettingsSubTab('theme')">🎨 Aesthetics & Glow</button>
+            <button class="settings-tab-btn" id="set-tab-data" onclick="switchSettingsSubTab('data')">💾 Data & Memory</button>
+          </div>
+
+          <!-- AI Subtab -->
+          <div class="settings-panel active" id="settings-panel-ai">
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Local Ollama Endpoint</div>
+                <div class="setting-item-desc">Host URL for local LLM inference (default: http://127.0.0.1:11434).</div>
+              </div>
+              <div class="setting-item-control">
+                <input type="text" id="setting-ollama-host" value="http://127.0.0.1:11434" class="setting-input" />
+              </div>
+            </div>
+
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Default Local Model</div>
+                <div class="setting-item-desc">Primary local neural intelligence model loaded in VRAM.</div>
+              </div>
+              <div class="setting-item-control">
+                <select id="setting-local-model" class="setting-select">
+                  <option value="llama3.2:latest">LLaMA 3.2 (Primary)</option>
+                  <option value="llama3:latest">LLaMA 3</option>
+                  <option value="qwen2.5:7b">Qwen 2.5 7B</option>
+                  <option value="phi4:latest">Phi-4</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Cloud Intelligence Model</div>
+                <div class="setting-item-desc">Preferred Gemini cloud model tier.</div>
+              </div>
+              <div class="setting-item-control">
+                <select id="setting-cloud-model" class="setting-select">
+                  <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+                  <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+                  <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                  <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Gemini Supervisor Fact-Checking</div>
+                <div class="setting-item-desc">Automatically verify local model responses for accuracy.</div>
+              </div>
+              <div class="setting-item-control">
+                <input type="checkbox" id="setting-supervisor-toggle" checked class="setting-toggle" />
+              </div>
+            </div>
+
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Temperature (Creativity)</div>
+                <div class="setting-item-desc">Lower values for precise answers; higher for imaginative output.</div>
+              </div>
+              <div class="setting-item-control slider-control">
+                <input type="range" id="setting-temp-slider" min="0" max="1" step="0.05" value="0.7" oninput="document.getElementById('temp-val').textContent=this.value" />
+                <span id="temp-val" class="slider-val">0.7</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Voice Subtab -->
+          <div class="settings-panel" id="settings-panel-voice" style="display:none;">
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Speech Synthesis (TTS) Engine</div>
+                <div class="setting-item-desc">Voice synthesis engine used for AI spoken responses.</div>
+              </div>
+              <div class="setting-item-control">
+                <select id="setting-tts-engine" class="setting-select">
+                  <option value="webspeech">Standard Web Speech API (Fast & Native)</option>
+                  <option value="kokoro">Kokoro Neural TTS (Ultra Natural)</option>
+                  <option value="edgetts">Microsoft Edge Neural Voices</option>
+                  <option value="elevenlabs">ElevenLabs Cloud Engine</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Speech Rate</div>
+                <div class="setting-item-desc">Pacing of spoken AI answers (0.5x to 2.0x).</div>
+              </div>
+              <div class="setting-item-control slider-control">
+                <input type="range" id="setting-speech-rate" min="0.5" max="2.0" step="0.1" value="1.0" oninput="document.getElementById('rate-val').textContent=this.value + 'x'" />
+                <span id="rate-val" class="slider-val">1.0x</span>
+              </div>
+            </div>
+
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Auto-Speak Spoken Responses</div>
+                <div class="setting-item-desc">Automatically read out replies when using voice interaction mode.</div>
+              </div>
+              <div class="setting-item-control">
+                <input type="checkbox" id="setting-autospeak-toggle" checked class="setting-toggle" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Theme Subtab -->
+          <div class="settings-panel" id="settings-panel-theme" style="display:none;">
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Color Palette</div>
+                <div class="setting-item-desc">Curated glowing cyber palettes.</div>
+              </div>
+              <div class="setting-item-control">
+                <select id="setting-theme-palette" class="setting-select" onchange="applyTheme(this.value)">
+                  <option value="blue_orange">⚡ Electric Blue + Neon Orange (Default)</option>
+                  <option value="cyan_amber">🌊 Cyan Matrix + Amber Gold</option>
+                  <option value="emerald_neon">🌲 Emerald Cyber + Cyan Pulse</option>
+                  <option value="crimson_violet">🔮 Neon Violet + Crimson Pink</option>
+                  <option value="midnight_blue">🌌 Midnight Deep Blue + Sunset Flame</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Interactive Background Particles</div>
+                <div class="setting-item-desc">Ambient floating cyber particles and connecting lines.</div>
+              </div>
+              <div class="setting-item-control">
+                <input type="checkbox" id="setting-particles-toggle" checked class="setting-toggle" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Data Subtab -->
+          <div class="settings-panel" id="settings-panel-data" style="display:none;">
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Backup All Sessions & Memory</div>
+                <div class="setting-item-desc">Download complete conversation history and memory bank as JSON.</div>
+              </div>
+              <div class="setting-item-control">
+                <button class="settings-action-btn" onclick="exportFullBackup()">💾 Download JSON Backup</button>
+              </div>
+            </div>
+
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Clear Local Memory Bank</div>
+                <div class="setting-item-desc">Erase all long-term memory notes permanently.</div>
+              </div>
+              <div class="setting-item-control">
+                <button class="settings-danger-btn" onclick="clearAllMemoryNotes()">🧹 Clear Memory</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Settings Save Footer -->
+          <div class="settings-footer-actions">
+            <button class="settings-save-btn" onclick="saveAllSettings()">
+              <span>💾</span> Save & Apply Settings
+            </button>
+            <span class="settings-saved-hint" id="settings-saved-hint"></span>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Full-Screen Lightbox Modal -->
+      <div id="lightbox-modal" onclick="closeLightbox()">
+        <img id="lightbox-img" src="" alt="Fullscreen Render">
       </div>
 
     </main>
 
-  </div>
-
-  <!-- Full-Screen Lightbox Modal -->
-  <div id="lightbox-modal" onclick="closeLightbox()">
-    <img id="lightbox-img" src="" alt="Fullscreen Render">
   </div>
 
   <!-- Shutdown Confirmation Dialog -->
@@ -532,13 +970,12 @@
     </div>
   </div>
 
-  <!-- Toast Notification System -->
+  <!-- Toast Notification Container -->
   <div id="toast-container"></div>
 
-  <!-- Scripts -->
-  <script src="/static/js/particles.js"></script>
-  <script src="/static/js/waveform.js"></script>
-  <script src="/static/js/hologram.js"></script>
-  <script src="/static/js/app.js"></script>
+  <!-- Core Scripts -->
+  <script src="/static/js/particles.js?v=3.7.0"></script>
+  <script src="/static/js/waveform.js?v=3.7.0"></script>
+  <script src="/static/js/app.js?v=3.7.0"></script>
 </body>
 </html>

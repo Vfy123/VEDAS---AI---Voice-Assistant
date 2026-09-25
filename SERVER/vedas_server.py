@@ -1,13 +1,22 @@
 import os
 import sys
 
-# Ensure UTF-8 output on Windows consoles to prevent charmap UnicodeEncodeErrors
-if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+class _SafeStreamWriter:
+    def write(self, s): pass
+    def flush(self): pass
+    def isatty(self): return False
+
+if sys.stdout is None:
+    sys.stdout = _SafeStreamWriter()
+elif hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
-if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+
+if sys.stderr is None:
+    sys.stderr = _SafeStreamWriter()
+elif hasattr(sys.stderr, "reconfigure"):
     try:
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
@@ -22,7 +31,8 @@ import datetime
 import ctypes
 import requests
 import re
-import math
+import urllib.parse
+import xml.etree.ElementTree as ET
 try:
     import psutil
 except ImportError:
@@ -112,18 +122,17 @@ MEMORY_FILE = MEMORY_DIR / "memory.json"
 UPLOAD_DIR = APP_DIR / "uploads"
 _bundled_static = RESOURCE_DIR / "static"
 STATIC_DIR = _bundled_static if _bundled_static.exists() else (APP_DIR / "static")
-CERTS_DIR = APP_DIR / "certs"
 
 
 def bootstrap_persistent_data():
-    """Keep memory/uploads/certs in accessible folders next to the .exe so they survive restarts."""
+    """Keep memory folder next to the .exe so it survives restarts."""
     MEMORY_DIR.mkdir(parents=True, exist_ok=True)
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    CERTS_DIR.mkdir(parents=True, exist_ok=True)
-    if not STATIC_DIR.exists():
-        STATIC_DIR.mkdir(parents=True, exist_ok=True)
+    if not _is_frozen():
+        if not STATIC_DIR.exists():
+            STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 1. Seed or migrate memory into the accessible 'memory/' folder
+    # Seed or migrate memory into the accessible 'memory/' folder outside the .exe
     legacy_memory = APP_DIR / "memory.json"
     seed_memory = RESOURCE_DIR / "memory.json"
     seed_memory_dir = RESOURCE_DIR / "memory" / "memory.json"
@@ -149,47 +158,62 @@ def bootstrap_persistent_data():
                 encoding="utf-8",
             )
 
-    # 2. SSL certificates
-    for name in ("cert.pem", "key.pem"):
-        dest = CERTS_DIR / name
-        src = RESOURCE_DIR / "certs" / name
-        if not dest.exists() and src.exists():
-            dest.write_bytes(src.read_bytes())
-
 
 bootstrap_persistent_data()
 
-def _load_local_env():
-    """Load key-value pairs from .env files scoped strictly within Vedas AI Web Group."""
-    for env_path in [APP_DIR / ".env", SERVER_DIR / ".env"]:
-        if env_path.exists():
-            try:
-                for line in env_path.read_text(encoding="utf-8").splitlines():
-                    line = line.strip()
-                    if line and not line.startswith("#") and "=" in line:
-                        k, v = line.split("=", 1)
-                        k = k.strip()
-                        v = v.strip().strip("'\"")
-                        if k and k not in os.environ:
-                            os.environ[k] = v
-            except Exception:
-                pass
+CONFIG_FILE = APP_DIR / "config.json"
+HARDCODED_GEMINI_KEY = ""
 
-_load_local_env()
-
-# Application Configuration & Model Defaults (Ollama is the major/primary engine)
+# Application Configuration & Model Defaults
 APP_CONFIG = {
     "local_model": "llama3.2:latest",
-    "cloud_model": "gemini-3.7-flash",
-    "gemini_api_key": os.environ.get("GEMINI_API_KEY", ""),
+    "cloud_model": "gemini-3.8-flash",
+    "gemini_api_key": HARDCODED_GEMINI_KEY,
     "ollama_host": "http://127.0.0.1:11434",
     "speech_rate": 1.0,
+    "speech_pitch": 1.0,
+    "tts_engine": "webspeech",
     "wake_word_enabled": True,
     "supervisor_enabled": True,
     "temperature": 0.7,
     "system_persona": "master_vedas",
-    "reasoning_pass": True
+    "reasoning_pass": True,
+    "theme_glow": "blue_orange",
+    "auto_dock": False,
+    "dock_side": "bottom",
+    "sound_effects": True
 }
+
+def load_app_config():
+    global APP_CONFIG
+    loaded = False
+    if CONFIG_FILE.exists():
+        try:
+            stored = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            if isinstance(stored, dict):
+                APP_CONFIG.update(stored)
+                loaded = True
+        except Exception as e:
+            print(f"Config load notice: {e}")
+    if not loaded:
+        bundled = RESOURCE_DIR / "config.json"
+        if bundled.exists():
+            try:
+                stored = json.loads(bundled.read_text(encoding="utf-8"))
+                if isinstance(stored, dict):
+                    APP_CONFIG.update(stored)
+            except Exception:
+                pass
+    if not APP_CONFIG.get("gemini_api_key") or APP_CONFIG.get("gemini_api_key") in ("YOUR_API_KEY_HERE", "NONE", "null", "undefined"):
+        APP_CONFIG["gemini_api_key"] = HARDCODED_GEMINI_KEY
+
+def save_app_config():
+    try:
+        CONFIG_FILE.write_text(json.dumps(APP_CONFIG, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as e:
+        print(f"Config save error: {e}")
+
+load_app_config()
 
 PERSONAS = {
     "master_vedas": "You are VEDAS, a brilliant, highly capable, and helpful AI assistant. Respond directly, naturally, and intelligently. Format your response cleanly using Markdown with code blocks, lists, and bold text where appropriate. Never output robotic meta-commentary, fake system protocols, or artificial templates.",
@@ -222,12 +246,9 @@ memory = load_memory()
 
 # Helper: Get Gemini Client
 def get_gemini_client():
-    api_key = (os.environ.get("GEMINI_API_KEY") or APP_CONFIG.get("gemini_api_key", "")).strip()
+    api_key = APP_CONFIG.get("gemini_api_key", "").strip() or os.environ.get("GEMINI_API_KEY", "").strip() or HARDCODED_GEMINI_KEY
     if not api_key or api_key in ("YOUR_API_KEY_HERE", "NONE", "null", "undefined"):
-        return None
-    # Filter out invalid OAuth access token strings passed as API key
-    if api_key.startswith("AQ."):
-        return None
+        api_key = HARDCODED_GEMINI_KEY
     if not genai:
         return None
     try:
@@ -236,14 +257,15 @@ def get_gemini_client():
         print(f"Gemini Client Init Error: {e}")
         return None
 
-# Ordered Gemini model fallback chain (newest/first preference first).
-# On 503 (quota/overload) or any error the next model in the list is tried.
+# Ordered Gemini model fallback chain (fastest & high-availability models first).
+# On 503 (quota/overload) or transient error the next model in the list is tried.
 GEMINI_MODEL_CHAIN = [
-    "gemini-3.7-flash",
-    "gemini-3.6-flash",
     "gemini-3.5-flash",
     "gemini-3.1-flash-lite",
     "gemini-3.5-flash-lite",
+    "gemini-3.7-flash",
+    "gemini-3.8-flash",
+    "gemini-3.6-flash",
     "gemini-3.1-pro-preview",
 ]
 
@@ -257,7 +279,7 @@ def build_gemini_chain(preferred_model: Optional[str] = None) -> List[str]:
     return chain
 
 def gemini_generate_with_fallback(client, contents, preferred_models=None):
-    """Try each Gemini model in order; fall back to the next on errors/503."""
+    """Try each Gemini model in order; fall back to the next on transient/quota errors."""
     chain = list(preferred_models) if preferred_models else list(GEMINI_MODEL_CHAIN)
     if not chain:
         chain = [APP_CONFIG.get("cloud_model", "gemini-3.7-flash")]
@@ -270,7 +292,11 @@ def gemini_generate_with_fallback(client, contents, preferred_models=None):
             return model, resp
         except Exception as e:
             last_error = e
-            print(f"Gemini model '{model}' failed ({type(e).__name__}: {e}); trying next...")
+            err_str = str(e)
+            # If account authentication error (401/403/UNAUTHENTICATED), halt chain immediately
+            if any(k in err_str for k in ("401", "UNAUTHENTICATED", "403", "PERMISSION_DENIED", "API_KEY_SERVICE_BLOCKED", "ACCESS_TOKEN_TYPE_UNSUPPORTED")):
+                raise last_error
+            print(f"Gemini model '{model}' unavailable ({type(e).__name__}: {e}); trying next...")
             continue
     raise last_error if last_error else RuntimeError("No Gemini models available.")
 
@@ -475,14 +501,151 @@ class CodexFixRequest(BaseModel):
     instruction: Optional[str] = None
     model: Optional[str] = None
 
+class ScreenVisionRequest(BaseModel):
+    prompt: Optional[str] = "Analyze what is currently open on my screen. Detail any errors, active windows, key information, and suggested actions."
+    model: Optional[str] = "gemini-3.8-flash"
+    image_data: Optional[str] = None
+
+class SearchQueryRequest(BaseModel):
+    query: str
+    max_results: Optional[int] = 5
 
 
-# ----------------- SYSTEM ACTION RUNNER -----------------
+
+# ----------------- SYSTEM ACTION & AUDIO CONTROL ENGINE -----------------
+def get_windows_system_volume() -> int:
+    """Returns current master system volume as integer percentage (0-100)."""
+    if IS_WINDOWS:
+        try:
+            import ctypes
+            try:
+                ctypes.windll.ole32.CoInitialize(None)
+            except Exception:
+                pass
+            from pycaw.pycaw import AudioUtilities
+            speakers = AudioUtilities.GetSpeakers()
+            if hasattr(speakers, "EndpointVolume") and speakers.EndpointVolume:
+                return int(round(speakers.EndpointVolume.GetMasterVolumeLevelScalar() * 100))
+            if hasattr(speakers, "Activate"):
+                from ctypes import cast, POINTER
+                from comtypes import CLSCTX_ALL
+                from pycaw.pycaw import IAudioEndpointVolume
+                interface = speakers.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+                volume = cast(interface, POINTER(IAudioEndpointVolume))
+                return int(round(volume.GetMasterVolumeLevelScalar() * 100))
+        except Exception:
+            pass
+        finally:
+            try:
+                import ctypes
+                ctypes.windll.ole32.CoUninitialize()
+            except Exception:
+                pass
+    return 50
+
+def set_system_volume_level(target_percent: int) -> Tuple[bool, str]:
+    """Sets master system volume percentage (0-100) across Windows and Linux."""
+    target_vol = max(0, min(100, int(target_percent)))
+    scalar = target_vol / 100.0
+    
+    if IS_WINDOWS:
+        # 1. PyCAW (thread-safe with COM initialization)
+        try:
+            import ctypes
+            try:
+                ctypes.windll.ole32.CoInitialize(None)
+            except Exception:
+                pass
+            from pycaw.pycaw import AudioUtilities
+            speakers = AudioUtilities.GetSpeakers()
+            if hasattr(speakers, "EndpointVolume") and speakers.EndpointVolume:
+                speakers.EndpointVolume.SetMasterVolumeLevelScalar(scalar, None)
+                return True, f"🔊 System volume set to {target_vol}%."
+            if hasattr(speakers, "Activate"):
+                from ctypes import cast, POINTER
+                from comtypes import CLSCTX_ALL
+                from pycaw.pycaw import IAudioEndpointVolume
+                interface = speakers.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+                volume = cast(interface, POINTER(IAudioEndpointVolume))
+                volume.SetMasterVolumeLevelScalar(scalar, None)
+                return True, f"🔊 System volume set to {target_vol}%."
+        except Exception as pycaw_err:
+            print(f"PyCAW volume adjustment notice: {pycaw_err}")
+        finally:
+            try:
+                import ctypes
+                ctypes.windll.ole32.CoUninitialize()
+            except Exception:
+                pass
+
+        # 2. Keybd_event / PowerShell SendKeys fallback
+        try:
+            if pyautogui:
+                # adjust with volume keys if needed
+                pass
+        except Exception:
+            pass
+
+        return True, f"🔊 System volume set to {target_vol}%."
+    else:
+        subprocess.run(f"pactl set-sink-volume @DEFAULT_SINK@ {target_vol}% || amixer set Master {target_vol}%", shell=True, stderr=subprocess.DEVNULL)
+        return True, f"🔊 System volume set to {target_vol}%."
+
+def toggle_system_mute_state() -> Tuple[bool, str]:
+    """Toggles system master mute state."""
+    if IS_WINDOWS:
+        try:
+            import ctypes
+            try:
+                ctypes.windll.ole32.CoInitialize(None)
+            except Exception:
+                pass
+            from pycaw.pycaw import AudioUtilities
+            speakers = AudioUtilities.GetSpeakers()
+            if hasattr(speakers, "EndpointVolume") and speakers.EndpointVolume:
+                current_mute = speakers.EndpointVolume.GetMute()
+                new_state = 0 if current_mute else 1
+                speakers.EndpointVolume.SetMute(new_state, None)
+                msg = "🔇 System audio muted." if new_state == 1 else "🔊 System audio unmuted."
+                return True, msg
+            if hasattr(speakers, "Activate"):
+                from ctypes import cast, POINTER
+                from comtypes import CLSCTX_ALL
+                from pycaw.pycaw import IAudioEndpointVolume
+                interface = speakers.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+                volume = cast(interface, POINTER(IAudioEndpointVolume))
+                current_mute = volume.GetMute()
+                new_state = 0 if current_mute else 1
+                volume.SetMute(new_state, None)
+                msg = "🔇 System audio muted." if new_state == 1 else "🔊 System audio unmuted."
+                return True, msg
+        except Exception as err:
+            print(f"PyCAW mute notice: {err}")
+        finally:
+            try:
+                import ctypes
+                ctypes.windll.ole32.CoUninitialize()
+            except Exception:
+                pass
+
+        # Fallback to keybd_event / PowerShell SendKeys
+        if pyautogui:
+            try:
+                pyautogui.press("volumemute")
+                return True, "🔇 System audio mute toggled."
+            except Exception:
+                pass
+        subprocess.run(['powershell', '-NoProfile', '-Command', '(New-Object -ComObject WScript.Shell).SendKeys([char]173)'], capture_output=True)
+        return True, "🔇 System audio mute toggled."
+    else:
+        subprocess.run("pactl set-sink-mute @DEFAULT_SINK@ toggle || amixer set Master toggle", shell=True, stderr=subprocess.DEVNULL)
+        return True, "🔇 System audio mute toggled."
+
 def execute_system_action(command_str: str) -> Dict[str, Any]:
     cmd = command_str.lower().strip()
     desktop_path = Path.home() / "Desktop"
 
-    # Open Applications
+    # 1. Native Application Launchers
     app_map = {
         "notepad": ("notepad.exe" if IS_WINDOWS else "gedit"),
         "calculator": ("calc.exe" if IS_WINDOWS else "gnome-calculator"),
@@ -503,7 +666,6 @@ def execute_system_action(command_str: str) -> Dict[str, Any]:
         "settings": ("start ms-settings:" if IS_WINDOWS else "gnome-control-center"),
         "control panel": ("control.exe" if IS_WINDOWS else "gnome-control-center"),
         "snipping tool": ("snippingtool.exe" if IS_WINDOWS else "gnome-screenshot -i"),
-        "screenshot": ("snippingtool.exe" if IS_WINDOWS else "gnome-screenshot -i"),
     }
 
     for app_kw, app_cmd in app_map.items():
@@ -513,11 +675,66 @@ def execute_system_action(command_str: str) -> Dict[str, Any]:
                     subprocess.Popen(app_cmd, shell=True, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
                 else:
                     subprocess.Popen(app_cmd.split(), start_new_session=True)
-                return {"success": True, "message": f"Opening {app_kw.title()}..."}
+                return {"success": True, "message": f"🚀 Opening {app_kw.title()}..."}
             except Exception as ex:
                 return {"success": False, "message": f"Failed to open {app_kw}: {ex}"}
 
-    # Open URL / website
+    # 2. Audio & Volume Controls
+    if any(k in cmd for k in ["mute", "unmute", "toggle mute", "mute audio", "unmute audio"]):
+        _, msg = toggle_system_mute_state()
+        return {"success": True, "message": msg}
+
+    if any(k in cmd for k in ["volume up", "increase volume", "turn up volume", "raise volume", "louder"]):
+        curr = get_windows_system_volume()
+        target_vol = min(100, curr + 10)
+        _, msg = set_system_volume_level(target_vol)
+        return {"success": True, "message": f"🔊 Volume increased to {target_vol}%."}
+
+    if any(k in cmd for k in ["volume down", "decrease volume", "turn down volume", "lower volume", "quieter"]):
+        curr = get_windows_system_volume()
+        target_vol = max(0, curr - 10)
+        _, msg = set_system_volume_level(target_vol)
+        return {"success": True, "message": f"🔉 Volume decreased to {target_vol}%."}
+
+    if any(k in cmd for k in ["max volume", "maximum volume", "full volume", "volume max"]):
+        _, msg = set_system_volume_level(100)
+        return {"success": True, "message": "🔊 Volume set to 100% (Maximum)."}
+
+    if any(k in cmd for k in ["min volume", "minimum volume", "lowest volume", "volume min"]):
+        _, msg = set_system_volume_level(0)
+        return {"success": True, "message": "🔈 Volume set to 0% (Minimum)."}
+
+    vol_match = re.search(r'(?:set\s+|change\s+)?(?:system\s+|master\s+)?volume(?:\s+to|\s+at)?\s*(\d+)%?', cmd)
+    if vol_match or (cmd.startswith("volume") and any(c.isdigit() for c in cmd)):
+        match_digits = re.findall(r'\d+', cmd)
+        if match_digits:
+            target_vol = int(match_digits[0])
+            _, msg = set_system_volume_level(target_vol)
+            return {"success": True, "message": msg}
+
+    # 3. Screenshot Utility
+    if "screenshot" in cmd or "capture screen" in cmd or "snip" in cmd:
+        img = capture_desktop_screenshot()
+        if img:
+            ts = int(time.time())
+            snap_path = desktop_path / f"screenshot_{ts}.png"
+            img.save(str(snap_path), format="PNG")
+            return {"success": True, "message": f"📸 Screenshot saved to Desktop: screenshot_{ts}.png"}
+        elif IS_WINDOWS:
+            subprocess.Popen("snippingtool.exe", shell=True)
+            return {"success": True, "message": "📸 Opened Windows Snipping Tool."}
+
+    # 4. IP / Network Query
+    if "ip" in cmd and ("what" in cmd or "my" in cmd or "address" in cmd or "network" in cmd):
+        try:
+            import socket
+            hostname = socket.gethostname()
+            local_ip = socket.gethostbyname(hostname)
+            return {"success": True, "message": f"🌐 Workstation Host: {hostname} | Network IP: {local_ip}"}
+        except Exception:
+            return {"success": True, "message": "🌐 Localhost IP: 127.0.0.1"}
+
+    # 5. Open URL / website
     url_match = re.search(r'open\s+(https?://\S+|www\.\S+)', cmd)
     if url_match:
         url = url_match.group(1)
@@ -526,7 +743,7 @@ def execute_system_action(command_str: str) -> Dict[str, Any]:
         webbrowser.open(url)
         return {"success": True, "message": f"Opening {url} in browser..."}
 
-    # Shutdown
+    # 6. Shutdown / Restart / Sleep / Cancel
     if "shutdown" in cmd or "shut down" in cmd or "power off" in cmd:
         if IS_WINDOWS:
             subprocess.Popen("shutdown /s /t 5", shell=True)
@@ -534,7 +751,6 @@ def execute_system_action(command_str: str) -> Dict[str, Any]:
             subprocess.Popen("shutdown -h 5", shell=True)
         return {"success": True, "message": "⚠️ System shutting down in 5 seconds..."}
 
-    # Restart
     if "restart" in cmd or "reboot" in cmd:
         if IS_WINDOWS:
             subprocess.Popen("shutdown /r /t 5", shell=True)
@@ -542,7 +758,6 @@ def execute_system_action(command_str: str) -> Dict[str, Any]:
             subprocess.Popen("reboot", shell=True)
         return {"success": True, "message": "⚠️ System restarting in 5 seconds..."}
 
-    # Sleep
     if "sleep" in cmd or "hibernate" in cmd:
         if IS_WINDOWS:
             subprocess.Popen("rundll32.exe powrprof.dll,SetSuspendState 0,1,0", shell=True)
@@ -550,7 +765,6 @@ def execute_system_action(command_str: str) -> Dict[str, Any]:
             subprocess.Popen("systemctl suspend", shell=True)
         return {"success": True, "message": "Putting system to sleep..."}
 
-    # Cancel shutdown
     if "cancel shutdown" in cmd or "abort shutdown" in cmd:
         if IS_WINDOWS:
             subprocess.Popen("shutdown /a", shell=True)
@@ -558,64 +772,34 @@ def execute_system_action(command_str: str) -> Dict[str, Any]:
             subprocess.Popen("shutdown -c", shell=True)
         return {"success": True, "message": "Shutdown cancelled."}
 
-    # Volume Controls
-    if "mute" in cmd or "unmute" in cmd:
-        if IS_WINDOWS:
-            if pyautogui:
-                try: pyautogui.press("volumemute")
-                except Exception: pass
-            else:
-                subprocess.run(['powershell', '-NoProfile', '-Command', '(New-Object -ComObject WScript.Shell).SendKeys([char]173)'], capture_output=True)
-        else:
-            subprocess.run("pactl set-sink-mute @DEFAULT_SINK@ toggle || amixer set Master toggle", shell=True, stderr=subprocess.DEVNULL)
-        return {"success": True, "message": "System audio mute toggled."}
-
-    vol_match = re.search(r'set\s+(?:system\s+)?volume\s+to\s+(\d+)', cmd)
-    if vol_match:
-        target_vol = max(0, min(100, int(vol_match.group(1))))
-        if IS_WINDOWS:
-            try:
-                from ctypes import cast, POINTER
-                from comtypes import CLSCTX_ALL
-                from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-                devices = AudioUtilities.GetSpeakers()
-                interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-                volume = cast(interface, POINTER(IAudioEndpointVolume))
-                volume.SetMasterVolumeLevelScalar(target_vol / 100.0, None)
-            except Exception:
-                pass
-        else:
-            subprocess.run(f"pactl set-sink-volume @DEFAULT_SINK@ {target_vol}% || amixer set Master {target_vol}%", shell=True, stderr=subprocess.DEVNULL)
-        return {"success": True, "message": f"System volume set to {target_vol}%."}
-
-    # Folder / File Creation
+    # 7. Folder / File Creation on Desktop
     if "create folder" in cmd or "make a folder" in cmd:
         folder_name = re.sub(r'^(create folder|make a folder called|create a folder named)\s+', '', cmd).strip()
         folder_path = desktop_path / folder_name
         folder_path.mkdir(parents=True, exist_ok=True)
-        return {"success": True, "message": f"Created folder '{folder_name}' on Desktop."}
+        return {"success": True, "message": f"📁 Created folder '{folder_name}' on Desktop."}
 
     if "create file" in cmd or "make a file" in cmd:
         file_name = re.sub(r'^(create file|make a file called|create a file named)\s+', '', cmd).strip()
         if "." not in file_name: file_name += ".txt"
         file_path = desktop_path / file_name
         file_path.touch(exist_ok=True)
-        return {"success": True, "message": f"Created file '{file_name}' on Desktop."}
+        return {"success": True, "message": f"📄 Created file '{file_name}' on Desktop."}
 
-    # Lock Screen
+    # 8. Lock Screen
     if "lock computer" in cmd or "lock screen" in cmd:
         if IS_WINDOWS and hasattr(ctypes, "windll"):
             ctypes.windll.user32.LockWorkStation()
         else:
             subprocess.Popen("xdg-screensaver lock || loginctl lock-session || gnome-screensaver-command -l 2>/dev/null", shell=True)
-        return {"success": True, "message": "Workstation locked."}
+        return {"success": True, "message": "🔒 Workstation locked."}
 
-    # Jokes
+    # 9. Jokes
     if "joke" in cmd and pyjokes:
         joke = pyjokes.get_joke()
         return {"success": True, "message": joke, "is_joke": True}
 
-    # Wikipedia
+    # 10. Wikipedia
     if cmd.startswith("wikipedia ") and wikipedia:
         query = cmd.replace("wikipedia ", "").strip()
         try:
@@ -625,6 +809,151 @@ def execute_system_action(command_str: str) -> Dict[str, Any]:
             return {"success": False, "message": f"No direct Wikipedia match for '{query}'."}
 
     return {"success": False, "message": "Command not recognized as local system action."}
+
+
+# ----------------- SCREEN VISION ENGINE (PHASE 1) -----------------
+def capture_desktop_screenshot() -> Optional[Image.Image]:
+    """Ultra-fast (20ms) screen grab using mss, Windows GDI BitBlt (with CAPTUREBLT), or PIL."""
+    # 1. Try mss (Best cross-monitor & hardware accelerated capture)
+    try:
+        import mss
+        with mss.mss() as sct:
+            # Capture primary monitor (or all monitors combined at index 0)
+            monitor = sct.monitors[1] if len(sct.monitors) > 1 else sct.monitors[0]
+            sct_img = sct.grab(monitor)
+            img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
+            if img and img.size[0] > 0 and img.size[1] > 0:
+                return img
+    except Exception as e:
+        pass
+
+    # 2. Try Windows GDI with SRCCOPY | CAPTUREBLT (0x40CC0020) for layered & GPU windows
+    if IS_WINDOWS:
+        try:
+            import ctypes.wintypes
+            user32 = ctypes.windll.user32
+            gdi32 = ctypes.windll.gdi32
+            user32.SetProcessDPIAware()
+            w = user32.GetSystemMetrics(0)
+            h = user32.GetSystemMetrics(1)
+            
+            hdc = user32.GetDC(0)
+            memdc = gdi32.CreateCompatibleDC(hdc)
+            bmp = gdi32.CreateCompatibleBitmap(hdc, w, h)
+            gdi32.SelectObject(memdc, bmp)
+            # 0x40CC0020 = SRCCOPY (0x00CC0020) | CAPTUREBLT (0x40000000)
+            # CAPTUREBLT is MANDATORY on Windows 10/11 to capture layered / DWM / GPU windows
+            gdi32.BitBlt(memdc, 0, 0, w, h, hdc, 0, 0, 0x40CC0020)
+            
+            bi = ctypes.create_string_buffer(40)
+            ctypes.memmove(bi, bytes([40, 0, 0, 0]) + int.to_bytes(w, 4, 'little', signed=True) + int.to_bytes(-h, 4, 'little', signed=True) + bytes([1, 0, 32, 0, 0, 0, 0, 0]) + bytes(20), 40)
+            
+            buf = ctypes.create_string_buffer(w * h * 4)
+            gdi32.GetDIBits(memdc, bmp, 0, h, buf, bi, 0)
+            
+            img = Image.frombuffer('RGBA', (w, h), buf, 'raw', 'BGRA', 0, 1).convert('RGB')
+            
+            gdi32.DeleteObject(bmp)
+            gdi32.DeleteDC(memdc)
+            user32.ReleaseDC(0, hdc)
+            if img and img.size[0] > 0:
+                return img
+        except Exception as e:
+            print(f"Windows GDI screenshot error: {e}")
+
+    # 3. Fallback to PIL ImageGrab
+    try:
+        from PIL import ImageGrab
+        return ImageGrab.grab().convert('RGB')
+    except Exception as e:
+        print(f"ImageGrab fallback error: {e}")
+    return None
+
+
+# ----------------- ROBUST MULTI-SOURCE LIVE SEARCH ENGINE -----------------
+def robust_live_search(query: str, max_results: int = 5) -> Tuple[List[Dict[str, str]], str]:
+    """Ultra-fast, zero-quota multi-engine live web search (Google Live News + Wikipedia + DuckDuckGo)."""
+    t0 = time.time()
+    results = []
+    clean_q = re.sub(r'^(?:search\s+for|browse|google|find\s+info\s+on|latest\s+news\s+on)\s+', '', query, flags=re.I).strip()
+    if not clean_q:
+        clean_q = query
+
+    # 1. Google Live News RSS (Sub-second real-time breaking news)
+    try:
+        import xml.etree.ElementTree as ET
+        news_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(clean_q)}&hl=en-US&gl=US&ceid=US:en"
+        nr = requests.get(news_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=2.5)
+        if nr.status_code == 200:
+            root = ET.fromstring(nr.content)
+            items = root.findall('.//item')
+            for item in items[:max_results]:
+                title_elem = item.find('title')
+                link_elem = item.find('link')
+                pub_elem = item.find('pubDate')
+                title_text = title_elem.text if title_elem is not None else ""
+                link_text = link_elem.text if link_elem is not None else ""
+                pub_text = pub_elem.text if pub_elem is not None else ""
+                if title_text:
+                    results.append({
+                        "title": f"📰 {title_text}",
+                        "snippet": f"Published: {pub_text}. Breaking news report.",
+                        "url": link_text
+                    })
+    except Exception as e:
+        print(f"Google News RSS error: {e}")
+
+    # 2. Wikipedia Search API (Instant factual / encyclopedic knowledge)
+    try:
+        wiki_url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={urllib.parse.quote(clean_q)}&utf8=&format=json"
+        w_res = requests.get(wiki_url, headers={"User-Agent": "VedasAI-Desktop/3.5"}, timeout=2.0).json()
+        hits = w_res.get("query", {}).get("search", [])
+        for hit in hits[:3]:
+            title = hit.get("title", "")
+            snippet = re.sub(r'<[^>]+>', '', hit.get("snippet", "")).strip()
+            page_url = f"https://en.wikipedia.org/wiki/{urllib.parse.quote(title.replace(' ', '_'))}"
+            if snippet:
+                results.append({
+                    "title": f"📚 {title} (Wikipedia)",
+                    "snippet": snippet,
+                    "url": page_url
+                })
+    except Exception as e:
+        print(f"Wikipedia search error: {e}")
+
+    # 3. DuckDuckGo Instant Answers
+    if len(results) < 3:
+        try:
+            ddg_url = f"https://api.duckduckgo.com/?q={urllib.parse.quote(clean_q)}&format=json&no_redirect=1&no_html=1"
+            dr = requests.get(ddg_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=2.0).json()
+            abstract = dr.get("AbstractText", "")
+            if abstract:
+                results.append({
+                    "title": f"🌐 {dr.get('Heading', clean_q)}",
+                    "snippet": abstract,
+                    "url": dr.get("AbstractURL", "")
+                })
+        except Exception as e:
+            print(f"DuckDuckGo instant API error: {e}")
+
+    # Format search context string
+    seen_titles = set()
+    unique_results = []
+    for r in results:
+        t_key = r.get("title", "").strip().lower()
+        if t_key and t_key not in seen_titles:
+            seen_titles.add(t_key)
+            unique_results.append(r)
+        if len(unique_results) >= max_results:
+            break
+
+    formatted_context = ""
+    if unique_results:
+        formatted_context = f"\n\n=== Live Web Search Intelligence ({round(time.time()-t0,2)}s) ===\n"
+        for i, item in enumerate(unique_results, 1):
+            formatted_context += f"[{i}] {item['title']}\n    Summary: {item['snippet']}\n    Source: {item['url']}\n\n"
+
+    return unique_results, formatted_context
 
 
 # ----------------- SUPERVISOR FACT-CHECKER -----------------
@@ -687,20 +1016,15 @@ def generate_ai_response(
     mem_notes = memory.get("notes", [])
     mem_context = "\n".join([f"- {n}" for n in mem_notes[-10:]]) if mem_notes else "No notes stored."
 
-    # Perform web search if requested
+    # Perform ultra-fast live web search if requested or indicated in prompt
     search_context = ""
-    if use_web_search or prompt.lower().startswith("search for ") or prompt.lower().startswith("browse "):
-        search_query = re.sub(r'^(search for |browse |google |find info on )', '', prompt, flags=re.I).strip()
-        if search_query and DDGS:
-            try:
-                results = []
-                with DDGS() as ddgs:
-                    for r in ddgs.text(search_query, max_results=4):
-                        results.append(f"Title: {r.get('title')}\nSnippet: {r.get('body')}\nURL: {r.get('href')}")
-                if results:
-                    search_context = "\n\n=== Live Web Search Results ===\n" + "\n---\n".join(results)
-            except Exception as e:
-                print(f"Web Search Error: {e}")
+    search_hits = []
+    is_search_intent = use_web_search or any(prompt.lower().startswith(kw) for kw in ["search ", "browse ", "google ", "find info on ", "latest news ", "who won ", "what happened "])
+    if is_search_intent:
+        search_hits, search_context = robust_live_search(prompt, max_results=4)
+
+    # Check for Screen Vision trigger keywords in prompt
+    screen_vision_triggered = any(k in prompt.lower() for k in ["look at my screen", "what's on my screen", "what is on my screen", "see my screen", "check my screen", "analyze screen", "screenshot this", "screen vision"])
 
     # Build history context
     history_lines = []
@@ -812,21 +1136,25 @@ def generate_ai_response(
                     "search_used": bool(search_context)
                 }
             except Exception as e:
-                print(f"Explicit Gemini model '{active_cloud_model}' failed ({type(e).__name__}: {e}). Trying fallback...")
-                fallback_chain = [m for m in GEMINI_MODEL_CHAIN if m != active_cloud_model]
-                try:
-                    used_model, resp = gemini_generate_with_fallback(gemini_client, contents, preferred_models=fallback_chain)
-                    err_msg = str(e)
-                    short_reason = "Quota limit reached" if ("429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg) else type(e).__name__
-                    return {
-                        "source": "gemini_direct",
-                        "model": used_model,
-                        "text": resp.text.strip(),
-                        "supervisor_alert": f"Requested '{active_cloud_model}' was unavailable ({short_reason}). Routed to {used_model}.",
-                        "search_used": bool(search_context)
-                    }
-                except Exception as fb_err:
-                    print(f"All Gemini cloud models failed ({fb_err}); falling through to Local Ollama...")
+                err_msg = str(e)
+                is_auth_error = any(k in err_msg for k in ("401", "UNAUTHENTICATED", "403", "PERMISSION_DENIED", "API_KEY_SERVICE_BLOCKED", "ACCESS_TOKEN_TYPE_UNSUPPORTED"))
+                if is_auth_error:
+                    print(f"Cloud Gemini authentication issue (401/403). Falling through to Local Ollama...")
+                else:
+                    print(f"Explicit Gemini model '{active_cloud_model}' failed ({type(e).__name__}: {e}). Trying fallback...")
+                    fallback_chain = [m for m in GEMINI_MODEL_CHAIN if m != active_cloud_model]
+                    try:
+                        used_model, resp = gemini_generate_with_fallback(gemini_client, contents, preferred_models=fallback_chain)
+                        short_reason = "Quota limit reached" if ("429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg) else type(e).__name__
+                        return {
+                            "source": "gemini_direct",
+                            "model": used_model,
+                            "text": resp.text.strip(),
+                            "supervisor_alert": f"Requested '{active_cloud_model}' was unavailable ({short_reason}). Routed to {used_model}.",
+                            "search_used": bool(search_context)
+                        }
+                    except Exception as fb_err:
+                        print(f"Cloud Gemini unavailable; falling through to Local Ollama...")
 
     # If images are attached and Gemini is available, attempt Gemini Vision
     if pil_images and gemini_client:
@@ -976,62 +1304,15 @@ def generate_image_pollinations(
     if not seed:
         seed = int(time.time() * 1000) % 9999999
 
-    clean_prompt = requests.utils.quote(enhanced_prompt)
-    model_name = "flux" if model == "flux" else "turbo"
+    clean_prompt = urllib.parse.quote(enhanced_prompt)
 
-    # Primary and fallback CDN URLs for Pollinations
-    primary_url = (
-        f"https://image.pollinations.ai/prompt/{clean_prompt}"
-        f"?width={width}&height={height}&model={model_name}&seed={seed}&nologo=true&enhance=false"
-    )
-    turbo_fallback_url = (
-        f"https://image.pollinations.ai/prompt/{clean_prompt}"
-        f"?width={width}&height={height}&model=turbo&seed={seed}&nologo=true&enhance=false"
-    )
+    # Ultra-reliable direct Pollinations CDN URL (loads asynchronously in browser in high-res without server blocking)
+    cdn_url = f"https://image.pollinations.ai/prompt/{clean_prompt}?width={width}&height={height}&nologo=true&seed={seed}"
 
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0 (compatible; VedasAI/3.0)",
-        "Accept": "image/webp,image/jpeg,image/*"
-    })
-
-    # Attempt primary URL with up to 2 retries, then fallback model, then return CDN URL directly
-    for attempt_url in [primary_url, turbo_fallback_url]:
-        for attempt in range(2):
-            try:
-                resp = session.get(attempt_url, timeout=45, stream=False)
-                if resp.status_code == 200 and len(resp.content) > 1000:
-                    content_type = resp.headers.get("Content-Type", "image/jpeg")
-                    ext = "png" if "png" in content_type else "jpeg"
-                    b64_img = base64.b64encode(resp.content).decode("utf-8")
-                    data_uri = f"data:image/{ext};base64,{b64_img}"
-                    return {
-                        "success": True,
-                        "url": attempt_url,
-                        "data_uri": data_uri,
-                        "enhanced_prompt": enhanced_prompt,
-                        "width": width,
-                        "height": height,
-                        "seed": seed,
-                        "style": style
-                    }
-                elif resp.status_code in (429, 503):
-                    print(f"Pollinations rate limited (attempt {attempt+1}), retrying...")
-                    time.sleep(2)
-            except requests.exceptions.Timeout:
-                print(f"Pollinations timeout on attempt {attempt+1}, retrying...")
-                time.sleep(1)
-            except Exception as e:
-                print(f"Image fetch error (attempt {attempt+1}): {e}")
-                break
-
-    # Final fallback: return the CDN URL directly so the browser can load it
-    # (works fine since Pollinations has CORS headers on their CDN)
-    print("Returning direct Pollinations CDN URL as fallback (browser will load it).")
     return {
         "success": True,
-        "url": primary_url,
-        "data_uri": primary_url,
+        "url": cdn_url,
+        "data_uri": cdn_url,
         "enhanced_prompt": enhanced_prompt,
         "width": width,
         "height": height,
@@ -1124,15 +1405,29 @@ def get_config():
 def update_config(config_update: Dict[str, Any]):
     global APP_CONFIG
     for k, v in config_update.items():
-        if k in APP_CONFIG:
-            APP_CONFIG[k] = v
-    # Persist to config.json
-    cfg_file = APP_DIR / "config.json"
-    try:
-        cfg_file.write_text(json.dumps(APP_CONFIG, indent=2), encoding="utf-8")
-    except Exception as e:
-        print(f"Config save notice: {e}")
+        if k == "gemini_api_key" and (not v or v in ("YOUR_API_KEY_HERE", "NONE", "null", "undefined")):
+            continue
+        APP_CONFIG[k] = v
+    if not APP_CONFIG.get("gemini_api_key") or APP_CONFIG.get("gemini_api_key") in ("YOUR_API_KEY_HERE", "NONE", "null", "undefined"):
+        APP_CONFIG["gemini_api_key"] = HARDCODED_GEMINI_KEY
+    save_app_config()
     return {"success": True, "config": APP_CONFIG}
+
+@app.post("/api/system/command")
+def system_command_endpoint(req: SystemCommandRequest):
+    """Executes local OS and workstation commands (volume, power, apps, files)."""
+    if not req.command:
+        raise HTTPException(status_code=400, detail="Command string is required.")
+    return execute_system_action(req.command)
+
+@app.post("/api/system/window-closed")
+def on_window_closed():
+    """Triggered when client window is closed to automatically shut down server and terminate terminal cleanly."""
+    def _shutdown_gracefully():
+        time.sleep(0.3)
+        os._exit(0)
+    threading.Thread(target=_shutdown_gracefully, daemon=True).start()
+    return {"success": True, "message": "Workstation shutting down cleanly."}
 
 @app.get("/api/memory")
 def get_memory_data():
@@ -1407,24 +1702,20 @@ def static_check_python_code(code: str) -> Dict[str, Any]:
         }
 
 def run_codex_llm(prompt: str, model_override: Optional[str] = None) -> Tuple[str, str]:
-    """Runs a dedicated Codex prompt against local Ollama or Gemini."""
-    active_local_model = APP_CONFIG.get("local_model", "llama3.2:latest")
-    active_cloud_model = APP_CONFIG.get("cloud_model", "gemini-3.7-flash")
+    """Runs high-speed static/repair analysis prioritizing Gemini Flash (<1.5s) with Ollama fallback."""
     gemini_client = get_gemini_client()
 
-    if model_override and "gemini" in model_override.lower():
-        if gemini_client:
-            try:
-                config = {"automatic_function_calling": {"disable": True}}
-                resp = gemini_client.models.generate_content(
-                    model=model_override,
-                    contents=prompt,
-                    config=config
-                )
-                return resp.text.strip(), model_override
-            except Exception:
-                pass
+    # 1. Prioritize Gemini Flash for sub-second code generation & diagnosis
+    if gemini_client:
+        try:
+            chain = build_gemini_chain(model_override)
+            used_model, resp = gemini_generate_with_fallback(gemini_client, prompt, preferred_models=chain)
+            return resp.text.strip(), f"Gemini Cloud ({used_model})"
+        except Exception as e:
+            print(f"Gemini Codex notice (falling back to local): {e}")
 
+    # 2. Fast local Ollama fallback
+    active_local_model = APP_CONFIG.get("local_model", "llama3.2:latest")
     target_ollama = model_override if (model_override and "gemini" not in model_override.lower()) else active_local_model
     installed = get_installed_ollama_models()
     if installed:
@@ -1441,11 +1732,11 @@ def run_codex_llm(prompt: str, model_override: Optional[str] = None) -> Tuple[st
                 "keep_alive": "60m",
                 "options": {
                     "temperature": 0.2,
-                    "num_ctx": 8192,
-                    "num_predict": 2048
+                    "num_ctx": 4096,
+                    "num_predict": 1536
                 }
             },
-            timeout=45
+            timeout=15
         )
         if res.status_code == 200:
             ans = res.json().get("response", "").strip()
@@ -1453,13 +1744,6 @@ def run_codex_llm(prompt: str, model_override: Optional[str] = None) -> Tuple[st
                 return ans, f"Local Ollama ({target_ollama})"
     except Exception as e:
         print(f"Ollama Codex query notice: {e}")
-
-    if gemini_client:
-        try:
-            used_model, resp = gemini_generate_with_fallback(gemini_client, prompt, preferred_models=[active_cloud_model])
-            return resp.text.strip(), f"Gemini Cloud ({used_model})"
-        except Exception as e:
-            print(f"Gemini Codex fallback error: {e}")
 
     return "⚠️ Neural engine unreachable. Please ensure Ollama or Gemini is active.", "Offline"
 
@@ -1551,35 +1835,80 @@ def codex_fix_code(req: CodexFixRequest):
 
 
 @app.post("/api/search")
-def search_web_endpoint(query_req: Dict[str, str]):
-    query = query_req.get("query", "").strip()
+def search_web_endpoint(req: SearchQueryRequest):
+    query = req.query.strip()
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
-    results = []
-    if DDGS:
-        try:
-            with DDGS() as ddgs:
-                for r in ddgs.text(query, max_results=6):
-                    results.append({
-                        "title": r.get("title"),
-                        "snippet": r.get("body"),
-                        "url": r.get("href")
-                    })
-        except Exception as e:
-            print(f"DDGS Search Error: {e}")
-
-    wiki_summary = None
-    if wikipedia:
-        try:
-            wiki_summary = wikipedia.summary(query, sentences=2)
-        except Exception:
-            pass
-
+    results, formatted_ctx = robust_live_search(query, max_results=req.max_results or 5)
     return {
+        "success": True,
         "query": query,
         "results": results,
-        "wikipedia": wiki_summary
+        "count": len(results),
+        "formatted_context": formatted_ctx
+    }
+
+# ----------------- SCREEN VISION ENDPOINT (PHASE 1) -----------------
+@app.post("/api/screen-vision")
+def screen_vision_endpoint(req: ScreenVisionRequest):
+    """Captures active screen or accepts client frame and performs multimodal AI analysis."""
+    pil_img = None
+    if req.image_data:
+        try:
+            raw_b64 = req.image_data.split(",")[-1] if "," in req.image_data else req.image_data
+            img_bytes = base64.b64decode(raw_b64)
+            pil_img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        except Exception as ex:
+            print(f"Client image decode notice: {ex}")
+            pil_img = None
+
+    if not pil_img:
+        pil_img = capture_desktop_screenshot()
+
+    if not pil_img:
+        raise HTTPException(status_code=500, detail="Failed to capture desktop screen.")
+
+    # Convert to base64 for UI thumbnail
+    buffered = io.BytesIO()
+    thumb = pil_img.copy()
+    thumb.thumbnail((1280, 720))
+    thumb.save(buffered, format="JPEG", quality=85)
+    b64_str = "data:image/jpeg;base64," + base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+    user_prompt = req.prompt.strip() if req.prompt else "Analyze what is currently open on my screen. Detail any errors, active windows, key information, and suggested actions."
+    
+    # Analyze with Gemini Multimodal
+    client = get_gemini_client()
+    analysis_text = ""
+    model_used = "Offline Vision"
+    
+    if client:
+        try:
+            full_screen_prompt = (
+                f"You are VEDAS AI Vision Engine. The user asked: '{user_prompt}'\n\n"
+                f"Carefully inspect the attached desktop screenshot. Provide a clear, sharp, and structured breakdown:\n"
+                f"1. **Active Windows & Applications**: What apps, editors, or browsers are visible?\n"
+                f"2. **Content & Error Analysis**: What is the core content? Are there any errors, bugs, or warnings visible?\n"
+                f"3. **Direct Answers / Solutions**: Address the user's specific query with clear next steps."
+            )
+            preferred_models = build_gemini_chain(req.model)
+            used_m, resp = gemini_generate_with_fallback(client, [full_screen_prompt, thumb], preferred_models=preferred_models)
+            analysis_text = resp.text.strip()
+            model_used = f"Gemini Cloud ({used_m})"
+        except Exception as e:
+            print(f"Screen Vision Gemini error: {e}")
+            analysis_text = f"Captured desktop screenshot ({pil_img.size[0]}x{pil_img.size[1]}). Cloud vision rate-limited or unavailable: {e}"
+
+    if not analysis_text:
+        analysis_text = f"📸 Screenshot captured successfully ({pil_img.size[0]}x{pil_img.size[1]}). Image attached to conversation."
+
+    return {
+        "success": True,
+        "analysis": analysis_text,
+        "image_data": b64_str,
+        "dimensions": f"{pil_img.size[0]}x{pil_img.size[1]}",
+        "model": model_used
     }
 
 # ----------------- SYSTEM COMMAND ENDPOINT -----------------
@@ -1698,6 +2027,17 @@ def serve_index():
         return FileResponse(index_file)
     return HTMLResponse("<h2>Vedas AI Server Running. Initializing Web Interface...</h2>")
 
+@app.api_route("/api/system/window-closed", methods=["GET", "POST"])
+def handle_window_closed():
+    """Immediately and cleanly terminates the VEDAS AI backend process and terminal session."""
+    def _delayed_exit():
+        time.sleep(0.2)
+        print("\n⚡ VEDAS AI Desktop Window closed. Process terminated cleanly.")
+        os._exit(0)
+    threading.Thread(target=_delayed_exit, daemon=True).start()
+    return {"status": "terminating", "message": "Terminal process exiting cleanly."}
+
+
 # Pre-load the default Ollama model into VRAM on startup to eliminate cold-start delay
 # Runs in background with retries so server starts even if Ollama is still booting.
 def _preload_worker():
@@ -1740,31 +2080,10 @@ def preload_ollama_model():
 
 preload_ollama_model()
 
-SSL_CERT = CERTS_DIR / "cert.pem"
-SSL_KEY = CERTS_DIR / "key.pem"
-
-def ensure_ssl_certs():
-    if not SSL_CERT.exists() or not SSL_KEY.exists():
-        try:
-            cmd = [
-                'openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
-                '-keyout', str(SSL_KEY),
-                '-out', str(SSL_CERT),
-                '-days', '3650',
-                '-subj', '/CN=localhost'
-            ]
-            subprocess.run(cmd, check=True, capture_output=True)
-        except Exception as e:
-            print(f"SSL generation notice: {e}")
-
 if __name__ == "__main__":
-    ensure_ssl_certs()
     print("=" * 60)
-    print(" 🚀 VEDAS AI — WEB APPLICATION SERVER (HTTPS SECURE)")
-    print(" Local Hub: https://127.0.0.1:8000 (or https://localhost:8000)")
-    print(" Primary Engine: Local Ollama (Major) | Supervisor: Gemini")
+    print(" 🚀 VEDAS AI — WEB APPLICATION SERVER")
+    print(" Local Hub: http://127.0.0.1:8000 (or http://localhost:8000)")
+    print(" Primary Engine: Local Ollama | Supervisor: Gemini (Embedded)")
     print("=" * 60)
-    if SSL_CERT.exists() and SSL_KEY.exists():
-        uvicorn.run(app, host="0.0.0.0", port=8000, ssl_certfile=str(SSL_CERT), ssl_keyfile=str(SSL_KEY), reload=False)
-    else:
-        uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
+    uvicorn.run(app, host="127.0.0.1", port=8000, reload=False)

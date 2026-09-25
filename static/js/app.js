@@ -1,27 +1,27 @@
 /**
- * Vedas AI — Master Web Application Client (Production Edition)
- * Multimodal Chat, PDF Ingestion, Neural Image Studio, Smart Voice Flow with Wake-Words, Hotkeys,
- * LaTeX & Math Typography, and Advanced Two-Stage TTS Engine ("Read in Full" confirmation).
+ * ==============================================================================
+ * VEDAS AI 3.7 PRO — Master Application Controller
+ * High-End Production Edition:
+ * - Permanent Left Sidebar with full navigation
+ * - AI Chatbot with Markdown, Code Copy, Attachments & Voice Mic
+ * - Dedicated Views: Dashboard, Talk HUD, Codex Lab, Image Studio, Memory, Files, Commands, Settings
+ * - Full Configuration Persistence & Real-time Synchronization
+ * ==============================================================================
  */
 
-// Application State
+// Application Master State
 const state = {
+  currentView: 'chat',
   currentSessionId: null,
   sessions: [],
   memoryNotes: [],
   attachments: [],
   useWebSearch: false,
   isListening: false,
-  inConversationMode: false,
-  conversationTimeoutId: null,
   speechSynthEnabled: true,
   currentPersona: 'master_vedas',
   activeModel: 'llama3.2:latest',
   systemStatus: {},
-  isSpeaking: false,
-  micArmed: false,
-  recognitionActive: false,
-  // Friendly display names for known models
   modelDisplayNames: {
     'llama3.2:latest': 'LLaMA 3.2 (Primary)',
     'llama3.2:1b': 'LLaMA 3.2 1B (Fast)',
@@ -36,2638 +36,1281 @@ const state = {
     'gemini-3.1-flash-lite': 'Gemini 3.1 Flash Lite',
     'gemini-3.5-flash-lite': 'Gemini 3.5 Flash Lite',
     'gemini-3.1-pro-preview': 'Gemini 3.1 Pro'
-  },
-  // TTS State
-  currentTTS: {
-    fullText: '',
-    remainingText: '',
-    isPausedForConfirmation: false
-  },
-  // Interaction Mode: 'voice' | 'typing'
-  inputMode: 'voice'
+  }
 };
 
 // DOM References
-const chatMessagesContainer = document.getElementById('chat-messages-container');
-const welcomeHero = document.getElementById('welcome-hero');
-const chatInput = document.getElementById('chat-input');
-const sendBtn = document.getElementById('send-btn');
-const micBtn = document.getElementById('mic-btn');
-const dockMainMicBtn = document.getElementById('dock-main-mic-btn');
-const dockVoiceMode = document.getElementById('dock-voice-mode');
-const dockTypingMode = document.getElementById('dock-typing-mode');
-const dockWaveformPod = document.getElementById('dock-waveform-pod');
-const dockWaveformTranscript = document.getElementById('dock-waveform-transcript');
-const dockWaveformTimer = document.getElementById('dock-waveform-timer');
-const dockWaveformStatus = document.getElementById('dock-waveform-status');
-const fileInput = document.getElementById('file-input');
-const attachmentTray = document.getElementById('attachment-tray');
-const sessionsList = document.getElementById('sessions-list');
-const memoryList = document.getElementById('memory-list');
-const sideCanvas = document.getElementById('side-canvas');
-const sideCanvasTitle = document.getElementById('side-canvas-title');
-const sideCanvasBody = document.getElementById('side-canvas-body');
-const drawerBackdrop = document.getElementById('drawer-backdrop');
-const modelSelector = document.getElementById('model-selector');
-const personaSelector = document.getElementById('persona-selector');
-const webSearchBtn = document.getElementById('web-search-toggle');
-const lightboxModal = document.getElementById('lightbox-modal');
-const lightboxImg = document.getElementById('lightbox-img');
+let chatMessagesContainer, welcomeHero, chatInput, sendBtn, micBtn;
+let fileInput, attachmentTray, sessionsList, modelSelector, personaSelector;
 
-// ----------------- DOCK MODE SWITCHER -----------------
-function switchInputMode(mode) {
-  state.inputMode = mode;
-  const voiceDock = document.getElementById('dock-voice-mode');
-  const typingDock = document.getElementById('dock-typing-mode');
-  if (mode === 'typing') {
-    if (voiceDock) {
-      voiceDock.classList.remove('active');
-      voiceDock.style.display = 'none';
+document.addEventListener('DOMContentLoaded', async () => {
+  cacheDOM();
+  initLiveClock();
+  initEventListeners();
+  initSpeechRecognition();
+
+  // Apply saved theme immediately
+  try {
+    const savedTheme = localStorage.getItem('vedas_theme') || 'blue_orange';
+    if (window.applyTheme) window.applyTheme(savedTheme);
+  } catch (e) {}
+
+  // Load backend data
+  await fetchSystemStatus();
+  await loadStoredMemory();
+  await loadStoredSessions();
+  await loadSettingsFromServer();
+
+  // Default view is AI Chatbot (#1 Intelligence Core)
+  switchView('chat');
+});
+
+function cacheDOM() {
+  chatMessagesContainer = document.getElementById('chat-messages-container');
+  welcomeHero = document.getElementById('welcome-hero');
+  chatInput = document.getElementById('chat-input');
+  sendBtn = document.getElementById('send-btn');
+  micBtn = document.getElementById('mic-btn');
+  fileInput = document.getElementById('file-input');
+  attachmentTray = document.getElementById('attachment-tray');
+  sessionsList = document.getElementById('sessions-list');
+  modelSelector = document.getElementById('model-selector');
+  personaSelector = document.getElementById('persona-selector');
+}
+
+// ==============================================================================
+// MULTI-VIEW NAVIGATION
+// ==============================================================================
+window.switchView = function(viewName) {
+  state.currentView = viewName;
+
+  // Sidebar navigation active highlight
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(item => item.classList.remove('active'));
+  const activeNav = document.getElementById(`nav-item-${viewName}`);
+  if (activeNav) activeNav.classList.add('active');
+
+  // Switch visible view panel
+  const views = document.querySelectorAll('.app-view');
+  views.forEach(v => {
+    v.classList.remove('active');
+    v.style.display = 'none';
+  });
+
+  const targetView = document.getElementById(`view-${viewName}`);
+  if (targetView) {
+    targetView.style.display = (viewName === 'chat') ? 'flex' : 'block';
+    targetView.classList.add('active');
+  }
+
+  // View specific setups
+  if (viewName === 'chat' && chatInput) {
+    setTimeout(() => chatInput.focus(), 50);
+  } else if (viewName === 'codex') {
+    initCodexEditor();
+  } else if (viewName === 'files') {
+    loadFilesBrowser();
+  } else if (viewName === 'memory') {
+    renderMemoryPage();
+  } else if (viewName === 'settings') {
+    loadSettingsFromServer();
+  }
+};
+
+// ==============================================================================
+// LIVE CLOCK & GREETING
+// ==============================================================================
+function initLiveClock() {
+  function update() {
+    const now = new Date();
+    const clockEl = document.getElementById('home-live-clock');
+    const dateEl = document.getElementById('home-live-date');
+    const greetingEl = document.getElementById('home-greeting');
+
+    if (clockEl) clockEl.textContent = now.toLocaleTimeString('en-US', { hour12: true });
+    if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+    if (greetingEl) {
+      const hour = now.getHours();
+      let greeting = 'Good day';
+      if (hour >= 5 && hour < 12) greeting = 'Good morning';
+      else if (hour >= 12 && hour < 17) greeting = 'Good afternoon';
+      else if (hour >= 17 && hour < 22) greeting = 'Good evening';
+      greetingEl.textContent = `${greeting}, Commander.`;
     }
-    if (typingDock) {
-      typingDock.classList.add('active');
-      typingDock.style.display = 'block';
+  }
+  update();
+  setInterval(update, 1000);
+}
+
+// ==============================================================================
+// CHAT & MESSAGING ENGINE
+// ==============================================================================
+window.activeChatAbortController = null;
+
+function setGeneratingState(isGenerating) {
+  const stopBtn = document.getElementById('stop-btn');
+  if (stopBtn) stopBtn.style.display = isGenerating ? 'flex' : 'none';
+}
+
+function setSpeakingState(isSpeaking) {
+  state.isSpeaking = isSpeaking;
+  state.isMicLocked = isSpeaking;
+
+  const stopBtn = document.getElementById('stop-btn');
+  if (stopBtn && !window.activeChatAbortController) {
+    stopBtn.style.display = isSpeaking ? 'flex' : 'none';
+  }
+
+  const chatMic = document.getElementById('chat-mic-orb-btn');
+  const chatTr = document.getElementById('chat-voice-transcript');
+
+  if (isSpeaking) {
+    // If user was speaking, pause listening immediately to avoid speaker audio loops
+    if (state.isListening) {
+      stopVoiceListening();
     }
-    if (chatInput) {
-      setTimeout(() => {
-        chatInput.focus();
-        autoResizeChatInput();
-      }, 50);
+    if (chatMic) {
+      chatMic.classList.add('mic-locked');
+      chatMic.title = '🔒 Microphone locked while AI is speaking (Click Stop to interrupt)';
+      const glyph = document.getElementById('chat-mic-glyph');
+      if (glyph) glyph.textContent = '🔒';
     }
-    showToast('Keyboard Typing Mode Armed', '⌨️');
+    if (chatTr) {
+      chatTr.textContent = '🔊 AI Speaking... (Mic locked)';
+      chatTr.className = 'dock-voice-caption speaking';
+    }
   } else {
-    if (typingDock) {
-      typingDock.classList.remove('active');
-      typingDock.style.display = 'none';
+    if (chatMic) {
+      chatMic.classList.remove('mic-locked');
+      chatMic.title = 'Click or Press Ctrl+M to Speak';
+      const glyph = document.getElementById('chat-mic-glyph');
+      if (glyph) glyph.textContent = '🎙️';
     }
-    if (voiceDock) {
-      voiceDock.classList.add('active');
-      voiceDock.style.display = 'flex';
+    if (chatTr && !state.isListening) {
+      chatTr.textContent = 'Click the orb or press Ctrl+M to talk';
+      chatTr.className = 'dock-voice-caption';
     }
-    showToast('Voice Interaction Mode Armed', '🎙️');
-  }
-}
-window.switchInputMode = switchInputMode;
-
-function toggleWebSearchVoice(btn) {
-  state.useWebSearch = !state.useWebSearch;
-  if (btn) btn.classList.toggle('active', state.useWebSearch);
-  const typeWebBtn = document.getElementById('web-search-toggle');
-  if (typeWebBtn) typeWebBtn.classList.toggle('active', state.useWebSearch);
-  showToast(state.useWebSearch ? 'Live Web Search Armed' : 'Web Search Standby', '🌐');
-}
-window.toggleWebSearchVoice = toggleWebSearchVoice;
-
-function escapeHtml(text) {
-  if (text === null || text === undefined) return '';
-  return String(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-// ----------------- LATEX & MATH FORMATTING HELPER -----------------
-function formatLaTeXMath(str) {
-  if (!str) return '';
-
-  let res = str;
-
-  // Clean LaTeX text & font tags
-  res = res.replace(/\\text\{([^}]+)\}/g, '$1');
-  res = res.replace(/\\mathrm\{([^}]+)\}/g, '$1');
-  res = res.replace(/\\mathbf\{([^}]+)\}/g, '<strong>$1</strong>');
-  res = res.replace(/\\mathit\{([^}]+)\}/g, '<em>$1</em>');
-  res = res.replace(/\\textbf\{([^}]+)\}/g, '<strong>$1</strong>');
-
-  // Spacing & Symbols
-  res = res.replace(/\\quad|\\qquad|\\,|\\;|\\!/g, ' ');
-  res = res.replace(/\\times/g, '×');
-  res = res.replace(/\\pm/g, '±');
-  res = res.replace(/\\approx/g, '≈');
-  res = res.replace(/\\neq|\\ne/g, '≠');
-  res = res.replace(/\\leq|\\le/g, '≤');
-  res = res.replace(/\\geq|\\ge/g, '≥');
-  res = res.replace(/\\implies|\\rightarrow|\\to/g, ' → ');
-  res = res.replace(/\\leftarrow/g, ' ← ');
-  res = res.replace(/\\degree|\\circ/g, '°');
-
-  // Fractions: \frac{a}{b} -> (a / b)
-  res = res.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1 / $2)');
-
-  // Superscripts & Subscripts in Math: ^{2+} -> <sup>2+</sup>, _{2} -> <sub>2</sub>
-  res = res.replace(/\^\{([^}]+)\}/g, '<sup>$1</sup>');
-  res = res.replace(/\^([0-9a-zA-Z+-]+)/g, '<sup>$1</sup>');
-  res = res.replace(/_\{([^}]+)\}/g, '<sub>$1</sub>');
-  res = res.replace(/_([0-9a-zA-Z+-]+)/g, '<sub>$1</sub>');
-
-  // Strip remaining solitary backslashes
-  res = res.replace(/\\([a-zA-Z]+)/g, '$1');
-
-  return res;
-}
-
-// ----------------- MARKDOWN PARSER -----------------
-function renderMarkdown(text) {
-  if (!text) return '';
-  let escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  // Collapsible Thinking / Analytical Pass
-  escaped = escaped.replace(/&lt;details&gt;\s*&lt;summary&gt;(.*?)&lt;\/summary&gt;([\s\S]*?)&lt;\/details&gt;/gi, (m, summary, body) => {
-    return `<details class="thinking-pass"><summary>${summary}</summary><div class="thinking-content">${body.trim()}</div></details>`;
-  });
-
-  // Code blocks with language tags
-  escaped = escaped.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
-    const language = lang || 'code';
-    const rawCode = code.trim();
-    const encodedCode = encodeURIComponent(rawCode);
-    const runButtonHtml = (language.toLowerCase() === 'python' || language.toLowerCase() === 'py')
-      ? `<button class="code-action-btn" onclick="executePythonSandbox('${encodedCode}', this)">▶ Run Code</button>`
-      : '';
-
-    return `
-      <div class="code-block-wrapper">
-        <div class="code-block-header">
-          <span>${language.toUpperCase()}</span>
-          <div style="display:flex; gap:6px;">
-            ${runButtonHtml}
-            <button class="code-action-btn" onclick="copyCodeSnippet('${encodedCode}', this)">📋 Copy</button>
-          </div>
-        </div>
-        <pre><code class="language-${language}">${rawCode}</code></pre>
-        <div class="code-output-box" style="display:none; padding:10px 14px; background:#06080d; border-top:1px solid #1f293d; font-family:var(--font-mono); font-size:0.8rem; color:#10b981;"></div>
-      </div>
-    `;
-  });
-
-  // Display Math: $$ ... $$
-  escaped = escaped.replace(/\$\$([\s\S]*?)\$\$/g, (m, mathContent) => {
-    return `<div class="math-block" style="background:rgba(0, 240, 255, 0.05); border:1px solid rgba(0, 240, 255, 0.2); border-radius:6px; padding:8px 12px; margin:8px 0; font-family:var(--font-mono); font-size:0.95rem; color:#00f0ff;">${formatLaTeXMath(mathContent)}</div>`;
-  });
-
-  // Inline Math: $ ... $
-  escaped = escaped.replace(/\$([^\$\n]+)\$/g, (m, mathContent) => {
-    return `<span class="math-inline" style="background:rgba(0, 240, 255, 0.08); padding:2px 6px; border-radius:4px; font-family:var(--font-mono); color:#00f0ff;">${formatLaTeXMath(mathContent)}</span>`;
-  });
-
-  // Apply general LaTeX cleanup for any unescaped formulas
-  escaped = formatLaTeXMath(escaped);
-
-  // Inline code
-  escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-  // Bold & Italic
-  escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  escaped = escaped.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-
-  // Headers
-  escaped = escaped.replace(/^### (.*$)/gim, '<h3 style="color:#00f0ff; margin:12px 0 6px 0; font-size:1.1rem;">$1</h3>');
-  escaped = escaped.replace(/^## (.*$)/gim, '<h2 style="color:#ffffff; margin:14px 0 8px 0; font-size:1.25rem;">$1</h2>');
-  escaped = escaped.replace(/^# (.*$)/gim, '<h1 style="color:#00f0ff; margin:16px 0 10px 0; font-size:1.4rem;">$1</h1>');
-
-  // Bullet Lists
-  escaped = escaped.replace(/^\s*-\s+(.*$)/gim, '<li>$1</li>');
-  escaped = escaped.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-
-  // Line breaks
-  escaped = escaped.replace(/\n/g, '<br/>');
-
-  return escaped;
-}
-
-// ----------------- TOAST NOTIFICATIONS (Clean Single-Toast Queue) -----------------
-let currentToastTimeout = null;
-function showToast(message, icon = '✨') {
-  const container = document.getElementById('toast-container');
-  if (!container) return;
-  container.innerHTML = '';
-  clearTimeout(currentToastTimeout);
-
-  const toast = document.createElement('div');
-  toast.className = 'toast';
-  toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
-  container.appendChild(toast);
-
-  currentToastTimeout = setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateY(10px)';
-    setTimeout(() => toast.remove(), 250);
-  }, 2500);
-}
-
-// ----------------- TELEMETRY & SYSTEM STATUS -----------------
-async function fetchSystemStatus() {
-  try {
-    const res = await fetch('/api/system/status');
-    if (!res.ok) return;
-    const data = await res.json();
-    state.systemStatus = data;
-
-    // Update Status HUD
-    const cpuEl = document.getElementById('hud-cpu');
-    const ramEl = document.getElementById('hud-ram');
-    const ollamaDot = document.getElementById('hud-ollama-dot');
-    const ollamaText = document.getElementById('hud-ollama-text');
-
-    if (cpuEl) cpuEl.textContent = `CPU: ${data.cpu_usage}%`;
-    if (ramEl) ramEl.textContent = `RAM: ${data.ram_usage}%`;
-    if (ollamaDot && ollamaText) {
-      if (data.ollama_running) {
-        ollamaDot.className = 'status-dot';
-        ollamaText.textContent = `⚡ OLLAMA: ${data.active_local_model}`;
-      } else {
-        ollamaDot.className = 'status-dot danger';
-        ollamaText.textContent = '⚡ OLLAMA: OFFLINE';
-      }
-    }
-
-    // Populate model options with thunderbolt in front of EVERY option.
-    // Avoid rebuilding DOM if option list has not changed, preserving user selection.
-    if (modelSelector && data.local_models) {
-      const geminiList = (data.cloud_models && data.cloud_models.length)
-        ? data.cloud_models
-        : [
-            { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash' },
-            { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash' },
-            { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash' },
-            { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite' },
-            { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash Lite' },
-            { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro' }
-          ];
-
-      const currentValues = Array.from(modelSelector.options).map(o => o.value).join('|');
-      const newValues = [...data.local_models, ...geminiList.map(m => m.id || m)].join('|');
-
-      if (currentValues !== newValues || modelSelector.options.length === 0) {
-        const previousSelection = state.activeModel || modelSelector.value;
-        modelSelector.innerHTML = '';
-
-        const localGroup = document.createElement('optgroup');
-        localGroup.label = '⚡ Local Ollama Models (Primary)';
-        data.local_models.forEach(m => {
-          const opt = document.createElement('option');
-          opt.value = m;
-          const name = state.modelDisplayNames[m] || m;
-          opt.textContent = `⚡ Local: ${name}`;
-          localGroup.appendChild(opt);
-        });
-        modelSelector.appendChild(localGroup);
-
-        const cloudGroup = document.createElement('optgroup');
-        cloudGroup.label = '⚡ Gemini Cloud Models (Supervisor & Fallback)';
-        geminiList.forEach(m => {
-          const opt = document.createElement('option');
-          const mId = m.id || m;
-          opt.value = mId;
-          const name = m.name || state.modelDisplayNames[mId] || mId;
-          opt.textContent = `⚡ Cloud: ${name}`;
-          cloudGroup.appendChild(opt);
-        });
-        modelSelector.appendChild(cloudGroup);
-
-        // Restore selection to the previous user selection or primary local model
-        const target = Array.from(modelSelector.options).find(o => o.value === previousSelection) ||
-                       Array.from(modelSelector.options).find(o => o.value === data.active_local_model) ||
-                       modelSelector.options[0];
-        if (target) {
-          target.selected = true;
-          state.activeModel = target.value;
-        }
-      }
-    }
-  } catch (err) {
-    console.error('Telemetry Error:', err);
   }
 }
 
-window.restartOllamaService = async function () {
-  const ollamaDot = document.getElementById('hud-ollama-dot');
-  const ollamaText = document.getElementById('hud-ollama-text');
-  if (ollamaDot) ollamaDot.className = 'status-dot inferring';
-  if (ollamaText) ollamaText.textContent = '⚡ OLLAMA: CONNECTING...';
-  showToast('Connecting to Ollama background core...', '⚡');
-  try {
-    const res = await fetch('/api/ollama/start', { method: 'POST' });
-    const data = await res.json();
-    if (data.running) {
-      showToast('Ollama Core Connected and Ready!', '⚡');
-    } else {
-      showToast('Ollama not running. Try: ollama serve', '⚠️');
-    }
-    await fetchSystemStatus();
-  } catch (err) {
-    showToast('Ollama connection request failed', '❌');
-    await fetchSystemStatus();
+window.stopAllAIResponse = function() {
+  let stoppedSomething = false;
+
+  // 1. Abort active network request if ongoing
+  if (window.activeChatAbortController) {
+    try {
+      window.activeChatAbortController.abort();
+      stoppedSomething = true;
+    } catch (e) {}
+    window.activeChatAbortController = null;
   }
+
+  // 2. Cancel active browser speech synthesis
+  if (window.speechSynthesis) {
+    if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+      stoppedSomething = true;
+    }
+    try { window.speechSynthesis.cancel(); } catch (e) {}
+  }
+
+  // 3. Stop voice recognition if listening
+  if (state.isListening) {
+    stopVoiceListening();
+    stoppedSomething = true;
+  }
+
+  // 4. Remove any active thinking bubble
+  const thinkingElements = document.querySelectorAll('[id^="thinking-"]');
+  if (thinkingElements.length > 0) {
+    thinkingElements.forEach(el => el.remove());
+    stoppedSomething = true;
+  }
+
+  // 5. Dismiss floating read full prompt if open
+  dismissReadFullPrompt(false);
+
+  // 6. Reset UI & waveform states
+  setGeneratingState(false);
+  setSpeakingState(false);
+
+  if (window.vedasChatWaveform) window.vedasChatWaveform.setState('idle');
+  if (window.vedasDashWaveform) window.vedasDashWaveform.setState('idle');
+
+  const holoStatus = document.getElementById('holo-status-text');
+  if (holoStatus) holoStatus.textContent = 'CORE SYNCHRONIZED';
+
+  const chatTr = document.getElementById('chat-voice-transcript');
+  if (chatTr) {
+    chatTr.textContent = 'Click the orb or press Ctrl+M to talk';
+    chatTr.className = 'dock-voice-caption';
+  }
+
+  showToast('AI response stopped.', '⏹️');
 };
 
-// ----------------- SESSIONS & MEMORY -----------------
-async function loadSessionsAndMemory() {
-  try {
-    const res = await fetch('/api/memory');
-    if (!res.ok) return;
-    const data = await res.json();
-    state.sessions = data.sessions || [];
-    state.memoryNotes = data.notes || [];
-
-    renderSidebarSessions();
-    renderSidebarMemory();
-
-    if (state.sessions.length > 0 && !state.currentSessionId) {
-      loadSession(state.sessions[0].id);
-    }
-  } catch (err) {
-    console.error('Load Memory Error:', err);
-  }
-}
-
-function renderSidebarSessions() {
-  const el = document.getElementById('sessions-list');
-  if (!el) return;
-  el.innerHTML = '';
-  if (!state.sessions || state.sessions.length === 0) {
-    el.innerHTML = '<div style="color:var(--text-dim); font-size:0.8rem; padding:8px;">No recent sessions.</div>';
-    return;
-  }
-
-  state.sessions.forEach(sess => {
-    const item = document.createElement('div');
-    item.className = `session-item ${sess.id === state.currentSessionId ? 'active' : ''}`;
-    item.innerHTML = `
-      <span class="session-title">💬 ${sess.title || 'New Conversation'}</span>
-      <button class="session-del-btn" title="Delete Session" onclick="deleteSession('${sess.id}', event)">✕</button>
-    `;
-    item.onclick = () => window.loadSession(sess.id);
-    el.appendChild(item);
-  });
-}
-
-function renderSidebarMemory() {
-  const el = document.getElementById('memory-list');
-  if (!el) return;
-  el.innerHTML = '';
-  if (!state.memoryNotes || state.memoryNotes.length === 0) {
-    el.innerHTML = `
-      <div class="sidebar-empty-state">
-        <span class="sidebar-empty-icon">🧠</span>
-        <div class="sidebar-empty-title">Memory Bank Empty</div>
-        <div class="sidebar-empty-hint">Say "remember [fact]" or add via Memory Core button above.</div>
-      </div>
-    `;
-    return;
-  }
-
-  state.memoryNotes.forEach((note, idx) => {
-    const item = document.createElement('div');
-    item.className = 'session-item';
-    item.title = note;
-    item.innerHTML = `
-      <span class="session-title" style="max-width:180px;">📌 ${escapeHtml(note)}</span>
-      <button class="session-del-btn" title="Forget Note" onclick="deleteMemoryNote(${idx}, event)">✕</button>
-    `;
-    el.appendChild(item);
-  });
-}
-
-window.startNewChat = function() {
-  state.currentSessionId = String(Date.now());
-  state.inConversationMode = false;
-  const newSession = {
-    id: state.currentSessionId,
-    title: 'New Conversation',
-    messages: []
-  };
-  state.sessions.unshift(newSession);
-  if (window.switchSidebarTab) window.switchSidebarTab('sessions');
-  if (window.switchMainView) window.switchMainView('chat');
-  renderSidebarSessions();
-  renderChatMessages([]);
-  showToast('New Conversation', '🚀');
-};
-
-window.loadSession = function(sessionId) {
-  state.currentSessionId = sessionId;
-  state.inConversationMode = false;
-  if (window.switchMainView) window.switchMainView('chat');
-  renderSidebarSessions();
-  const session = state.sessions.find(s => s.id === sessionId);
-  if (session) {
-    renderChatMessages(session.messages || []);
-  }
-};
-
-async function deleteSession(sessionId, event) {
-  event.stopPropagation();
-  try {
-    await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
-    state.sessions = state.sessions.filter(s => s.id !== sessionId);
-    if (state.currentSessionId === sessionId) {
-      if (state.sessions.length > 0) {
-        loadSession(state.sessions[0].id);
-      } else {
-        startNewChat();
-      }
-    } else {
-      renderSidebarSessions();
-    }
-    showToast('Session Deleted', '🗑️');
-  } catch (err) {
-    console.error('Delete Session Error:', err);
-  }
-}
-
-async function deleteMemoryNote(index, event) {
-  if (event) event.stopPropagation();
-  try {
-    const res = await fetch(`/api/memory/notes/${index}`, { method: 'DELETE' });
-    if (res.ok) {
-      const data = await res.json();
-      state.memoryNotes = data.notes || [];
-      renderSidebarMemory();
-      renderFullMemoryList();
-      showToast('Memory Note Removed', '🧠');
-    }
-  } catch (err) {
-    console.error('Delete Memory Note Error:', err);
-  }
-}
-
-// ----------------- CHAT RENDERING -----------------
-function renderChatMessages(messages) {
-  if (!chatMessagesContainer) return;
-  chatMessagesContainer.innerHTML = '';
-
-  if (!messages || messages.length === 0) {
-    if (welcomeHero) welcomeHero.style.display = 'flex';
-    if (chatMessagesContainer) chatMessagesContainer.style.display = 'none';
-    return;
-  }
-
-  if (welcomeHero) welcomeHero.style.display = 'none';
-  if (chatMessagesContainer) chatMessagesContainer.style.display = 'flex';
-
-  messages.forEach(msg => {
-    appendMessageToDOM(msg.role, msg.content, msg.meta, false);
-  });
-
-  scrollChatToBottom();
-}
-
-function appendMessageToDOM(role, content, meta = {}, shouldScroll = true) {
-  if (welcomeHero) welcomeHero.style.display = 'none';
-  if (chatMessagesContainer) chatMessagesContainer.style.display = 'flex';
-
-  const row = document.createElement('div');
-  row.className = `message-row ${role === 'user' ? 'user' : 'ai'}`;
-
-  const bubble = document.createElement('div');
-  bubble.className = `message-bubble ${role === 'user' ? 'user-bubble' : 'ai-bubble'}`;
-
-  let headerHtml = '';
-  if (role === 'user') {
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    headerHtml = `
-      <div class="message-header-bar">
-        <div class="message-header-left">
-          <div class="msg-avatar-badge user-avatar">👤</div>
-          <div class="user-meta-tag">YOU</div>
-        </div>
-        <div class="message-header-right">
-          <span class="msg-timestamp">${timeStr}</span>
-        </div>
-      </div>
-    `;
-  } else {
-    const isOllama = meta && meta.source === 'ollama';
-    const modelDisplayName = meta && meta.model ? (state.modelDisplayNames[meta.model] || meta.model) : (isOllama ? 'Local Ollama' : 'Gemini Cloud');
-    const modelTag = modelDisplayName;
-    const badgeClass = isOllama ? 'ai-meta-tag ollama-active-badge' : 'ai-meta-tag';
-    headerHtml = `
-      <div class="message-header-bar">
-        <div class="message-header-left">
-          <div class="msg-avatar-badge ai-avatar">⚡</div>
-          <div class="${badgeClass}" style="margin-bottom:0;">⚡ ${isOllama ? 'Local Ollama' : 'Gemini Cloud'}: ${modelTag}</div>
-        </div>
-        <div class="message-header-right">
-          <button class="tts-bubble-btn" title="Read message aloud" onclick="speakMessageManual(this)">🔊 Read</button>
-          <button class="tts-bubble-btn" title="Stop speech" onclick="stopSpeech()">⏹ Stop</button>
-        </div>
-      </div>
-    `;
-
-    if (meta && meta.supervisorAlert) {
-      headerHtml += `<div class="supervisor-alert-badge">🛡️ Supervisor AI Correction: ${meta.supervisorAlert}</div>`;
+// Global keyboard shortcut: Esc stops AI response & voice output
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (window.activeChatAbortController || (window.speechSynthesis && (window.speechSynthesis.speaking || window.speechSynthesis.pending)) || state.isListening) {
+      stopAllAIResponse();
     }
   }
+});
 
-  // Attachments display for user messages
-  let attachmentsHtml = '';
-  if (meta && meta.attachments && meta.attachments.length > 0) {
-    attachmentsHtml = '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">';
-    meta.attachments.forEach(att => {
-      if (att.data && att.type && att.type.includes('image')) {
-        attachmentsHtml += `<img src="${att.data}" style="max-height:180px; border-radius:10px; border:1px solid rgba(0,240,255,0.35); cursor:pointer;" onclick="openLightbox('${att.data}')" />`;
-      } else if (att.is_pdf || (att.name && att.name.endsWith('.pdf'))) {
-        attachmentsHtml += `<div class="attachment-chip" style="background:rgba(239, 68, 68, 0.15); border-color:#ef4444; color:#fca5a5;">📕 ${att.name} ${att.page_count ? `(${att.page_count} pages)` : ''}</div>`;
-      } else {
-        attachmentsHtml += `<div class="attachment-chip">📄 ${att.name}</div>`;
-      }
-    });
-    attachmentsHtml += '</div>';
-  }
-
-  // Image Generation Card
-  let imageCardHtml = '';
-  if (meta && meta.generatedImage) {
-    const imgData = meta.generatedImage;
-    imageCardHtml = `
-      <div class="generated-image-card">
-        <img src="${imgData.data_uri || imgData.url}" alt="AI Generated" onclick="openLightbox('${imgData.data_uri || imgData.url}')" />
-        <div class="img-overlay-tools">
-          <span class="img-tag-info">🎨 ${imgData.style.toUpperCase()} • ${imgData.width}x${imgData.height}</span>
-          <button class="img-btn" onclick="downloadImage('${imgData.data_uri || imgData.url}', 'vedas_art_${Date.now()}.jpg')">⬇ Download</button>
-        </div>
-      </div>
-    `;
-  }
-
-  const contentHtml = `<div class="message-content-body">${renderMarkdown(content)}</div>`;
-  bubble.innerHTML = `${headerHtml}${attachmentsHtml}${contentHtml}${imageCardHtml}`;
-
-  row.appendChild(bubble);
-  chatMessagesContainer.appendChild(row);
-
-  if (shouldScroll) {
-    scrollChatToBottom();
-  }
-}
-
-function appendAnimatedMessageToDOM(role, content, meta = {}, onComplete = null) {
-  if (role !== 'ai' || !content) {
-    appendMessageToDOM(role, content, meta, true);
-    if (onComplete) onComplete();
-    return;
-  }
-
-  if (welcomeHero) welcomeHero.style.display = 'none';
-  if (chatMessagesContainer) chatMessagesContainer.style.display = 'flex';
-
-  const row = document.createElement('div');
-  row.className = 'message-row ai';
-
-  const bubble = document.createElement('div');
-  bubble.className = 'message-bubble ai-bubble';
-
-  const isOllama = meta && meta.source === 'ollama';
-  const modelDisplayName = meta && meta.model ? (state.modelDisplayNames[meta.model] || meta.model) : (isOllama ? 'Local Ollama' : 'Gemini Cloud');
-  const modelTag = modelDisplayName;
-  const badgeClass = isOllama ? 'ai-meta-tag ollama-active-badge' : 'ai-meta-tag';
-
-  const headerDiv = document.createElement('div');
-  headerDiv.className = 'message-header-bar';
-  headerDiv.innerHTML = `
-    <div class="message-header-left">
-      <div class="msg-avatar-badge ai-avatar animated-avatar">⚡</div>
-      <div class="${badgeClass}" style="margin-bottom:0;">⚡ ${isOllama ? 'Local Ollama' : 'Gemini Cloud'}: ${modelTag}</div>
-    </div>
-    <div class="message-header-right">
-      <button class="tts-bubble-btn" title="Read message aloud" onclick="speakMessageManual(this)">🔊 Read</button>
-      <button class="tts-bubble-btn" title="Stop speech" onclick="stopSpeech()">⏹ Stop</button>
-    </div>
-  `;
-
-  bubble.appendChild(headerDiv);
-
-  if (meta && meta.supervisorAlert) {
-    const supAlert = document.createElement('div');
-    supAlert.className = 'supervisor-alert-badge';
-    supAlert.textContent = `🛡️ Supervisor AI Correction: ${meta.supervisorAlert}`;
-    bubble.appendChild(supAlert);
-  }
-
-  const textContainer = document.createElement('div');
-  textContainer.className = 'ai-text-stream message-content-body';
-
-  bubble.appendChild(textContainer);
-  row.appendChild(bubble);
-  chatMessagesContainer.appendChild(row);
-  scrollChatToBottom();
-
-  // Fast typewriter animated stream
-  const tokens = content.split(/(\s+)/);
-  let accumulated = '';
-  let tokenIdx = 0;
-  const chunk = 3;
-  const speedMs = 15;
-
-  const timer = setInterval(() => {
-    if (tokenIdx < tokens.length) {
-      accumulated += tokens.slice(tokenIdx, tokenIdx + chunk).join('');
-      tokenIdx += chunk;
-      textContainer.innerHTML = renderMarkdown(accumulated) + '<span class="typing-cursor">█</span>';
-      scrollChatToBottom();
-    } else {
-      clearInterval(timer);
-      textContainer.innerHTML = renderMarkdown(content);
-      scrollChatToBottom();
-      if (onComplete) onComplete();
-    }
-  }, speedMs);
-}
-
-function scrollChatToBottom() {
-  if (chatMessagesContainer) {
-    chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
-  }
-}
-
-// ----------------- SEND MESSAGE HANDLER -----------------
 async function handleSendMessage() {
+  if (!chatInput) return;
   const text = chatInput.value.trim();
-  if (!text && state.attachments.length === 0) return;
-  if (state.micArmed || state.isListening) hardStopMic();
+  const attachments = [...state.attachments];
 
-  if (!state.currentSessionId) {
-    state.currentSessionId = String(Date.now());
-    state.sessions.unshift({
-      id: state.currentSessionId,
-      title: text ? (text.length > 35 ? text.substring(0, 32) + '...' : text) : 'Attachment Query',
-      messages: []
-    });
-    renderSidebarSessions();
-  }
+  if (!text && attachments.length === 0) return;
 
-  const currentSession = state.sessions.find(s => s.id === state.currentSessionId);
-  const userAttachments = [...state.attachments];
-
-  // Auto-rename "New Conversation" to actual prompt title
-  if (currentSession && currentSession.title === 'New Conversation' && text) {
-    currentSession.title = text.length > 35 ? text.substring(0, 32) + '...' : text;
-    renderSidebarSessions();
-  }
-
-  // Append user message
-  const userMsg = {
-    role: 'user',
-    content: text,
-    meta: { attachments: userAttachments }
-  };
-  if (currentSession) currentSession.messages.push(userMsg);
-  appendMessageToDOM('user', text, { attachments: userAttachments });
-
-  // Reset input & attachments
   chatInput.value = '';
   state.attachments = [];
   renderAttachmentTray();
-  autoResizeChatInput();
 
-  if (text && /^(shutdown|shut down|power off)\b/i.test(text)) {
-    confirmShutdown();
-    if (window.vedasWaveform) window.vedasWaveform.setState('idle');
-    if (window.setHologramState) setHologramState('idle');
-    return;
+  if (welcomeHero) welcomeHero.style.display = 'none';
+  if (chatMessagesContainer) chatMessagesContainer.style.display = 'flex';
+
+  addMessageBubble('user', text, { attachments });
+
+  const thinkingId = 'thinking-' + Date.now();
+  addThinkingBubble(thinkingId);
+  setGeneratingState(true);
+
+  if (window.vedasChatWaveform) window.vedasChatWaveform.setState('thinking');
+  if (window.vedasDashWaveform) window.vedasDashWaveform.setState('thinking');
+  const holoStatus = document.getElementById('holo-status-text');
+  if (holoStatus) holoStatus.textContent = 'SYNTHESIZING...';
+
+  if (window.activeChatAbortController) {
+    try { window.activeChatAbortController.abort(); } catch (e) {}
   }
+  window.activeChatAbortController = new AbortController();
 
-  if (text && /^(restart|reboot)\b/i.test(text)) {
-    confirmRestart();
-    if (window.vedasWaveform) window.vedasWaveform.setState('idle');
-    if (window.setHologramState) setHologramState('idle');
-    return;
-  }
-
-  // Check for image generation prompt prefix
-  const imageGenMatch = text.match(/^(?:\/image|generate image(?: of)?|create an image of)\s+(.+)/i);
-  if (imageGenMatch && userAttachments.length === 0) {
-    const promptForImg = imageGenMatch[1];
-    showToast('Synthesizing Neural Art with FLUX...', '🎨');
-    try {
-      const imgRes = await fetch('/api/generate-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: promptForImg,
-          style: 'cinematic',
-          aspect_ratio: '1:1',
-          enhance_prompt: true
-        })
-      });
-      const imgData = await imgRes.json();
-      const aiReply = {
-        role: 'ai',
-        content: `I have created the artwork for: **"${promptForImg}"**`,
-        meta: {
-          generatedImage: imgData,
-          model: 'FLUX.1-Neural',
-          source: 'image_gen'
-        }
-      };
-      if (currentSession) currentSession.messages.push(aiReply);
-      appendMessageToDOM('ai', aiReply.content, aiReply.meta);
-      saveCurrentSessionToBackend();
-      smartSpeakResponse(`Here is the image for ${promptForImg}`);
-    } catch (err) {
-      console.error('Image Generation Error:', err);
-      appendMessageToDOM('ai', `⚠️ Image generation encountered an error: ${err.message}`);
-    } finally {
-      if (window.vedasWaveform) window.vedasWaveform.setState('idle');
-    }
-    return;
-  }
-
-  // Check for system commands (open notepad, shutdown, etc.)
-  if (text && checkVoiceSystemCommand(text)) {
-    try {
-      const cmdRes = await fetch('/api/system/command', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command: text })
-      });
-      const cmdData = await cmdRes.json();
-      if (cmdData.success) {
-        const aiMsg = { role: 'ai', content: `⚡ **System Command Executed:** ${cmdData.message}`, meta: { model: 'system', source: 'system_action' } };
-        if (currentSession) currentSession.messages.push(aiMsg);
-        appendMessageToDOM('ai', aiMsg.content, aiMsg.meta);
-        saveCurrentSessionToBackend();
-        if (state.speechSynthEnabled) smartSpeakResponse(cmdData.message);
-        if (window.vedasWaveform) window.vedasWaveform.setState('idle');
-        return;
-      }
-    } catch (e) { /* fallthrough to AI */ }
-  }
-
-  // Set UI into thinking animation state
-  if (window.vedasWaveform) window.vedasWaveform.setState('thinking');
-  if (window.setHologramState) setHologramState('ai_thinking');
-
-  const ollamaDot = document.getElementById('hud-ollama-dot');
-  const ollamaText = document.getElementById('hud-ollama-text');
-  if (ollamaDot) ollamaDot.className = 'status-dot inferring';
-  if (ollamaText) ollamaText.textContent = '⚡ OLLAMA: GENERATING...';
-
-  // Append animated thinking indicator card in the chat
-  const thinkingRow = document.createElement('div');
-  thinkingRow.className = 'message-row ai thinking-row';
-  thinkingRow.id = 'active-thinking-indicator';
-  const isCloudActive = state.activeModel && state.activeModel.includes('gemini');
-  const activeName = state.modelDisplayNames[state.activeModel] || state.activeModel;
-  const activeLabel = isCloudActive ? `Gemini Cloud: ${activeName}` : `Local Ollama: ${activeName}`;
-  thinkingRow.innerHTML = `
-    <div class="message-bubble thinking-bubble ai-bubble">
-      <div class="message-header-bar">
-        <div class="message-header-left">
-          <div class="msg-avatar-badge ai-avatar animated-avatar">⚡</div>
-          <div class="ai-meta-tag ${isCloudActive ? '' : 'ollama-active-badge'}" style="margin-bottom:0;">⚡ ${activeLabel}</div>
-        </div>
-      </div>
-      <div class="thinking-pulse-wrapper">
-        <div class="thinking-spinner"></div>
-        <div class="thinking-details">
-          <span class="thinking-label">Synthesizing intelligence</span>
-          <span class="thinking-dots-anim"><span>.</span><span>.</span><span>.</span></span>
-        </div>
-      </div>
-    </div>
-  `;
-  chatMessagesContainer.appendChild(thinkingRow);
-  scrollChatToBottom();
-
-  // Send standard / multimodal chat request to backend
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        prompt: text || 'Please inspect the attached documents and provide your analysis.',
+        prompt: text,
         session_id: state.currentSessionId,
-        persona: state.currentPersona,
-        model_override: state.activeModel,
+        persona: (personaSelector ? personaSelector.value : state.currentPersona) || 'master_vedas',
+        model_override: (modelSelector ? modelSelector.value : state.activeModel),
         use_web_search: state.useWebSearch,
-        enable_thinking: false,
-        attachments: userAttachments
-      })
+        attachments: attachments
+      }),
+      signal: window.activeChatAbortController.signal
     });
 
-    // Remove thinking indicator
-    const existingThinking = document.getElementById('active-thinking-indicator');
-    if (existingThinking) existingThinking.remove();
-
-    if (!res.ok) {
-      let backendDetail = '';
-      try {
-        const errBody = await res.json();
-        backendDetail = errBody.detail || errBody.message || errBody.error || '';
-      } catch (_) { /* ignore parse error */ }
-      throw new Error(`HTTP Error ${res.status}${backendDetail ? `: ${backendDetail}` : ''}`);
-    }
+    window.activeChatAbortController = null;
+    removeThinkingBubble(thinkingId);
+    setGeneratingState(false);
 
     const data = await res.json();
-    const aiMsg = {
-      role: 'ai',
-      content: data.text || 'No response received.',
-      meta: {
-        model: data.model,
-        source: data.source,
-        supervisorAlert: data.supervisor_alert
+    const reply = data.text || data.message || 'Action executed.';
+    addMessageBubble('assistant', reply, data);
+
+    if (holoStatus) holoStatus.textContent = 'CORE SYNCHRONIZED';
+    if (window.vedasChatWaveform) window.vedasChatWaveform.setState('idle');
+    if (window.vedasDashWaveform) window.vedasDashWaveform.setState('idle');
+
+    if (state.speechSynthEnabled) {
+      smartSpeakResponse(reply);
+    }
+
+    saveActiveSession();
+  } catch (err) {
+    window.activeChatAbortController = null;
+    removeThinkingBubble(thinkingId);
+    setGeneratingState(false);
+
+    if (holoStatus) holoStatus.textContent = 'CORE SYNCHRONIZED';
+    if (window.vedasChatWaveform) window.vedasChatWaveform.setState('idle');
+    if (window.vedasDashWaveform) window.vedasDashWaveform.setState('idle');
+
+    if (err.name === 'AbortError') {
+      addMessageBubble('assistant', '⏹️ *Response stopped by user.*', { isStopped: true });
+    } else {
+      addMessageBubble('assistant', `⚠️ Communication error: ${err.message}`, { isError: true });
+    }
+  }
+}
+
+function addMessageBubble(role, text, meta = {}) {
+  if (!chatMessagesContainer) return;
+
+  const row = document.createElement('div');
+  row.className = `chat-message-row ${role === 'user' ? 'user-row' : 'ai-row'}`;
+
+  const avatar = document.createElement('div');
+  avatar.className = 'chat-avatar';
+  avatar.textContent = role === 'user' ? '👤' : '⚡';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'chat-bubble';
+
+  if (meta.attachments && meta.attachments.length > 0) {
+    const attGrid = document.createElement('div');
+    attGrid.style.cssText = 'display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;';
+    meta.attachments.forEach(att => {
+      const chip = document.createElement('span');
+      chip.style.cssText = 'background:rgba(0,0,0,0.3); padding:3px 8px; border-radius:4px; font-size:0.75rem;';
+      chip.textContent = `📎 ${att.name || 'File'}`;
+      attGrid.appendChild(chip);
+    });
+    bubble.appendChild(attGrid);
+  }
+
+  if (meta.screenshot_preview || meta.preview_data_uri) {
+    const previewSrc = meta.screenshot_preview || meta.preview_data_uri;
+    const imgWrapper = document.createElement('div');
+    imgWrapper.style.cssText = 'margin-bottom:10px; cursor:pointer;';
+    imgWrapper.innerHTML = `
+      <img src="${previewSrc}" alt="Screen Vision Capture" style="max-height:220px; max-width:100%; border-radius:8px; border:1px solid var(--border-glass); display:block;" onclick="openLightbox('${previewSrc}')" />
+      <div style="font-size:0.72rem; color:var(--blue-bright); margin-top:4px;">📸 Captured Active Desktop Screen (Click to enlarge)</div>
+    `;
+    bubble.appendChild(imgWrapper);
+  }
+
+  const content = document.createElement('div');
+  content.className = 'chat-bubble-content';
+  content.innerHTML = renderMarkdown(text);
+  bubble.appendChild(content);
+
+  if (role === 'assistant') {
+    const metaBar = document.createElement('div');
+    metaBar.className = 'chat-bubble-meta';
+
+    const modelLabel = document.createElement('span');
+    modelLabel.textContent = meta.model ? (state.modelDisplayNames[meta.model] || meta.model) : 'VEDAS Core';
+
+    const tools = document.createElement('div');
+    tools.className = 'chat-bubble-tools';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'bubble-tool-btn';
+    copyBtn.textContent = '📋 Copy';
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(text);
+      showToast('Copied to clipboard!', '📋');
+    };
+
+    const speakBtn = document.createElement('button');
+    speakBtn.className = 'bubble-tool-btn';
+    speakBtn.textContent = '🔊 Listen';
+    speakBtn.onclick = () => smartSpeakResponse(text);
+
+    const stopBtn = document.createElement('button');
+    stopBtn.className = 'bubble-tool-btn bubble-stop-btn';
+    stopBtn.textContent = '⏹️ Stop';
+    stopBtn.title = 'Stop speech output / generation';
+    stopBtn.onclick = () => stopAllAIResponse();
+
+    tools.appendChild(copyBtn);
+    tools.appendChild(speakBtn);
+    tools.appendChild(stopBtn);
+    metaBar.appendChild(modelLabel);
+    metaBar.appendChild(tools);
+    bubble.appendChild(metaBar);
+  }
+
+  row.appendChild(avatar);
+  row.appendChild(bubble);
+  chatMessagesContainer.appendChild(row);
+
+  const stage = document.getElementById('chat-stage-body');
+  if (stage) stage.scrollTop = stage.scrollHeight;
+}
+
+function addThinkingBubble(id) {
+  if (!chatMessagesContainer) return;
+  const row = document.createElement('div');
+  row.className = 'chat-message-row ai-row';
+  row.id = id;
+
+  row.innerHTML = `
+    <div class="chat-avatar">⚡</div>
+    <div class="chat-bubble">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; color:var(--blue-primary); font-size:0.85rem;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="status-dot dot-green"></span>
+          <span>Synthesizing neural intelligence...</span>
+        </div>
+        <button class="bubble-tool-btn bubble-stop-btn" onclick="stopAllAIResponse()" style="margin:0; background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.4); color:#fca5a5; padding:3px 10px; border-radius:6px; cursor:pointer; font-size:0.75rem; font-weight:600;">
+          ⏹️ Stop
+        </button>
+      </div>
+    </div>
+  `;
+  chatMessagesContainer.appendChild(row);
+  const stage = document.getElementById('chat-stage-body');
+  if (stage) stage.scrollTop = stage.scrollHeight;
+}
+
+function removeThinkingBubble(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+// ==============================================================================
+// SCREEN VISION ENGINE (PHASE 1)
+// ==============================================================================
+window.triggerScreenVision = async function(customPrompt) {
+  showToast('📸 Capturing active desktop screen for AI Vision analysis...', 'info');
+  switchView('chat');
+
+  if (welcomeHero) welcomeHero.style.display = 'none';
+  if (chatMessagesContainer) chatMessagesContainer.style.display = 'flex';
+
+  const prompt = customPrompt || "Analyze what is currently open on my screen. Detail any errors, active windows, key information, and suggested actions.";
+  
+  // Append user message
+  addMessageBubble('user', `📸 [Screen Vision Request]\n${prompt}`, {});
+
+  const thinkingId = 'thinking-' + Date.now();
+  addThinkingBubble(thinkingId);
+  setGeneratingState(true);
+
+  // Animate waveform
+  if (window.vedasChatWaveform) window.vedasChatWaveform.setState('thinking');
+  const holoStatus = document.getElementById('holo-status-text');
+  if (holoStatus) holoStatus.textContent = 'VISION SCANNING...';
+
+  if (window.activeChatAbortController) {
+    try { window.activeChatAbortController.abort(); } catch (e) {}
+  }
+  window.activeChatAbortController = new AbortController();
+
+  try {
+    const res = await fetch('/api/screen-vision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: prompt,
+        model: (modelSelector && modelSelector.value.includes('gemini')) ? modelSelector.value : 'gemini-3.7-flash'
+      }),
+      signal: window.activeChatAbortController.signal
+    });
+
+    window.activeChatAbortController = null;
+    removeThinkingBubble(thinkingId);
+    setGeneratingState(false);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    // Create thumbnail attachment
+    const attachments = data.image_data ? [{
+      name: `Active Screen (${data.dimensions || 'Desktop'})`,
+      type: 'image/jpeg',
+      data: data.image_data
+    }] : [];
+
+    addMessageBubble('assistant', data.analysis, {
+      attachments: attachments,
+      model: data.model || 'Screen Vision (Gemini)',
+      source: 'screen_vision'
+    });
+
+    if (state.speechSynthEnabled && data.analysis) {
+      smartSpeakResponse(data.analysis.slice(0, 300));
+    }
+    if (holoStatus) holoStatus.textContent = 'VISION COMPLETE';
+    if (window.vedasChatWaveform) window.vedasChatWaveform.setState('idle');
+    showToast('Screen Vision analysis complete!', 'success');
+  } catch (err) {
+    window.activeChatAbortController = null;
+    removeThinkingBubble(thinkingId);
+    setGeneratingState(false);
+    if (err.name === 'AbortError') {
+      addMessageBubble('assistant', '⏹️ *Screen Vision stopped by user.*', { isStopped: true });
+    } else {
+      addMessageBubble('assistant', `⚠️ **Screen Vision Notice**: ${err.message}.`, { isError: true });
+    }
+    if (holoStatus) holoStatus.textContent = 'CORE SYNCHRONIZED';
+    if (window.vedasChatWaveform) window.vedasChatWaveform.setState('idle');
+    showToast(`Screen Vision Notice: ${err.message}`, 'error');
+  }
+};
+
+// ==============================================================================
+// DOCK MODE SWAP (VOICE <-> TYPING) & FAST LIVE WEB SEARCH TOGGLE
+// ==============================================================================
+window.setDockMode = function(mode) {
+  const voiceBar = document.getElementById('dock-voice-mode');
+  const typingBar = document.getElementById('dock-typing-mode');
+  if (!voiceBar || !typingBar) return;
+
+  if (mode === 'type') {
+    voiceBar.style.display = 'none';
+    typingBar.style.display = 'flex';
+    const input = typingBar.querySelector('#chat-input') || document.getElementById('chat-input');
+    if (input) {
+      setTimeout(() => input.focus(), 50);
+    }
+  } else {
+    typingBar.style.display = 'none';
+    voiceBar.style.display = 'flex';
+  }
+};
+
+window.applyTheme = function(themeName) {
+  const themeKey = themeName || 'blue_orange';
+  state.currentTheme = themeKey;
+  const theme = THEME_PRESETS[themeKey] || THEME_PRESETS['blue_orange'];
+  const root = document.documentElement;
+  for (const [prop, val] of Object.entries(theme)) {
+    root.style.setProperty(prop, val);
+  }
+
+  try {
+    localStorage.setItem('vedas_theme', themeKey);
+  } catch (e) {}
+
+  const select = document.getElementById('setting-theme-palette');
+  if (select && select.value !== themeKey) {
+    select.value = themeKey;
+  }
+
+  if (window.vedasParticles && typeof window.vedasParticles.setColor === 'function') {
+    window.vedasParticles.setColor(theme['--blue-primary'], theme['--orange-primary']);
+  }
+};
+
+window.toggleWebSearch = function(btn) {
+  state.useWebSearch = !state.useWebSearch;
+  const toggleBtns = document.querySelectorAll('#web-search-toggle, .dock-btn-search');
+  toggleBtns.forEach(b => {
+    if (state.useWebSearch) {
+      b.classList.add('active');
+    } else {
+      b.classList.remove('active');
+    }
+  });
+
+  if (state.useWebSearch) {
+    showToast('🌐 Live Web Search: ENABLED (Real-time Google News & Web Intel)', 'info');
+  } else {
+    showToast('🌐 Live Web Search: DISABLED (Fast Offline Inference)', 'info');
+  }
+};
+
+window.triggerQuickWebSearch = function(customQuery) {
+  state.useWebSearch = true;
+  const toggleBtns = document.querySelectorAll('#web-search-toggle, .dock-btn-search');
+  toggleBtns.forEach(b => b.classList.add('active'));
+  
+  const query = customQuery || 'Search and summarize top artificial intelligence & science breakthroughs';
+  if (chatInput) chatInput.value = query;
+  switchView('chat');
+  handleSendMessage();
+};
+
+// ==============================================================================
+// VOICE & SPEECH SYNTHESIS ENGINE (Centered Mic, Waveform on Top, Silence Buffer)
+// ==============================================================================
+let recognition = null;
+let synth = window.speechSynthesis;
+let voiceSilenceTimer = null;
+let accumulatedVoiceText = '';
+
+function initSpeechRecognition() {
+  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRec();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      state.isListening = true;
+      accumulatedVoiceText = '';
+      if (micBtn) micBtn.style.background = 'rgba(239, 68, 68, 0.4)';
+      const chatMic = document.getElementById('chat-mic-orb-btn');
+      if (chatMic) chatMic.classList.add('recording');
+      
+      const chatTr = document.getElementById('chat-voice-transcript');
+      if (chatTr) {
+        chatTr.textContent = 'Listening to your voice...';
+        chatTr.className = 'dock-voice-caption active-speech';
+      }
+      
+      if (window.vedasChatWaveform) window.vedasChatWaveform.setState('listening');
+      if (window.vedasDashWaveform) window.vedasDashWaveform.setState('listening');
+    };
+
+    recognition.onresult = (event) => {
+      if (voiceSilenceTimer) {
+        clearTimeout(voiceSilenceTimer);
+        voiceSilenceTimer = null;
+      }
+
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      for (let i = 0; i < event.results.length; i++) {
+        const item = event.results[i];
+        if (item.isFinal) {
+          finalTranscript += item[0].transcript + ' ';
+        } else {
+          interimTranscript += item[0].transcript;
+        }
+      }
+
+      accumulatedVoiceText = (finalTranscript + interimTranscript).trim();
+
+      const chatTr = document.getElementById('chat-voice-transcript');
+      if (chatTr && accumulatedVoiceText) {
+        // Clean display text without surrounding quotes
+        chatTr.textContent = accumulatedVoiceText;
+        chatTr.className = 'dock-voice-caption active-speech';
+      }
+
+      // Human pause buffer: wait 2.8s of silence before auto-finalizing & sending query
+      voiceSilenceTimer = setTimeout(() => {
+        if (accumulatedVoiceText && accumulatedVoiceText.trim()) {
+          handleVoiceQueryComplete(accumulatedVoiceText);
+        }
+      }, 2800);
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error !== 'no-speech') {
+        console.warn('Speech Recognition Notice:', event.error);
       }
     };
 
-    // Show a friendly, actionable hint if the response is an error/offline source
-    if (data.source === 'error' || data.source === 'offline') {
-      const hint = data.text && data.text.includes('Ollama')
-        ? '\n\n💡 Tip: Make sure the AI core (Ollama) is running, or select a different model in the top-left dropdown. If you picked Qwen 2.5 or Phi-4, first run: `ollama pull qwen2.5:7b` (or `ollama pull phi4`).'
-        : '';
-      aiMsg.content = (data.text || '') + hint;
-    }
-
-    if (currentSession) currentSession.messages.push(aiMsg);
-    appendAnimatedMessageToDOM('ai', aiMsg.content, aiMsg.meta);
-    saveCurrentSessionToBackend();
-
-    // Voice response with two-stage confirmation TTS
-    if (state.speechSynthEnabled && data.text) {
-      smartSpeakResponse(data.text);
-    }
-  } catch (err) {
-    const existingThinking = document.getElementById('active-thinking-indicator');
-    if (existingThinking) existingThinking.remove();
-    console.error('Chat Error:', err);
-    appendMessageToDOM('ai', `⚠️ Neural Core Interruption: ${err.message}\n\nPlease verify that the backend server is running and try again. If the AI core won't respond, restart Vedas AI or check your internet connection for cloud models.`);
-  } finally {
-    // Restore HUD and animations safely
-    const oDot = document.getElementById('hud-ollama-dot');
-    const oText = document.getElementById('hud-ollama-text');
-    if (oDot && oText && state.systemStatus) {
-      if (state.systemStatus.ollama_running) {
-        oDot.className = 'status-dot';
-        oText.textContent = `⚡ OLLAMA: ${state.systemStatus.active_local_model || state.activeModel}`;
-      } else {
-        oDot.className = 'status-dot danger';
-        oText.textContent = '⚡ OLLAMA: OFFLINE';
+    recognition.onend = () => {
+      if (state.isListening) {
+        // If still flagged as listening and we have text, finalize
+        if (accumulatedVoiceText && accumulatedVoiceText.trim()) {
+          handleVoiceQueryComplete(accumulatedVoiceText);
+        } else {
+          stopVoiceListening();
+        }
       }
-    }
-    if (window.vedasWaveform && !state.isListening && !state.isSpeaking) {
-      window.vedasWaveform.setState('idle');
-    }
-    if (window.setHologramState && !state.isListening && !state.isSpeaking) {
-      setHologramState('idle');
-    }
+    };
   }
 }
 
-async function saveCurrentSessionToBackend() {
-  const currentSession = state.sessions.find(s => s.id === state.currentSessionId);
-  if (!currentSession) return;
-  try {
-    await fetch('/api/sessions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(currentSession)
-    });
-    renderSidebarSessions();
-  } catch (err) {
-    console.error('Save Session Error:', err);
-  }
-}
-
-// ----------------- FILE UPLOADS & ATTACHMENTS (PDF & ALL) -----------------
-function handleFileSelect(event) {
-  const files = event.target.files;
-  if (!files || files.length === 0) return;
-  processFiles(Array.from(files));
-}
-
-async function processFiles(fileList) {
-  for (const file of fileList) {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const isPdf = file.name.toLowerCase().endsWith('.pdf');
-    showToast(`Ingesting ${file.name}...`, isPdf ? '📕' : '📎');
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      });
-
-      if (res.ok) {
-        const uploaded = await res.json();
-        state.attachments.push({
-          name: uploaded.filename,
-          type: uploaded.content_type,
-          size: uploaded.size,
-          is_pdf: uploaded.is_pdf,
-          page_count: uploaded.page_count,
-          data: uploaded.data,
-          text_content: uploaded.text_content
-        });
-        renderAttachmentTray();
-        showToast(`Ready: ${uploaded.filename}${uploaded.page_count ? ` (${uploaded.page_count} pages)` : ''}`, '✅');
-      }
-    } catch (err) {
-      console.error('File Upload Error:', err);
-      showToast(`Upload failed for ${file.name}`, '❌');
-    }
-  }
-}
-
-function renderAttachmentTray() {
-  if (!attachmentTray) return;
-  attachmentTray.innerHTML = '';
-  state.attachments.forEach((att, idx) => {
-    const chip = document.createElement('div');
-    chip.className = 'attachment-chip';
-    if (att.is_pdf || (att.name && att.name.endsWith('.pdf'))) {
-      chip.style.borderColor = '#ef4444';
-      chip.style.color = '#fca5a5';
-      chip.innerHTML = `
-        <span>📕 ${att.name} ${att.page_count ? `(${att.page_count}p)` : ''}</span>
-        <button class="attachment-remove" onclick="removeAttachment(${idx})">✕</button>
-      `;
-    } else {
-      const thumbHtml = att.data ? `<img src="${att.data}" class="attachment-thumb" />` : '📄';
-      chip.innerHTML = `
-        ${thumbHtml}
-        <span>${att.name}</span>
-        <button class="attachment-remove" onclick="removeAttachment(${idx})">✕</button>
-      `;
-    }
-    attachmentTray.appendChild(chip);
-  });
-}
-
-function removeAttachment(index) {
-  state.attachments.splice(index, 1);
-  renderAttachmentTray();
-}
-
-// ----------------- ADVANCED TWO-STAGE TEXT-TO-SPEECH ENGINE -----------------
-function cleanTextForSpeech(raw) {
-  if (!raw) return '';
-  let clean = raw
-    .replace(/<details[\s\S]*?<\/details>/gi, '')
-    .replace(/```[\s\S]*?```/g, 'Code snippet provided.')
-    .replace(/\\text\{([^}]+)\}/g, '$1')
-    .replace(/\\mathbf\{([^}]+)\}/g, '$1')
-    .replace(/\\mathrm\{([^}]+)\}/g, '$1')
-    .replace(/\\([a-zA-Z]+)/g, '$1')
-    .replace(/[$_^{}]/g, '')
-    .replace(/[*#`~-]/g, '')
-    .replace(/\[.*?\]/g, '')
-    .replace(/https?:\/\/\S+/g, 'link');
-
-  return clean.replace(/\s+/g, ' ').trim();
-}
-
-function smartSpeakResponse(fullText) {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-
-  const cleaned = cleanTextForSpeech(fullText);
-  if (!cleaned) return;
-
-  state.currentTTS.fullText = cleaned;
-  state.currentTTS.remainingText = '';
-  state.currentTTS.isPausedForConfirmation = false;
-
-  // If text is short (<= 220 chars or 2 short sentences), speak it completely
-  if (cleaned.length <= 220) {
-    speakUtterance(cleaned, () => onSpeechFinished(false));
+window.toggleVoiceListening = function() {
+  if (state.isSpeaking || state.isMicLocked || (window.speechSynthesis && (window.speechSynthesis.speaking || window.speechSynthesis.pending))) {
+    showToast('🔒 Microphone is locked while AI is speaking. Click Stop to interrupt.', '🔒');
     return;
   }
 
-  // Split into First Half / Introduction vs Remaining Half
-  const sentences = cleaned.match(/[^.!?]+[.!?]+/g) || [cleaned];
-  let halfText = '';
-  let remainingText = '';
-  let charCount = 0;
-  const targetChars = Math.min(240, Math.floor(cleaned.length / 2));
+  if (!recognition) {
+    showToast('Speech recognition not supported in this browser.', '⚠️');
+    return;
+  }
 
-  for (let i = 0; i < sentences.length; i++) {
-    if (charCount < targetChars || i === 0) {
-      halfText += sentences[i] + ' ';
-      charCount += sentences[i].length;
+  if (state.isListening) {
+    if (voiceSilenceTimer) {
+      clearTimeout(voiceSilenceTimer);
+      voiceSilenceTimer = null;
+    }
+    if (accumulatedVoiceText && accumulatedVoiceText.trim()) {
+      handleVoiceQueryComplete(accumulatedVoiceText);
     } else {
-      remainingText += sentences.slice(i).join(' ');
+      try { recognition.stop(); } catch (e) {}
+      stopVoiceListening();
+    }
+  } else {
+    accumulatedVoiceText = '';
+    try {
+      recognition.start();
+    } catch (e) {
+      console.warn('Recognition start exception:', e);
+      stopVoiceListening();
+    }
+  }
+};
+
+function stopVoiceListening() {
+  state.isListening = false;
+  if (voiceSilenceTimer) {
+    clearTimeout(voiceSilenceTimer);
+    voiceSilenceTimer = null;
+  }
+  
+  try { recognition && recognition.stop(); } catch (e) {}
+
+  if (micBtn) micBtn.style.background = '';
+  const chatMic = document.getElementById('chat-mic-orb-btn');
+  if (chatMic && !state.isMicLocked) chatMic.classList.remove('recording');
+  
+  const chatTr = document.getElementById('chat-voice-transcript');
+  if (chatTr && !state.isMicLocked) {
+    chatTr.textContent = 'Click the orb or press Ctrl+M to talk';
+    chatTr.className = 'dock-voice-caption';
+  }
+  
+  if (window.vedasChatWaveform && !state.isSpeaking) window.vedasChatWaveform.setState('idle');
+  if (window.vedasDashWaveform && !state.isSpeaking) window.vedasDashWaveform.setState('idle');
+}
+
+function handleVoiceQueryComplete(text) {
+  stopVoiceListening();
+  if (!text || !text.trim()) return;
+  
+  const clean = text.trim();
+  // Voice Command Routing
+  if (/look at (?:my )?screen|what(?:'s| is) on my screen|analyze screen|screen vision|screenshot this/i.test(clean)) {
+    triggerScreenVision(clean);
+    return;
+  }
+
+  if (chatInput) chatInput.value = clean;
+  switchView('chat');
+  handleSendMessage();
+}
+
+let currentSpeechContext = {
+  fullText: '',
+  cleanText: '',
+  initialChunk: '',
+  remainingChunk: '',
+  isReadingFull: false
+};
+
+let vrfAutoDismissTimer = null;
+
+function smartSpeakResponse(text, isFullRequested = false) {
+  if (!synth) return;
+  synth.cancel();
+
+  const clean = text
+    .replace(/```[\s\S]*?```/g, 'Code snippet omitted.')
+    .replace(/[*#`_\[\]()]/g, '')
+    .trim();
+
+  if (!clean) return;
+
+  currentSpeechContext = {
+    fullText: text,
+    cleanText: clean,
+    initialChunk: '',
+    remainingChunk: '',
+    isReadingFull: isFullRequested
+  };
+
+  if (vrfAutoDismissTimer) {
+    clearTimeout(vrfAutoDismissTimer);
+    vrfAutoDismissTimer = null;
+  }
+
+  // If user explicitly asked for full read or message is very short
+  if (isFullRequested || clean.length <= 130) {
+    speakFullUtterance(clean);
+    return;
+  }
+
+  // Calculate the first ~25% chunk at natural sentence/phrase boundaries
+  const targetLen = Math.max(70, Math.floor(clean.length * 0.25));
+  let splitIndex = -1;
+
+  const minSearch = Math.floor(targetLen * 0.7);
+  const maxSearch = Math.min(clean.length, Math.floor(targetLen * 1.5));
+  
+  for (let i = minSearch; i < maxSearch; i++) {
+    if (['.', '?', '!', '\n'].includes(clean[i])) {
+      splitIndex = i + 1;
       break;
     }
   }
 
-  if (!remainingText.trim()) {
-    speakUtterance(cleaned, () => onSpeechFinished(false));
-    return;
+  if (splitIndex === -1) {
+    for (let i = minSearch; i < maxSearch; i++) {
+      if ([',', ';', ' '].includes(clean[i])) {
+        splitIndex = i + 1;
+        break;
+      }
+    }
   }
 
-  state.currentTTS.remainingText = remainingText.trim();
-  state.currentTTS.isPausedForConfirmation = true;
-
-  // Speak half text + Ask confirmation
-  const firstPass = `${halfText.trim()} ... Should I read it to you in full?`;
-  speakUtterance(firstPass, () => {
-    // Show on-screen confirmation banner
-    showTTSFullReadBanner();
-    onSpeechFinished(true); // wait for voice confirmation or button click
-  });
-}
-
-function speakUtterance(text, onEndCallback) {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = 1.05;
-  utterance.pitch = 1.0;
-
-  utterance.onstart = () => {
-    state.isSpeaking = true;
-    haltMicForSpeech();
-    if (window.vedasWaveform) window.vedasWaveform.setState('speaking');
-    setHologramState('ai_speaking');
-  };
-
-  utterance.onend = () => {
-    state.isSpeaking = false;
-    if (window.vedasWaveform && !state.isListening) window.vedasWaveform.setState('idle');
-    setHologramState('idle');
-    if (onEndCallback) onEndCallback();
-  };
-
-  utterance.onerror = () => {
-    state.isSpeaking = false;
-    setHologramState('idle');
-    if (window.vedasWaveform && !state.isListening) window.vedasWaveform.setState('idle');
-  };
-
-  window.speechSynthesis.speak(utterance);
-}
-
-function readFullResponse() {
-  removeTTSFullReadBanner();
-  if (state.currentTTS.remainingText) {
-    const textToRead = state.currentTTS.remainingText;
-    state.currentTTS.remainingText = '';
-    state.currentTTS.isPausedForConfirmation = false;
-    speakUtterance(textToRead, () => onSpeechFinished(false));
-  } else if (state.currentTTS.fullText) {
-    speakUtterance(state.currentTTS.fullText, () => onSpeechFinished(false));
+  if (splitIndex === -1 || splitIndex >= clean.length) {
+    splitIndex = Math.min(clean.length, targetLen);
   }
+
+  const initialChunk = clean.slice(0, splitIndex).trim();
+  const remainingChunk = clean.slice(splitIndex).trim();
+
+  currentSpeechContext.initialChunk = initialChunk;
+  currentSpeechContext.remainingChunk = remainingChunk;
+
+  speakInitialChunk(initialChunk);
 }
 
-function stopSpeech() {
-  state.isSpeaking = false;
-  state.currentTTS.isPausedForConfirmation = false;
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
-  removeTTSFullReadBanner();
-  if (window.vedasWaveform && !state.isListening) window.vedasWaveform.setState('idle');
-  if (!state.isListening) setHologramState('idle');
-}
+function speakInitialChunk(chunkText) {
+  if (!synth) return;
+  synth.cancel();
 
-function showTTSFullReadBanner() {
-  removeTTSFullReadBanner();
-  const banner = document.createElement('div');
-  banner.id = 'tts-read-full-banner';
-  banner.style.cssText = `
-    position: fixed;
-    bottom: 90px;
-    right: 28px;
-    background: rgba(14, 20, 34, 0.95);
-    border: 1px solid var(--cyan-neon);
-    box-shadow: 0 0 25px rgba(0, 240, 255, 0.4);
-    border-radius: 12px;
-    padding: 10px 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    z-index: 100;
-    backdrop-filter: blur(16px);
-    animation: toastIn 0.3s ease forwards;
-  `;
-  banner.innerHTML = `
-    <span style="font-size:0.85rem; color:#fff;">🔊 <strong>Read full response?</strong> (Say "Yes" or click)</span>
-    <button onclick="readFullResponse()" class="hud-btn" style="background:var(--cyan-neon); color:#000; font-weight:700; padding:4px 10px;">Yes, Read Full</button>
-    <button onclick="stopSpeech()" class="hud-btn" style="padding:4px 8px;">✕</button>
-  `;
-  document.body.appendChild(banner);
-}
+  if (window.vedasChatWaveform) window.vedasChatWaveform.setState('speaking');
+  if (window.vedasDashWaveform) window.vedasDashWaveform.setState('speaking');
+  setSpeakingState(true);
 
-function removeTTSFullReadBanner() {
-  const el = document.getElementById('tts-read-full-banner');
-  if (el) el.remove();
-}
-
-function onSpeechFinished(waitingForConfirmation) {
-  if (!waitingForConfirmation) {
-    removeTTSFullReadBanner();
+  const chatTr = document.getElementById('chat-voice-transcript');
+  if (chatTr) {
+    chatTr.textContent = '🔊 Reading response preview... (Mic locked)';
+    chatTr.className = 'dock-voice-caption speaking';
   }
+
+  const utter = new SpeechSynthesisUtterance(chunkText);
+  utter.rate = 1.05;
+  utter.pitch = 1.0;
+
+  utter.onend = () => {
+    if (!currentSpeechContext.isReadingFull) {
+      setSpeakingState(false);
+      if (window.vedasChatWaveform) window.vedasChatWaveform.setState('idle');
+      if (window.vedasDashWaveform) window.vedasDashWaveform.setState('idle');
+
+      // Now that the ~25% preview has finished being read, pop up the prompt at the bottom!
+      showReadFullPrompt();
+
+      // Auto dismiss prompt after 15s if user takes no action
+      vrfAutoDismissTimer = setTimeout(() => {
+        dismissReadFullPrompt(false);
+      }, 15000);
+    }
+  };
+
+  utter.onerror = () => {
+    if (!currentSpeechContext.isReadingFull) {
+      setSpeakingState(false);
+      if (window.vedasChatWaveform) window.vedasChatWaveform.setState('idle');
+      if (window.vedasDashWaveform) window.vedasDashWaveform.setState('idle');
+    }
+  };
+
+  synth.speak(utter);
 }
 
-window.speakMessageManual = function (btn) {
-  const bubble = btn.closest('.message-bubble');
-  if (!bubble) return;
-  const contentBody = bubble.querySelector('.message-content-body') || bubble;
-  const rawText = contentBody.innerText || bubble.innerText;
-  smartSpeakResponse(rawText);
+function speakFullUtterance(fullCleanText) {
+  if (!synth) return;
+  synth.cancel();
+
+  if (window.vedasChatWaveform) window.vedasChatWaveform.setState('speaking');
+  if (window.vedasDashWaveform) window.vedasDashWaveform.setState('speaking');
+  setSpeakingState(true);
+
+  const chatTr = document.getElementById('chat-voice-transcript');
+  if (chatTr) {
+    chatTr.textContent = '🔊 Reading complete response... (Mic locked)';
+    chatTr.className = 'dock-voice-caption speaking';
+  }
+
+  const sentences = fullCleanText.match(/[^.!?\n]+[.!?\n]+/g) || [fullCleanText];
+  let idx = 0;
+
+  function speakNextSentence() {
+    if (idx >= sentences.length || !state.isSpeaking) {
+      setSpeakingState(false);
+      if (window.vedasChatWaveform) window.vedasChatWaveform.setState('idle');
+      if (window.vedasDashWaveform) window.vedasDashWaveform.setState('idle');
+      dismissReadFullPrompt(false);
+      return;
+    }
+
+    const sUtter = new SpeechSynthesisUtterance(sentences[idx].trim());
+    sUtter.rate = 1.05;
+    sUtter.pitch = 1.0;
+
+    sUtter.onend = () => {
+      idx++;
+      speakNextSentence();
+    };
+
+    sUtter.onerror = () => {
+      setSpeakingState(false);
+      if (window.vedasChatWaveform) window.vedasChatWaveform.setState('idle');
+      if (window.vedasDashWaveform) window.vedasDashWaveform.setState('idle');
+      dismissReadFullPrompt(false);
+    };
+
+    synth.speak(sUtter);
+  }
+
+  speakNextSentence();
+}
+
+window.readFullResponseSpeech = function() {
+  if (!currentSpeechContext.cleanText) return;
+  currentSpeechContext.isReadingFull = true;
+
+  if (vrfAutoDismissTimer) {
+    clearTimeout(vrfAutoDismissTimer);
+    vrfAutoDismissTimer = null;
+  }
+
+  const panel = document.getElementById('voice-read-full-panel');
+  if (panel) {
+    const title = document.getElementById('vrf-title');
+    if (title) title.textContent = '🔊 Reading Full Response...';
+    const chip = document.getElementById('vrf-progress-chip');
+    if (chip) chip.textContent = 'Full Audio';
+    const yesBtn = document.getElementById('vrf-btn-yes');
+    if (yesBtn) yesBtn.style.display = 'none';
+  }
+
+  const textToRead = currentSpeechContext.remainingChunk || currentSpeechContext.cleanText;
+  speakFullUtterance(textToRead);
 };
 
-window.readFullResponse = readFullResponse;
-window.stopSpeech = stopSpeech;
-
-// ----------------- VOICE ENGINE, WAKE-WORDS & HOTKEY CONVERSATION FLOW -----------------
-let recognition = null;
-let silenceTimer = null;
-let voiceElapsedTimer = null;
-let voiceStartTime = 0;
-// 3200ms allows natural conversational breathing, pausing to think, and sentence structuring
-const MIC_SILENCE_MS = 3200;
-let voiceSessionPrefix = '';
-let voiceRestartDebounce = null;
-
-function clearSilenceTimer() {
-  if (silenceTimer) {
-    clearTimeout(silenceTimer);
-    silenceTimer = null;
+window.dismissReadFullPrompt = function(shouldStopAudio = false) {
+  if (vrfAutoDismissTimer) {
+    clearTimeout(vrfAutoDismissTimer);
+    vrfAutoDismissTimer = null;
   }
+
+  if (shouldStopAudio) {
+    stopAllAIResponse();
+  }
+
+  const panel = document.getElementById('voice-read-full-panel');
+  if (panel) {
+    panel.classList.add('closing');
+    setTimeout(() => {
+      panel.style.display = 'none';
+      panel.classList.remove('closing');
+      const yesBtn = document.getElementById('vrf-btn-yes');
+      if (yesBtn) yesBtn.style.display = 'inline-flex';
+      const title = document.getElementById('vrf-title');
+      if (title) title.textContent = 'Should I read it to you in full?';
+      const chip = document.getElementById('vrf-progress-chip');
+      if (chip) chip.textContent = '25% Preview';
+    }, 250);
+  }
+};
+
+function showReadFullPrompt() {
+  const panel = document.getElementById('voice-read-full-panel');
+  if (!panel) return;
+
+  const title = document.getElementById('vrf-title');
+  if (title) title.textContent = 'Should I read it to you in full?';
+  const chip = document.getElementById('vrf-progress-chip');
+  if (chip) chip.textContent = '25% Preview';
+  const yesBtn = document.getElementById('vrf-btn-yes');
+  if (yesBtn) yesBtn.style.display = 'inline-flex';
+
+  panel.classList.remove('closing');
+  panel.style.display = 'flex';
 }
 
-function startVoiceTimer() {
-  stopVoiceTimer();
-  voiceStartTime = Date.now();
-  voiceElapsedTimer = setInterval(() => {
-    const elapsedSec = Math.floor((Date.now() - voiceStartTime) / 1000);
-    const m = Math.floor(elapsedSec / 60);
-    const s = elapsedSec % 60;
-    const timerEl = document.getElementById('dock-waveform-timer');
-    if (timerEl) {
-      timerEl.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
-    }
-  }, 500);
-}
+// ==============================================================================
+// SETTINGS CONTROLLER
+// ==============================================================================
+window.switchSettingsSubTab = function(tabName) {
+  const tabs = document.querySelectorAll('.settings-tab-btn');
+  tabs.forEach(t => t.classList.remove('active'));
+  const activeBtn = document.getElementById(`set-tab-${tabName}`);
+  if (activeBtn) activeBtn.classList.add('active');
 
-function stopVoiceTimer() {
-  if (voiceElapsedTimer) {
-    clearInterval(voiceElapsedTimer);
-    voiceElapsedTimer = null;
-  }
-  const timerEl = document.getElementById('dock-waveform-timer');
-  if (timerEl) timerEl.textContent = '0:00';
-}
+  const panels = document.querySelectorAll('.settings-panel');
+  panels.forEach(p => p.style.display = 'none');
+  const targetPanel = document.getElementById(`settings-panel-${tabName}`);
+  if (targetPanel) targetPanel.style.display = 'flex';
+};
 
-function applyMicUi(listening) {
-  const mainMic = document.getElementById('dock-main-mic-btn');
-  const waveUnit = document.getElementById('dock-voice-wave-unit');
-  const smallMic = document.getElementById('mic-btn');
-  const transcriptEl = document.getElementById('dock-waveform-transcript');
+window.toggleKeyVisibility = function(inputId) {
+  const input = document.getElementById(inputId);
+  if (input) input.type = (input.type === 'password') ? 'text' : 'password';
+};
 
-  if (smallMic) smallMic.classList.toggle('listening', listening);
-
-  if (listening) {
-    // In Voice Mode: Hide big mic and smoothly display the fluid waveform unit
-    if (mainMic) mainMic.style.display = 'none';
-    if (waveUnit) {
-      waveUnit.style.display = 'flex';
-      if (transcriptEl) transcriptEl.textContent = 'Listening...';
-    }
-
-    if (chatInput) {
-      if (!chatInput.getAttribute('data-default-placeholder')) {
-        chatInput.setAttribute('data-default-placeholder', chatInput.placeholder || '');
-      }
-      chatInput.placeholder = '🎙️ Listening... speak naturally (auto-sends on pause)';
-    }
-
-    if (window.vedasWaveform) {
-      window.vedasWaveform.setState('listening');
-    }
-    setHologramState('user_speaking');
-  } else {
-    // In Voice Mode: Hide fluid waveform and restore the big center mic
-    if (waveUnit) waveUnit.style.display = 'none';
-    if (mainMic) mainMic.style.display = 'flex';
-
-    if (chatInput) {
-      const def = chatInput.getAttribute('data-default-placeholder');
-      if (def) chatInput.placeholder = def;
-    }
-
-    if (!state.isSpeaking) {
-      if (window.vedasWaveform) window.vedasWaveform.setState('idle');
-      setHologramState('idle');
-    }
-  }
-}
-
-function haltMicForSpeech() {
-  state.micArmed = false;
-  state.isListening = false;
-  clearSilenceTimer();
-  stopVoiceTimer();
-  clearTimeout(voiceRestartDebounce);
-  voiceSessionPrefix = '';
-  applyMicUi(false);
-  if (recognition && state.recognitionActive) {
-    try { recognition.abort(); } catch (e) {
-      try { recognition.stop(); } catch (e2) {}
-    }
-  }
-}
-
-function initVoiceEngine() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    console.warn('Speech Recognition not supported in this browser.');
-    const smallMic = document.getElementById('mic-btn');
-    const mainMic = document.getElementById('dock-main-mic-btn');
-    if (smallMic) smallMic.title = 'Speech recognition not supported in browser';
-    if (mainMic) mainMic.title = 'Speech recognition not supported in browser';
-    return;
-  }
-
-  recognition = new SpeechRecognition();
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = 'en-US';
-  recognition.maxAlternatives = 1;
-
-  recognition.onstart = () => {
-    state.recognitionActive = true;
-    if (!state.micArmed || state.isSpeaking) {
-      try { recognition.abort(); } catch (e) {}
-      return;
-    }
-    state.isListening = true;
-    applyMicUi(true);
-  };
-
-  recognition.onresult = (event) => {
-    if (!state.micArmed || state.isSpeaking) return;
-
-    let sessionFinal = '';
-    let sessionInterim = '';
-
-    for (let i = 0; i < event.results.length; ++i) {
-      if (event.results[i].isFinal) {
-        sessionFinal += event.results[i][0].transcript + ' ';
-      } else {
-        sessionInterim += event.results[i][0].transcript;
-      }
-    }
-
-    // Combine any text persisted across recognition restarts with current session
-    const fullText = (voiceSessionPrefix + sessionFinal + sessionInterim).trim();
-    if (fullText) {
-      if (chatInput) {
-        chatInput.value = fullText;
-        autoResizeChatInput();
-      }
-      const transcriptEl = document.getElementById('dock-waveform-transcript');
-      if (transcriptEl) {
-        transcriptEl.textContent = fullText;
-      }
-    }
-
-    // Reset silence timer on every chunk of speech detected (resets on breathing/speaking)
-    clearSilenceTimer();
-    silenceTimer = setTimeout(() => {
-      const query = (chatInput ? chatInput.value : '').trim();
-      if (query) {
-        commitVoiceTranscript(query);
-      }
-    }, MIC_SILENCE_MS);
-  };
-
-  recognition.onerror = (event) => {
-    // 'no-speech' is emitted when there's a pause, breathing, or brief silence.
-    // We intentionally ignore 'no-speech' and 'aborted' so the mic stays open.
-    if (event.error === 'aborted' || event.error === 'no-speech') {
-      return;
-    }
-    console.error('Speech Recognition Error:', event.error);
-    if (event.error === 'not-allowed') {
-      showToast('Microphone permission denied', '⚠️');
-      hardStopMic();
-    }
-  };
-
-  recognition.onend = () => {
-    state.recognitionActive = false;
-    if (state.micArmed && !state.isSpeaking) {
-      // Save current input value so browser auto-restart does not wipe speech
-      if (chatInput && chatInput.value && chatInput.value.trim()) {
-        voiceSessionPrefix = chatInput.value.trim() + ' ';
-      }
-      clearTimeout(voiceRestartDebounce);
-      voiceRestartDebounce = setTimeout(() => {
-        if (state.micArmed && !state.isSpeaking && !state.recognitionActive) {
-          try {
-            recognition.start();
-          } catch (e) {
-            console.warn('Recognition restart handled:', e);
-          }
-        }
-      }, 120);
-      return;
-    }
-    state.isListening = false;
-    applyMicUi(false);
-  };
-}
-
-function commitVoiceTranscript(rawQuery) {
-  const query = (rawQuery || (chatInput ? chatInput.value : '') || '').trim();
-  if (!query) {
-    hardStopMic();
-    return;
-  }
-
-  const cleanTranscript = query.toLowerCase();
-
-  if (state.currentTTS.isPausedForConfirmation) {
-    hardStopMic();
-    if (cleanTranscript.includes('yes') || cleanTranscript.includes('sure') || cleanTranscript.includes('read') || cleanTranscript.includes('continue') || cleanTranscript.includes('full')) {
-      if (chatInput) chatInput.value = '';
-      readFullResponse();
-      return;
-    }
-    if (cleanTranscript.includes('no') || cleanTranscript.includes('stop') || cleanTranscript.includes('never mind')) {
-      if (chatInput) chatInput.value = '';
-      stopSpeech();
-      return;
-    }
-  }
-
-  const wakeWordMatch = query.match(/^(?:hey|hello|ok|okay)?\s*vedas\s*(.*)/i);
-  let outbound = query;
-  if (wakeWordMatch) {
-    outbound = (wakeWordMatch[1] || '').trim();
-    if (!outbound) {
-      hardStopMic();
-      smartSpeakResponse('I am listening. What is your command?');
-      return;
-    }
-  }
-
-  if (chatInput) chatInput.value = outbound;
-  hardStopMic();
-  handleSendMessage();
-}
-
-function beginVoiceListening() {
-  if (state.isSpeaking) {
-    showToast('Wait until Vedas finishes speaking', '🔇');
-    return;
-  }
-  if (!recognition) {
-    initVoiceEngine();
-    if (!recognition) {
-      showToast('Speech Recognition API unavailable in this browser.', '⚠️');
-      return;
-    }
-  }
-  voiceSessionPrefix = '';
-  clearTimeout(voiceRestartDebounce);
-  clearSilenceTimer();
-
-  state.micArmed = true;
-  state.isListening = true;
-  applyMicUi(true);
-  showToast('Listening... Speak naturally (pause or tap ➤ to send)', '🎙️');
+async function loadSettingsFromServer() {
   try {
-    recognition.start();
-  } catch (e) {
-    console.error(e);
-    showToast('Could not start voice recognition', '⚠️');
-    hardStopMic();
+    const res = await fetch('/api/config');
+    if (!res.ok) return;
+    const cfg = await res.json();
+
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el && val !== undefined) el.value = val;
+    };
+    const setChecked = (id, val) => {
+      const el = document.getElementById(id);
+      if (el && val !== undefined) el.checked = !!val;
+    };
+
+    setVal('setting-ollama-host', cfg.ollama_host || 'http://127.0.0.1:11434');
+    setVal('setting-local-model', cfg.local_model || 'llama3.2:latest');
+    setVal('setting-cloud-model', cfg.cloud_model || 'gemini-3.7-flash');
+    setChecked('setting-supervisor-toggle', cfg.supervisor_enabled !== false);
+    setVal('setting-temp-slider', cfg.temperature || 0.7);
+    const tempVal = document.getElementById('temp-val');
+    if (tempVal) tempVal.textContent = cfg.temperature || 0.7;
+
+    setVal('setting-tts-engine', cfg.tts_engine || 'webspeech');
+    setVal('setting-speech-rate', cfg.speech_rate || 1.0);
+    const rateVal = document.getElementById('rate-val');
+    if (rateVal) rateVal.textContent = (cfg.speech_rate || 1.0) + 'x';
+
+    setChecked('setting-autospeak-toggle', cfg.speechSynthEnabled !== false);
+    const activeTheme = cfg.theme_glow || 'blue_orange';
+    setVal('setting-theme-palette', activeTheme);
+    setChecked('setting-particles-toggle', cfg.particles !== false);
+
+    // Apply aesthetics & glow immediately
+    if (window.applyTheme) window.applyTheme(activeTheme);
+
+    if (cfg.local_model) state.activeModel = cfg.local_model;
+    if (modelSelector && cfg.local_model) modelSelector.value = cfg.local_model;
+  } catch (e) {}
+}
+
+window.saveAllSettings = async function() {
+  const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+  const getChecked = (id) => { const el = document.getElementById(id); return el ? el.checked : false; };
+
+  const themeGlowVal = getVal('setting-theme-palette') || 'blue_orange';
+
+  const payload = {
+    ollama_host: getVal('setting-ollama-host').trim(),
+    local_model: getVal('setting-local-model'),
+    cloud_model: getVal('setting-cloud-model'),
+    supervisor_enabled: getChecked('setting-supervisor-toggle'),
+    temperature: parseFloat(getVal('setting-temp-slider')) || 0.7,
+    tts_engine: getVal('setting-tts-engine'),
+    speech_rate: parseFloat(getVal('setting-speech-rate')) || 1.0,
+    speechSynthEnabled: getChecked('setting-autospeak-toggle'),
+    theme_glow: themeGlowVal
+  };
+
+  // Apply theme immediately to UI
+  if (window.applyTheme) {
+    window.applyTheme(themeGlowVal);
   }
-}
-
-function hardStopMic() {
-  state.micArmed = false;
-  state.isListening = false;
-  clearSilenceTimer();
-  stopVoiceTimer();
-  clearTimeout(voiceRestartDebounce);
-  voiceSessionPrefix = '';
-  applyMicUi(false);
-  if (recognition && state.recognitionActive) {
-    try { recognition.abort(); } catch (e) {
-      try { recognition.stop(); } catch (e2) {}
-    }
-  }
-}
-
-function toggleVoiceListening() {
-  if (state.isListening || state.micArmed || state.recognitionActive) {
-    hardStopMic();
-    showToast('Voice input stopped', '🔇');
-    return;
-  }
-  beginVoiceListening();
-}
-
-function stopVoiceListening() {
-  hardStopMic();
-}
-
-window.toggleVoiceListening = toggleVoiceListening;
-window.beginVoiceListening = beginVoiceListening;
-window.hardStopMic = hardStopMic;
-window.commitVoiceTranscript = commitVoiceTranscript;
-
-// ----------------- PYTHON SANDBOX CODE EXECUTION -----------------
-window.executePythonSandbox = async function (encodedCode, btnElement) {
-  const code = decodeURIComponent(encodedCode);
-  const wrapper = btnElement.closest('.code-block-wrapper');
-  const outputBox = wrapper ? wrapper.querySelector('.code-output-box') : null;
-
-  btnElement.textContent = '⏳ Running...';
-  btnElement.disabled = true;
 
   try {
-    const res = await fetch('/api/execute-code', {
+    const res = await fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code })
+      body: JSON.stringify(payload)
     });
-
-    const result = await res.json();
-    if (outputBox) {
-      outputBox.style.display = 'block';
-      if (result.success) {
-        outputBox.innerHTML = `<strong>Output (${result.duration}):</strong><pre style="margin-top:4px; color:#10b981;">${result.stdout || '(Process finished with exit code 0)'}</pre>`;
-      } else {
-        outputBox.innerHTML = `<strong>Execution Error (${result.duration}):</strong><pre style="margin-top:4px; color:#ff2a85;">${result.stderr || result.stdout}</pre>`;
+    if (res.ok) {
+      state.activeModel = payload.local_model;
+      if (modelSelector) modelSelector.value = payload.local_model;
+      const hint = document.getElementById('settings-saved-hint');
+      if (hint) {
+        hint.textContent = '✓ Settings saved & theme applied!';
+        setTimeout(() => hint.textContent = '', 3500);
       }
+      showToast('Settings saved & glowing theme applied!', '✅');
+      fetchSystemStatus();
     }
   } catch (err) {
-    if (outputBox) {
-      outputBox.style.display = 'block';
-      outputBox.innerHTML = `<span style="color:#ff2a85;">Network execution failed: ${err.message}</span>`;
-    }
-  } finally {
-    btnElement.textContent = '▶ Run Code';
-    btnElement.disabled = false;
+    showToast('Failed to save settings: ' + err.message, '⚠️');
   }
 };
 
-window.copyCodeSnippet = function (encodedCode, btnElement) {
-  const code = decodeURIComponent(encodedCode);
-  navigator.clipboard.writeText(code).then(() => {
-    btnElement.textContent = '✅ Copied!';
-    setTimeout(() => { btnElement.textContent = '📋 Copy'; }, 2000);
-  });
+window.exportFullBackup = function() {
+  const backup = { sessions: state.sessions, memoryNotes: state.memoryNotes, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `vedas_ai_backup_${Date.now()}.json`;
+  a.click();
+  showToast('Backup JSON downloaded!', '💾');
 };
 
-// ----------------- SIDE CANVAS / IMAGE GENERATOR STUDIO -----------------
-function openImageStudio() {
-  if (!sideCanvas) return;
-  sideCanvasTitle.innerHTML = '🎨 AI Neural Image Studio';
-  sideCanvasBody.innerHTML = `
-    <div class="drawer-section-title">✨ Synthesis Parameters</div>
-    <div class="form-group">
-      <label for="studio-prompt">
-        <span>Prompt Vision</span>
-        <span class="label-helper">Describe your concept in detail</span>
-      </label>
-      <textarea id="studio-prompt" class="form-control" rows="3" placeholder="A futuristic cyberpunk shrine in neon rain, 8k resolution, cinematic volumetric lighting..."></textarea>
-    </div>
+// ==============================================================================
+// IMAGE STUDIO
+// ==============================================================================
+window.executeImageGeneration = async function() {
+  const promptInput = document.getElementById('image-prompt-input');
+  const styleSelect = document.getElementById('image-style-select');
+  const ratioSelect = document.getElementById('image-ratio-select');
+  const previewBox = document.getElementById('image-preview-box');
+  const btn = document.getElementById('image-gen-btn');
 
-    <div class="form-group">
-      <label>
-        <span>Style Preset</span>
-        <span class="label-helper" id="selected-style-label">Cinematic 8K</span>
-      </label>
-      <div class="pill-selector-grid" id="style-selector">
-        <button type="button" class="pill-option active" data-style="cinematic">🎬 Cinematic 8K</button>
-        <button type="button" class="pill-option" data-style="anime">🌸 Anime Shinkai</button>
-        <button type="button" class="pill-option" data-style="cyberpunk">🌆 Cyberpunk 2077</button>
-        <button type="button" class="pill-option" data-style="photorealistic">📸 Photorealistic</button>
-        <button type="button" class="pill-option" data-style="3d_render">🧸 3D Pixar</button>
-        <button type="button" class="pill-option" data-style="digital_art">🌌 Fantasy Art</button>
-        <button type="button" class="pill-option" data-style="oil_painting">🎨 Oil Painting</button>
-        <button type="button" class="pill-option" data-style="pixel_art">👾 Pixel Art</button>
-      </div>
-    </div>
-
-    <div class="form-group">
-      <label>
-        <span>Aspect Ratio</span>
-        <span class="label-helper" id="selected-ratio-label">1:1 Square</span>
-      </label>
-      <div class="pill-selector-grid ratio-grid" id="ratio-selector">
-        <button type="button" class="pill-option active" data-ratio="1:1">⬛ 1:1 Square</button>
-        <button type="button" class="pill-option" data-ratio="16:9">🖥️ 16:9 Cinema</button>
-        <button type="button" class="pill-option" data-ratio="9:16">📱 9:16 Story</button>
-      </div>
-    </div>
-
-    <button class="studio-generate-btn" id="studio-submit-btn">
-      <span>✨</span> Generate Masterpiece
-    </button>
-    <div id="studio-preview-area"></div>
-  `;
-
-  const styleLabel = document.getElementById('selected-style-label');
-  const styleOptions = sideCanvasBody.querySelectorAll('#style-selector .pill-option');
-  styleOptions.forEach(opt => {
-    opt.onclick = () => {
-      styleOptions.forEach(o => o.classList.remove('active'));
-      opt.classList.add('active');
-      if (styleLabel) styleLabel.textContent = opt.textContent.replace(/^[^\w]+/, '').trim();
-    };
-  });
-
-  const ratioLabel = document.getElementById('selected-ratio-label');
-  const ratioOptions = sideCanvasBody.querySelectorAll('#ratio-selector .pill-option');
-  ratioOptions.forEach(opt => {
-    opt.onclick = () => {
-      ratioOptions.forEach(o => o.classList.remove('active'));
-      opt.classList.add('active');
-      if (ratioLabel) ratioLabel.textContent = opt.textContent.replace(/^[^\w]+/, '').trim();
-    };
-  });
-
-  document.getElementById('studio-submit-btn').onclick = runStudioImageGen;
-  sideCanvas.classList.add('open');
-  const backdrop = document.getElementById('drawer-backdrop');
-  if (backdrop) backdrop.classList.add('active');
-}
-
-async function runStudioImageGen() {
-  const promptInput = document.getElementById('studio-prompt');
   const prompt = promptInput ? promptInput.value.trim() : '';
   if (!prompt) {
-    showToast('Please specify a prompt for the studio.', '⚠️');
+    showToast('Please enter an image description.', '⚠️');
     return;
   }
 
-  const activeStyle = sideCanvasBody.querySelector('#style-selector .pill-option.active')?.dataset.style || 'cinematic';
-  const activeRatio = sideCanvasBody.querySelector('#ratio-selector .pill-option.active')?.dataset.ratio || '1:1';
-  const previewArea = document.getElementById('studio-preview-area');
-  const submitBtn = document.getElementById('studio-submit-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳</span> Synthesizing 8K Render...';
+  }
 
-  submitBtn.disabled = true;
-  submitBtn.innerHTML = '<span>⏳</span> Synthesizing Art...';
-  previewArea.innerHTML = `
-    <div class="studio-loading-box" style="margin-top:16px;">
-      <div class="studio-spinner"></div>
-      <div class="studio-loading-text">Synthesizing High-Res Art...</div>
-      <div class="studio-loading-sub">Engine: FLUX / Pollinations Ultra HD</div>
-    </div>
-  `;
+  if (previewBox) {
+    previewBox.innerHTML = `
+      <div class="image-placeholder-content" id="img-loading-indicator">
+        <div class="ph-icon" style="animation: pulseGlow 1.5s infinite alternate;">✨</div>
+        <div class="ph-title" style="color:var(--orange-primary);">Synthesizing 8K Neural Render...</div>
+        <div class="ph-desc">Generating photorealistic diffusion texture and cyber reflections...</div>
+      </div>
+    `;
+  }
 
   try {
     const res = await fetch('/api/generate-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        prompt,
-        style: activeStyle,
-        aspect_ratio: activeRatio,
-        enhance_prompt: true
+        prompt: prompt,
+        style: styleSelect ? styleSelect.value : 'cinematic',
+        aspect_ratio: ratioSelect ? ratioSelect.value : '1:1'
       })
     });
-
     const data = await res.json();
-    if (!res.ok || data.error) {
-      throw new Error(data.error || 'Art generation error');
-    }
-    const imgUrl = data.data_uri || data.url;
-    previewArea.innerHTML = `
-      <div class="generated-image-card" style="margin-top:14px;">
-        <img src="${imgUrl}" alt="Studio Art" onclick="openLightbox('${imgUrl}')" />
-        <div class="img-overlay-tools">
-          <span class="img-tag-info">${data.width || 1024}x${data.height || 1024} • ${(data.style || activeStyle).toUpperCase()}</span>
-          <button class="img-btn" onclick="downloadImage('${imgUrl}', 'studio_vedas_${Date.now()}.jpg')">⬇ Download</button>
+    const src = data.data_uri || data.url;
+    if (src && previewBox) {
+      previewBox.innerHTML = `
+        <div class="image-preview-wrapper">
+          <div class="image-placeholder-content" id="img-stream-loader" style="margin-bottom:12px;">
+            <div class="ph-icon" style="font-size:2.4rem;">⏳</div>
+            <div class="ph-title" style="color:var(--blue-primary); font-size:1rem;">Streaming Render Stream...</div>
+            <div class="ph-desc" style="font-size:0.8rem;">Resolving 8K pixel layers from neural cluster...</div>
+          </div>
+          <img id="rendered-studio-img" src="${src}" alt="Render" style="display:none; max-height:calc(100vh - 280px); max-width:100%; border-radius:12px; border:1px solid var(--border-glass); box-shadow:0 16px 48px rgba(0,0,0,0.8); cursor:pointer;" onload="const l=document.getElementById('img-stream-loader'); if(l)l.style.display='none'; this.style.display='block'; const b=document.getElementById('img-action-toolbar'); if(b)b.style.display='flex';" onclick="openLightbox('${src}')" />
+          <div id="img-action-toolbar" style="display:none; margin-top:14px; gap:12px; align-items:center; justify-content:center;">
+            <a href="${src}" download="vedas_8k_render.jpg" target="_blank" class="studio-generate-btn" style="width:auto; padding:8px 22px; text-decoration:none; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px;">💾 Download 8K Image</a>
+            <button class="tag-chip" onclick="openLightbox('${src}')" style="font-size:0.82rem; padding:8px 16px;">🔍 Fullscreen Inspect</button>
+          </div>
         </div>
-      </div>
-    `;
-    showToast('Artwork Synthesis Complete!', '🎨');
+      `;
+      showToast('8K Render synthesizing live!', '🎨');
+    }
   } catch (err) {
-    previewArea.innerHTML = `
-      <div class="studio-error-box" style="margin-top:16px;">
-        <span>⚠️</span> Image generation failed: ${escapeHtml(err.message)}
-      </div>
-    `;
-    showToast('Image Generation Failed', '⚠️');
+    if (previewBox) previewBox.innerHTML = `<div class="image-placeholder-content"><div class="ph-icon" style="color:var(--red-crimson);">⚠️</div><div class="ph-title">Error</div><div class="ph-desc">${escapeHtml(err.message)}</div></div>`;
   } finally {
-    submitBtn.disabled = false;
-    submitBtn.innerHTML = '<span>✨</span> Generate Masterpiece';
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span>✨</span> Generate 8K Image';
+    }
   }
-}
+};
 
-function openMemoryStudio() {
-  if (!sideCanvas) return;
-  sideCanvasTitle.innerHTML = '🧠 Long-Term Memory Core';
-  sideCanvasBody.innerHTML = `
-    <div class="drawer-section-title">🧠 Knowledge Acquisition</div>
-    <div class="form-group">
-      <label for="new-memory-input">
-        <span>Store New Knowledge</span>
-        <span class="label-helper">Persisted across all sessions</span>
-      </label>
-      <div class="input-with-action">
-        <input type="text" id="new-memory-input" class="form-control" placeholder="e.g. User prefers Python, Dark Mode, and Concise answers..." autocomplete="off" />
-        <button class="studio-generate-btn memory-save-btn" id="save-memory-btn" onclick="saveNewMemoryNote()">
-          <span>+</span> Save
-        </button>
-      </div>
-    </div>
-
-    <div class="drawer-divider"></div>
-
-    <div class="form-group" style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
-      <label style="margin-bottom:6px;">
-        <span>Stored Knowledge Items</span>
-        <span class="memory-count-badge" id="memory-count-badge">${state.memoryNotes.length} notes</span>
-      </label>
-      <div id="full-memory-list" class="full-memory-container"></div>
-    </div>
-  `;
-
-  const input = document.getElementById('new-memory-input');
-  if (input) {
-    input.focus();
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        saveNewMemoryNote();
-      }
-    });
+window.openLightbox = function(src) {
+  const modal = document.getElementById('lightbox-modal');
+  const img = document.getElementById('lightbox-img');
+  if (modal && img) {
+    img.src = src;
+    modal.style.display = 'flex';
   }
+};
+window.closeLightbox = function() {
+  const modal = document.getElementById('lightbox-modal');
+  if (modal) modal.style.display = 'none';
+};
 
-  renderFullMemoryList();
-  sideCanvas.classList.add('open');
-  const backdrop = document.getElementById('drawer-backdrop');
-  if (backdrop) backdrop.classList.add('active');
-}
+// ==============================================================================
+// SYSTEM COMMAND CENTER (Horizontal Tab Switcher)
+// ==============================================================================
+window.switchCommandsTab = function(tabName) {
+  const tabs = document.querySelectorAll('.cmd-tab-btn');
+  tabs.forEach(t => t.classList.remove('active'));
+  const activeBtn = document.getElementById(`cmd-tab-${tabName}`);
+  if (activeBtn) activeBtn.classList.add('active');
 
-function renderFullMemoryList() {
-  const container = document.getElementById('full-memory-list');
-  const countBadge = document.getElementById('memory-count-badge');
-  if (countBadge) {
-    countBadge.textContent = `${state.memoryNotes.length} notes`;
+  const panels = document.querySelectorAll('.cmd-tab-panel');
+  panels.forEach(p => p.style.display = 'none');
+  const targetPanel = document.getElementById(`cmd-panel-${tabName}`);
+  if (targetPanel) {
+    targetPanel.style.display = 'block';
   }
-  if (!container) return;
-  container.innerHTML = '';
+};
 
-  if (state.memoryNotes.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state-card">
-        <span class="empty-icon">🧠</span>
-        <div class="empty-title">Memory Bank Empty</div>
-        <div class="empty-desc">Teach Vedas about your preferences, stack, or facts. Vedas will autonomously utilize context in conversations.</div>
-      </div>
-    `;
-    return;
-  }
-
-  state.memoryNotes.forEach((note, idx) => {
-    const item = document.createElement('div');
-    item.className = 'memory-card-item';
-    item.innerHTML = `
-      <div class="memory-card-content">
-        <span class="memory-pin">📌</span>
-        <span class="memory-text">${escapeHtml(note)}</span>
-      </div>
-      <div class="memory-card-actions">
-        <button class="memory-action-btn memory-del-btn" title="Forget Note" onclick="deleteMemoryNoteFull(${idx})">🗑️</button>
-      </div>
-    `;
-    container.appendChild(item);
-  });
-}
-
-window.saveNewMemoryNote = async function () {
-  const input = document.getElementById('new-memory-input');
-  const note = input ? input.value.trim() : '';
-  if (!note) {
-    showToast('Please type a note or fact to remember.', '⚠️');
-    return;
-  }
-
+// ==============================================================================
+// MEMORY BANK
+// ==============================================================================
+async function loadStoredMemory() {
   try {
-    const res = await fetch('/api/memory/notes', {
+    const res = await fetch('/api/memory');
+    if (res.ok) {
+      const data = await res.json();
+      state.memoryNotes = data.notes || [];
+      renderMemoryPage();
+    }
+  } catch (e) {}
+}
+
+function renderMemoryPage() {
+  const container = document.getElementById('memory-items-container');
+  if (!container) return;
+  if (state.memoryNotes.length === 0) {
+    container.innerHTML = '<div style="color:var(--text-muted); font-style:italic;">No stored memories yet.</div>';
+    return;
+  }
+  container.innerHTML = state.memoryNotes.map((n, idx) => `
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:8px; margin-bottom:6px;">
+      <span>${escapeHtml(n)}</span>
+      <button onclick="deleteMemoryNote(${idx})" style="background:none; border:none; color:var(--red-crimson); cursor:pointer;">✕</button>
+    </div>
+  `).join('');
+}
+
+window.addCustomMemoryNote = async function() {
+  const input = document.getElementById('memory-new-input');
+  const note = input ? input.value.trim() : '';
+  if (!note) return;
+  try {
+    await fetch('/api/memory/notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ note })
     });
-    if (res.ok) {
-      const data = await res.json();
-      state.memoryNotes = data.notes || [];
-      input.value = '';
-      renderSidebarMemory();
-      renderFullMemoryList();
-      showToast('Knowledge Ingested into Vedas Core', '🧠');
-    }
-  } catch (err) {
-    console.error(err);
-    showToast('Failed to save memory note', '⚠️');
-  }
+    input.value = '';
+    await loadStoredMemory();
+    showToast('Fact memorized!', '🧠');
+  } catch (e) {}
 };
 
-window.deleteMemoryNoteFull = async function (idx) {
-  try {
-    const res = await fetch(`/api/memory/notes/${idx}`, { method: 'DELETE' });
-    if (res.ok) {
-      const data = await res.json();
-      state.memoryNotes = data.notes || [];
-      renderSidebarMemory();
-      renderFullMemoryList();
-      showToast('Memory Note Erased', '🗑️');
-    }
-  } catch (err) {
-    console.error(err);
-  }
+window.deleteMemoryNote = async function(idx) {
+  await fetch(`/api/memory/notes/${idx}`, { method: 'DELETE' });
+  await loadStoredMemory();
 };
 
-function closeSideCanvas() {
-  if (sideCanvas) sideCanvas.classList.remove('open');
-  const backdrop = document.getElementById('drawer-backdrop');
-  if (backdrop) backdrop.classList.remove('active');
-}
-
-// ----------------- LIGHTBOX & DOWNLOAD -----------------
-window.openLightbox = function (src) {
-  if (lightboxImg && lightboxModal) {
-    lightboxImg.src = src;
-    lightboxModal.classList.add('open');
+window.clearAllMemoryNotes = async function() {
+  if (confirm('Clear all stored memories?')) {
+    await fetch('/api/memory/clear', { method: 'DELETE' });
+    await loadStoredMemory();
+    showToast('Memory cleared', '🧹');
   }
 };
-
-window.closeLightbox = function () {
-  if (lightboxModal) lightboxModal.classList.remove('open');
-};
-
-window.downloadImage = function (url, filename) {
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename || 'vedas_render.jpg';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  showToast('Downloading Image...', '📥');
-};
-
-// ----------------- AUTO-RESIZE CHAT INPUT -----------------
-function autoResizeChatInput() {
-  if (!chatInput) return;
-  chatInput.style.height = 'auto';
-  chatInput.style.height = Math.min(chatInput.scrollHeight, 140) + 'px';
-}
-
-// ----------------- GLOBAL KEYBOARD HOTKEYS -----------------
-window.addEventListener('keydown', (e) => {
-  // Hotkey: Ctrl+M or Alt+V to toggle Mic
-  if ((e.ctrlKey && e.key.toLowerCase() === 'm') || (e.altKey && e.key.toLowerCase() === 'v')) {
-    e.preventDefault();
-    toggleVoiceListening();
-    return;
-  }
-
-  // Hotkey: Escape to close modals/drawers or stop TTS
-  if (e.key === 'Escape') {
-    closeLightbox();
-    closeSideCanvas();
-    stopSpeech();
-  }
-});
-
-// ----------------- EVENT LISTENERS & INITIALIZATION -----------------
-document.addEventListener('DOMContentLoaded', () => {
-  // Chat input key handling
-  if (chatInput) {
-    chatInput.addEventListener('input', autoResizeChatInput);
-    chatInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        handleSendMessage();
-      }
-    });
-  }
-
-  if (sendBtn) sendBtn.addEventListener('click', handleSendMessage);
-  if (micBtn) micBtn.addEventListener('click', toggleVoiceListening);
-  const mainMic = document.getElementById('dock-main-mic-btn');
-  if (mainMic) mainMic.addEventListener('click', toggleVoiceListening);
-  if (fileInput) fileInput.addEventListener('change', handleFileSelect);
-
-  // File Upload Trigger Button
-  const uploadBtn = document.getElementById('upload-trigger-btn');
-  if (uploadBtn && fileInput) {
-    uploadBtn.addEventListener('click', () => fileInput.click());
-  }
-
-  // Web Search Toggle
-  if (webSearchBtn) {
-    webSearchBtn.addEventListener('click', () => {
-      state.useWebSearch = !state.useWebSearch;
-      webSearchBtn.classList.toggle('active', state.useWebSearch);
-      const voiceWebBtn = document.getElementById('dock-btn-web-voice');
-      if (voiceWebBtn) voiceWebBtn.classList.toggle('active', state.useWebSearch);
-      showToast(state.useWebSearch ? 'Live Web Search Armed' : 'Web Search Standby', '🌐');
-    });
-  }
-
-  // Model Selector
-  if (modelSelector) {
-    modelSelector.addEventListener('change', (e) => {
-      state.activeModel = e.target.value;
-      showToast(`Active Core: ${state.activeModel}`, '⚡');
-    });
-  }
-
-  // Persona Selector
-  if (personaSelector) {
-    personaSelector.addEventListener('change', (e) => {
-      state.currentPersona = e.target.value;
-      showToast(`Persona: ${e.target.options[e.target.selectedIndex].text}`, '🎭');
-    });
-  }
-
-  // Sidebar Tab Switching (Authoritative)
-  const sessionTabBtn = document.getElementById('tab-sessions-btn');
-  const commandsTabBtn = document.getElementById('tab-commands-btn');
-  const memoryTabBtn = document.getElementById('tab-memory-btn');
-  if (sessionTabBtn) sessionTabBtn.onclick = () => window.switchSidebarTab('sessions');
-  if (commandsTabBtn) commandsTabBtn.onclick = () => window.switchSidebarTab('commands');
-  if (memoryTabBtn) memoryTabBtn.onclick = () => window.switchSidebarTab('memory');
-
-  // Quick Action Card triggers from Welcome Hero
-  document.querySelectorAll('.quick-card').forEach(card => {
-    card.onclick = () => {
-      const prompt = card.dataset.prompt;
-      if (prompt) {
-        if (prompt.startsWith('/image') || prompt.startsWith('create an image')) {
-          openImageStudio();
-        } else {
-          switchInputMode('typing');
-          chatInput.value = prompt;
-          handleSendMessage();
-        }
-      }
-    };
-  });
-
-  // Drag & drop files onto chat (supports PDFs, images, docs)
-  window.addEventListener('dragover', (e) => e.preventDefault());
-  window.addEventListener('drop', (e) => {
-    e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      processFiles(Array.from(e.dataTransfer.files));
-    }
-  });
-
-  // Lightbox close
-  if (lightboxModal) {
-    lightboxModal.onclick = (e) => {
-      if (e.target === lightboxModal) closeLightbox();
-    };
-  }
-
-  // Start background services & telemetry loop
-  fetchSystemStatus();
-  setInterval(fetchSystemStatus, 6000);
-  loadSessionsAndMemory();
-  initVoiceEngine();
-});
-
-// ----------------- HOLOGRAM CONTROL -----------------
-function setHologramState(st) {
-  if (window.VedasHologram) {
-    window.VedasHologram.setState(st);
-  }
-}
-
-// ----------------- SYSTEM COMMANDS -----------------
-window.runSysCmd = async function(cmd) {
-  try {
-    const res = await fetch('/api/system/command', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command: cmd })
-    });
-    const data = await res.json();
-    if (data.success) {
-      showToast(data.message, '⚡');
-      // Also speak the response
-      if (state.speechSynthEnabled) smartSpeakResponse(data.message);
-    } else {
-      showToast(data.message || 'Command failed', '⚠️');
-    }
-  } catch (err) {
-    showToast('System command failed: ' + err.message, '❌');
-  }
-};
-
-window.confirmShutdown = function() {
-  const modal = document.getElementById('shutdown-confirm-modal');
-  if (modal) modal.classList.add('open');
-};
-
-window.closeShutdownModal = function() {
-  const modal = document.getElementById('shutdown-confirm-modal');
-  if (modal) modal.classList.remove('open');
-};
-
-window.executeShutdown = async function() {
-  closeShutdownModal();
-  await runSysCmd('shutdown');
-};
-
-window.confirmRestart = function() {
-  const modal = document.getElementById('restart-confirm-modal');
-  if (modal) modal.classList.add('open');
-};
-
-window.closeRestartModal = function() {
-  const modal = document.getElementById('restart-confirm-modal');
-  if (modal) modal.classList.remove('open');
-};
-
-window.executeRestart = async function() {
-  closeRestartModal();
-  await runSysCmd('restart');
-};
-
-// Dismiss modals on Escape key
-window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    closeShutdownModal();
-    closeRestartModal();
-  }
-});
-
-// Detect voice system commands
-function checkVoiceSystemCommand(text) {
-  const t = text.toLowerCase().trim();
-  const sysPatterns = [
-    /^open\s+(notepad|calculator|paint|chrome|browser|explorer|file manager|task manager|terminal|cmd|command prompt|word|excel|vlc|spotify|discord|settings|control panel|snipping tool|screenshot)/i,
-    /^(shutdown|shut down|power off|restart|reboot|sleep|hibernate|cancel shutdown|abort shutdown)/i,
-    /^(mute|unmute|volume\s+\d+)/i,
-    /^lock (screen|computer)/i
-  ];
-  return sysPatterns.some(p => p.test(t));
-}
-
-// ----------------- FILE MANAGER -----------------
-let fmCurrentPath = null;
-let fmParentPath = null;
-
-window.openFileManager = async function() {
-  const sideCanvas = document.getElementById('side-canvas');
-  const sideCanvasTitle = document.getElementById('side-canvas-title');
-  const sideCanvasBody = document.getElementById('side-canvas-body');
-  if (!sideCanvas) return;
-
-  sideCanvasTitle.innerHTML = '📁 File & Folder Manager';
-  sideCanvasBody.innerHTML = `
-    <div class="drawer-section-title">📁 FILE SYSTEM EXPLORER</div>
-    <div class="file-manager-toolbar" id="fm-toolbar">
-      <input type="text" class="fm-path-bar" id="fm-path-input" placeholder="Enter path..." />
-      <button class="fm-toolbar-btn" onclick="fmNavigatePath()">Go</button>
-      <button class="fm-toolbar-btn" onclick="fmGoUp()">↑ Up</button>
-      <button class="fm-toolbar-btn" onclick="fmRefresh()">🔄</button>
-    </div>
-    <div style="display:flex; gap:6px; margin-top:4px; flex-wrap:wrap;">
-      <button class="fm-toolbar-btn" onclick="fmCreateItem(false)">+ New File</button>
-      <button class="fm-toolbar-btn" onclick="fmCreateItem(true)">+ New Folder</button>
-    </div>
-    <div class="fm-items-list" id="fm-items-list">Loading...</div>
-  `;
-
-  const pathInput = document.getElementById('fm-path-input');
-  if (pathInput) {
-    pathInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') fmNavigatePath();
-    });
-  }
-
-  sideCanvas.classList.add('open');
-  const backdrop = document.getElementById('drawer-backdrop');
-  if (backdrop) backdrop.classList.add('active');
-
-  await fmBrowse(null);
-};
-
-async function fmBrowse(path) {
-  const list = document.getElementById('fm-items-list');
-  if (!list) return;
-  list.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-dim);">Loading...</div>`;
-
-  try {
-    const res = await fetch('/api/files/browse', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Browse failed');
-
-    fmCurrentPath = data.current_path;
-    fmParentPath = data.parent || null;
-    const pathInput = document.getElementById('fm-path-input');
-    if (pathInput) pathInput.value = fmCurrentPath;
-
-    list.innerHTML = '';
-
-    if (data.parent) {
-      const upItem = document.createElement('div');
-      upItem.className = 'fm-item';
-      upItem.innerHTML = `<span class="fm-item-icon">⬆️</span><span class="fm-item-name">.. (Parent)</span>`;
-      upItem.onclick = () => fmBrowse(data.parent);
-      list.appendChild(upItem);
-    }
-
-    if (data.items.length === 0) {
-      list.innerHTML += `<div style="color:var(--text-dim); padding:12px; font-size:0.82rem;">Empty directory</div>`;
-    }
-
-    data.items.forEach(item => {
-      const el = document.createElement('div');
-      el.className = 'fm-item';
-      const icon = item.is_dir ? '📁' : getFileIcon(item.name);
-      const sizeStr = item.is_dir ? '' : formatBytes(item.size);
-      const encodedPath = encodeURIComponent(item.path);
-
-      el.innerHTML = `
-        <span class="fm-item-icon">${icon}</span>
-        <span class="fm-item-name">${escapeHtml(item.name)}</span>
-        <span class="fm-item-meta">${sizeStr || ''}</span>
-        <div class="fm-item-actions">
-          ${!item.is_dir ? `<button class="fm-action-btn" title="Edit" onclick="fmEditFile('${encodedPath}', event)">✏️</button>` : ''}
-          <button class="fm-action-btn" title="Rename" onclick="fmRenamePrompt('${encodedPath}', '${escapeHtml(item.name)}', event)">📝</button>
-          <button class="fm-action-btn danger" title="Delete" onclick="fmDeleteItem('${encodedPath}', event)">🗑️</button>
-        </div>
-      `;
-
-      if (item.is_dir) {
-        el.onclick = (e) => {
-          if (!e.target.closest('.fm-item-actions')) fmBrowse(item.path);
-        };
-      }
-
-      list.appendChild(el);
-    });
-  } catch (err) {
-    list.innerHTML = `<div style="color:var(--pink-neon); padding:12px;">⚠️ ${escapeHtml(err.message)}</div>`;
-  }
-}
-
-window.fmNavigatePath = function() {
-  const input = document.getElementById('fm-path-input');
-  if (input && input.value.trim()) fmBrowse(input.value.trim());
-};
-
-window.fmGoUp = function() {
-  if (fmParentPath) {
-    fmBrowse(fmParentPath);
-  }
-};
-
-window.fmRefresh = function() {
-  fmBrowse(fmCurrentPath);
-};
-
-window.fmEditFile = async function(encodedPath, event) {
-  event.stopPropagation();
-  const path = decodeURIComponent(encodedPath);
-  try {
-    const res = await fetch(`/api/files/read?path=${encodeURIComponent(path)}`);
-    if (!res.ok) throw new Error('Cannot read file');
-    const data = await res.json();
-
-    const body = document.getElementById('side-canvas-body');
-    body.innerHTML = `
-      <div class="fm-editor-area">
-        <div class="fm-editor-header">
-          <span class="fm-editor-filename">✏️ ${escapeHtml(data.name)}</span>
-          <button class="fm-toolbar-btn" onclick="openFileManager()">← Back</button>
-        </div>
-        <textarea class="fm-editor-textarea" id="fm-editor-content">${escapeHtml(data.content)}</textarea>
-        <button class="fm-save-btn" onclick="fmSaveFile('${encodedPath}')">
-          💾 Save File
-        </button>
-      </div>
-    `;
-  } catch (err) {
-    showToast('Cannot open file: ' + err.message, '❌');
-  }
-};
-
-window.fmSaveFile = async function(encodedPath) {
-  const path = decodeURIComponent(encodedPath);
-  const textarea = document.getElementById('fm-editor-content');
-  if (!textarea) return;
-  const content = textarea.value;
-  try {
-    const res = await fetch('/api/files/write', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, content })
-    });
-    const data = await res.json();
-    if (data.success) {
-      showToast(data.message, '✅');
-    } else {
-      showToast('Save failed', '❌');
-    }
-  } catch (err) {
-    showToast('Save error: ' + err.message, '❌');
-  }
-};
-
-window.fmCreateItem = async function(isFolder) {
-  const name = prompt(isFolder ? 'New folder name:' : 'New file name:');
-  if (!name || !name.trim()) return;
-  const fullPath = (fmCurrentPath ? fmCurrentPath.replace(/\\/g, '/') + '/' : '') + name.trim();
-  try {
-    const res = await fetch('/api/files/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: fullPath, is_folder: isFolder })
-    });
-    const data = await res.json();
-    if (data.success) {
-      showToast(data.message, '✅');
-      fmRefresh();
-    } else {
-      showToast(data.detail || 'Create failed', '❌');
-    }
-  } catch (err) {
-    showToast('Create error: ' + err.message, '❌');
-  }
-};
-
-window.fmRenamePrompt = async function(encodedPath, currentName, event) {
-  event.stopPropagation();
-  const path = decodeURIComponent(encodedPath);
-  const newName = prompt('Rename to:', currentName);
-  if (!newName || !newName.trim() || newName.trim() === currentName) return;
-  try {
-    const res = await fetch('/api/files/rename', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, new_name: newName.trim() })
-    });
-    const data = await res.json();
-    if (data.success) {
-      showToast(data.message, '✅');
-      fmRefresh();
-    } else {
-      showToast(data.detail || 'Rename failed', '❌');
-    }
-  } catch (err) {
-    showToast('Rename error: ' + err.message, '❌');
-  }
-};
-
-window.fmDeleteItem = async function(encodedPath, event) {
-  event.stopPropagation();
-  const path = decodeURIComponent(encodedPath);
-  const name = path.split(/[\\/]/).pop();
-  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-  try {
-    const res = await fetch(`/api/files/delete?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
-    const data = await res.json();
-    if (data.success) {
-      showToast(data.message, '🗑️');
-      fmRefresh();
-    } else {
-      showToast(data.detail || 'Delete failed', '❌');
-    }
-  } catch (err) {
-    showToast('Delete error: ' + err.message, '❌');
-  }
-};
-
-function getFileIcon(name) {
-  const ext = name.split('.').pop().toLowerCase();
-  const icons = {
-    py: '🐍', js: '📜', ts: '📘', html: '🌐', css: '🎨',
-    json: '📋', md: '📝', txt: '📄', pdf: '📕', png: '🖼️',
-    jpg: '🖼️', jpeg: '🖼️', gif: '🖼️', svg: '🎨', mp4: '🎬',
-    mp3: '🎵', wav: '🎵', zip: '📦', exe: '⚙️', sh: '🔧',
-    bat: '⚙️', csv: '📊', xml: '📋', yaml: '⚙️', yml: '⚙️'
-  };
-  return icons[ext] || '📄';
-}
-
-function formatBytes(bytes) {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
 
 // ==============================================================================
-// CODEX & TABBED NAVIGATION ENGINE
+// CODEX LAB
 // ==============================================================================
-
-let currentFixedCode = '';
-
-window.switchMainView = function(viewName) {
-  const chatStage = document.getElementById('chat-stage');
-  const codexStage = document.getElementById('codex-stage');
-  const navChat = document.getElementById('nav-tab-chat');
-  const navCodex = document.getElementById('nav-tab-codex');
-
-  if (viewName === 'codex') {
-    if (chatStage) chatStage.style.display = 'none';
-    if (codexStage) {
-      codexStage.style.display = 'flex';
-      initCodexEditor();
-    }
-    if (navChat) navChat.classList.remove('active');
-    if (navCodex) navCodex.classList.add('active');
-    showToast('Codex Code Studio Online', '💻');
-  } else {
-    if (codexStage) codexStage.style.display = 'none';
-    if (chatStage) chatStage.style.display = 'flex';
-    if (navCodex) navCodex.classList.remove('active');
-    if (navChat) navChat.classList.add('active');
-  }
-};
-
-window.switchSidebarTab = function(tabName) {
-  const tabSessionsBtn = document.getElementById('tab-sessions-btn');
-  const tabCommandsBtn = document.getElementById('tab-commands-btn');
-  const tabMemoryBtn = document.getElementById('tab-memory-btn');
-  const viewSessions = document.getElementById('sidebar-sessions-view');
-  const viewCommands = document.getElementById('sidebar-commands-view');
-  const viewMemory = document.getElementById('sidebar-memory-view');
-
-  [tabSessionsBtn, tabCommandsBtn, tabMemoryBtn].forEach(b => b && b.classList.remove('active'));
-  [viewSessions, viewCommands, viewMemory].forEach(v => v && (v.style.display = 'none'));
-
-  if (tabName === 'commands') {
-    if (tabCommandsBtn) tabCommandsBtn.classList.add('active');
-    if (viewCommands) viewCommands.style.display = 'flex';
-  } else if (tabName === 'memory') {
-    if (tabMemoryBtn) tabMemoryBtn.classList.add('active');
-    if (viewMemory) viewMemory.style.display = 'flex';
-    renderSidebarMemory();
-  } else {
-    // 'sessions' or 'chats'
-    if (tabSessionsBtn) tabSessionsBtn.classList.add('active');
-    if (viewSessions) viewSessions.style.display = 'flex';
-    renderSidebarSessions();
-    if (window.switchMainView) {
-      window.switchMainView('chat');
-    }
-  }
-};
-
-window.runSysCmd = async function(cmdText) {
-  showToast(`Executing: ${cmdText}...`, '⚡');
-  try {
-    const res = await fetch('/api/system/command', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command: cmdText })
-    });
-    const data = await res.json();
-    if (data.executed || data.status === 'ok') {
-      showToast(data.feedback || `Executed: ${cmdText}`, '✅');
-    } else {
-      showToast(data.feedback || data.detail || 'Command complete', '⚡');
-    }
-  } catch (err) {
-    showToast(`Command error: ${err.message}`, '❌');
-  }
-};
-
-window.confirmRestart = function() {
-  if (confirm('Are you sure you want to RESTART this workstation?')) {
-    window.runSysCmd('restart pc');
-  }
-};
-
-window.confirmShutdown = function() {
-  if (confirm('Are you sure you want to SHUT DOWN this workstation?')) {
-    window.runSysCmd('shutdown');
-  }
-};
-
-window.switchCmdCategory = function(catName) {
-  const btnApps = document.getElementById('cmd-cat-apps-btn');
-  const btnUtils = document.getElementById('cmd-cat-utils-btn');
-  const btnPower = document.getElementById('cmd-cat-power-btn');
-  const panelApps = document.getElementById('cmd-panel-apps');
-  const panelUtils = document.getElementById('cmd-panel-utils');
-  const panelPower = document.getElementById('cmd-panel-power');
-
-  [btnApps, btnUtils, btnPower].forEach(b => b && b.classList.remove('active'));
-  [panelApps, panelUtils, panelPower].forEach(p => p && (p.style.display = 'none'));
-
-  if (catName === 'utils') {
-    if (btnUtils) btnUtils.classList.add('active');
-    if (panelUtils) panelUtils.style.display = 'flex';
-  } else if (catName === 'power') {
-    if (btnPower) btnPower.classList.add('active');
-    if (panelPower) panelPower.style.display = 'flex';
-  } else {
-    if (btnApps) btnApps.classList.add('active');
-    if (panelApps) panelApps.style.display = 'flex';
-  }
-};
-
-window.switchCodexTab = function(tabName) {
-  const btnCheck = document.getElementById('codex-tab-check-btn');
-  const btnFix = document.getElementById('codex-tab-fix-btn');
-  const btnConsole = document.getElementById('codex-tab-console-btn');
-  const viewCheck = document.getElementById('codex-view-check');
-  const viewFix = document.getElementById('codex-view-fix');
-  const viewConsole = document.getElementById('codex-view-console');
-
-  [btnCheck, btnFix, btnConsole].forEach(b => b && b.classList.remove('active'));
-  [viewCheck, viewFix, viewConsole].forEach(v => v && (v.style.display = 'none'));
-
-  if (tabName === 'fix') {
-    if (btnFix) btnFix.classList.add('active');
-    if (viewFix) viewFix.style.display = 'flex';
-  } else if (tabName === 'console') {
-    if (btnConsole) btnConsole.classList.add('active');
-    if (viewConsole) viewConsole.style.display = 'flex';
-  } else {
-    if (btnCheck) btnCheck.classList.add('active');
-    if (viewCheck) viewCheck.style.display = 'flex';
-  }
-};
-
 function initCodexEditor() {
   const editor = document.getElementById('codex-editor');
   const lineNumbers = document.getElementById('codex-line-numbers');
   if (!editor || !lineNumbers) return;
 
-  function updateLines() {
+  function update() {
     const text = editor.value || '';
     const lines = text.split('\n').length || 1;
     let nums = '';
-    for (let i = 1; i <= lines; i++) {
-      nums += i + '\n';
-    }
+    for (let i = 1; i <= lines; i++) nums += i + '\n';
     lineNumbers.textContent = nums;
-    const lineCountEl = document.getElementById('codex-line-count');
-    const charCountEl = document.getElementById('codex-char-count');
-    if (lineCountEl) lineCountEl.textContent = `Lines: ${lines}`;
-    if (charCountEl) charCountEl.textContent = `Chars: ${text.length}`;
+    const lEl = document.getElementById('codex-line-count');
+    const cEl = document.getElementById('codex-char-count');
+    if (lEl) lEl.textContent = `Lines: ${lines}`;
+    if (cEl) cEl.textContent = `Chars: ${text.length}`;
   }
 
-  editor.removeEventListener('input', updateLines);
-  editor.addEventListener('input', updateLines);
-
-  editor.addEventListener('scroll', () => {
-    lineNumbers.scrollTop = editor.scrollTop;
-  });
-
-  // Enable Tab indentation inside editor
-  editor.addEventListener('keydown', (e) => {
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const start = editor.selectionStart;
-      const end = editor.selectionEnd;
-      editor.value = editor.value.substring(0, start) + '    ' + editor.value.substring(end);
-      editor.selectionStart = editor.selectionEnd = start + 4;
-      updateLines();
-    }
-  });
-
-  updateLines();
+  editor.oninput = update;
+  editor.onscroll = () => lineNumbers.scrollTop = editor.scrollTop;
+  update();
 }
 
-window.checkCodexCode = async function() {
-  const editor = document.getElementById('codex-editor');
-  const langSelect = document.getElementById('codex-lang-select');
-  const statusPill = document.getElementById('codex-status-pill');
-  const reportBox = document.getElementById('codex-report-box');
-  const checkBtn = document.getElementById('codex-check-btn');
-
-  const code = editor ? editor.value.trim() : '';
-  if (!code) {
-    showToast('Please enter code into the editor to check.', '⚠️');
-    return;
-  }
-
-  const lang = langSelect ? langSelect.value : 'python';
-
-  switchCodexTab('check');
-  if (statusPill) {
-    statusPill.className = 'codex-status-pill checking';
-    statusPill.textContent = 'Checking...';
-  }
-  if (checkBtn) checkBtn.disabled = true;
-
-  reportBox.innerHTML = `
-    <div style="text-align:center; padding:30px; color:var(--cyan-neon);">
-      <div class="studio-spinner" style="margin:0 auto 12px auto;"></div>
-      <div style="font-weight:600;">Scanning AST syntax & neural logic matrices...</div>
-      <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Inspecting edge cases, runtime safety, and performance...</div>
-    </div>
-  `;
-
-  try {
-    const res = await fetch('/api/codex/check', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        code,
-        language: lang,
-        model: state.activeModel
-      })
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Code check failed');
-
-    const isValid = data.valid;
-    const staticCheck = data.static_check || {};
-    const syntaxErr = staticCheck.syntax_error;
-    const warnings = staticCheck.warnings || [];
-
-    if (statusPill) {
-      if (syntaxErr) {
-        statusPill.className = 'codex-status-pill error';
-        statusPill.textContent = 'Syntax Error';
-      } else if (!isValid || (warnings && warnings.length > 0)) {
-        statusPill.className = 'codex-status-pill warning';
-        statusPill.textContent = 'Issues Found';
-      } else {
-        statusPill.className = 'codex-status-pill valid';
-        statusPill.textContent = 'Valid & Clean';
-      }
-    }
-
-    let syntaxHtml = '';
-    if (syntaxErr) {
-      syntaxHtml = `
-        <div class="codex-syntax-err-card">
-          <div style="font-weight:700; color:#ef4444; margin-bottom:4px;">❌ Syntax Error on Line ${syntaxErr.line}, Col ${syntaxErr.column}:</div>
-          <div style="color:#fca5a5; font-family:var(--font-mono);">${escapeHtml(syntaxErr.message)}</div>
-          ${syntaxErr.text ? `<pre style="background:rgba(0,0,0,0.4); padding:6px; margin-top:6px; border-radius:4px; color:#fff;">${escapeHtml(syntaxErr.text)}</pre>` : ''}
-        </div>
-      `;
-    }
-
-    let staticWarningsHtml = '';
-    if (warnings.length > 0) {
-      staticWarningsHtml = `<div style="margin-bottom:12px;">` + warnings.map(w => `
-        <div class="codex-diag-banner warning" style="margin-bottom:6px; font-size:0.82rem;">
-          <span>⚠️</span> Line ${w.line}: ${escapeHtml(w.message)}
-        </div>
-      `).join('') + `</div>`;
-    }
-
-    const bannerClass = syntaxErr ? 'error' : (warnings.length > 0 || !isValid ? 'warning' : 'valid');
-    const bannerIcon = syntaxErr ? '❌' : (warnings.length > 0 || !isValid ? '⚠️' : '✅');
-    const bannerText = syntaxErr ? 'Syntax Error Detected' : (warnings.length > 0 || !isValid ? 'Warnings / Logical Vulnerabilities Detected' : 'Code Verified: Valid & Operational');
-
-    reportBox.innerHTML = `
-      <div class="codex-diag-banner ${bannerClass}">
-        <span>${bannerIcon}</span>
-        <span>${bannerText}</span>
-        <span style="margin-left:auto; font-size:0.75rem; font-family:var(--font-mono); opacity:0.8;">Engine: ${escapeHtml(data.model || 'Vedas Core')}</span>
-      </div>
-      ${syntaxHtml}
-      ${staticWarningsHtml}
-      <div class="codex-analysis-markdown">
-        ${renderMarkdown(data.analysis || '')}
-      </div>
-    `;
-
-    showToast(syntaxErr ? 'Syntax error flagged' : 'Code analysis complete', syntaxErr ? '❌' : '🔍');
-  } catch (err) {
-    if (statusPill) {
-      statusPill.className = 'codex-status-pill error';
-      statusPill.textContent = 'Check Failed';
-    }
-    reportBox.innerHTML = `
-      <div class="codex-diag-banner error">
-        <span>❌</span> Analysis Error: ${escapeHtml(err.message)}
-      </div>
-    `;
-    showToast('Check failed: ' + err.message, '⚠️');
-  } finally {
-    if (checkBtn) checkBtn.disabled = false;
-  }
-};
-
-window.fixCodexCode = async function() {
-  const editor = document.getElementById('codex-editor');
-  const langSelect = document.getElementById('codex-lang-select');
-  const statusPill = document.getElementById('codex-status-pill');
-  const fixBox = document.getElementById('codex-fix-box');
-  const fixBtn = document.getElementById('codex-fix-btn');
-
-  const code = editor ? editor.value.trim() : '';
-  if (!code) {
-    showToast('Please enter code into the editor to fix.', '⚠️');
-    return;
-  }
-
-  const lang = langSelect ? langSelect.value : 'python';
-
-  switchCodexTab('fix');
-  if (statusPill) {
-    statusPill.className = 'codex-status-pill fixing';
-    statusPill.textContent = 'Fixing...';
-  }
-  if (fixBtn) fixBtn.disabled = true;
-
-  fixBox.innerHTML = `
-    <div style="text-align:center; padding:30px; color:#c084fc;">
-      <div class="studio-spinner" style="margin:0 auto 12px auto; border-top-color:#c084fc;"></div>
-      <div style="font-weight:600;">Neural Auto-Repair Engine active...</div>
-      <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Resolving syntax errors, fixing logic pitfalls & refactoring...</div>
-    </div>
-  `;
-
-  try {
-    const res = await fetch('/api/codex/fix', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        code,
-        language: lang,
-        model: state.activeModel
-      })
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Code fix failed');
-
-    currentFixedCode = data.fixed_code || '';
-
-    if (statusPill) {
-      statusPill.className = 'codex-status-pill valid';
-      statusPill.textContent = 'Repaired';
-    }
-
-    fixBox.innerHTML = `
-      <div class="codex-fix-header-actions">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span style="font-weight:600; color:#34d399;">✨ Corrected Code</span>
-          <span style="font-size:0.72rem; font-family:var(--font-mono); color:var(--text-muted);">${escapeHtml(data.model || 'Vedas Neural Core')}</span>
-        </div>
-        <div style="display:flex; gap:6px;">
-          <button class="codex-apply-btn" onclick="applyCodexFix()">🚀 Apply Fix to Editor</button>
-          <button class="codex-mini-btn" onclick="copyCodexFixedCode()">📋 Copy</button>
-        </div>
-      </div>
-
-      <pre class="codex-fixed-pre"><code>${escapeHtml(currentFixedCode)}</code></pre>
-
-      <div class="codex-fix-explanation">
-        <div style="font-weight:700; color:var(--cyan-neon); margin-bottom:6px;">🛠️ Fix Breakdown & Changes:</div>
-        <div class="codex-analysis-markdown">${renderMarkdown(data.explanation || '')}</div>
-      </div>
-    `;
-
-    showToast('Code repaired by Codex!', '✨');
-  } catch (err) {
-    if (statusPill) {
-      statusPill.className = 'codex-status-pill error';
-      statusPill.textContent = 'Fix Failed';
-    }
-    fixBox.innerHTML = `
-      <div class="codex-diag-banner error">
-        <span>❌</span> Code Fix Failed: ${escapeHtml(err.message)}
-      </div>
-    `;
-    showToast('Fix failed: ' + err.message, '⚠️');
-  } finally {
-    if (fixBtn) fixBtn.disabled = false;
-  }
-};
-
-window.applyCodexFix = function() {
-  if (!currentFixedCode) return;
-  const editor = document.getElementById('codex-editor');
-  if (editor) {
-    editor.value = currentFixedCode;
-    initCodexEditor();
-    showToast('Fixed code applied to editor!', '🚀');
-    checkCodexCode();
-  }
-};
-
-window.copyCodexFixedCode = function() {
-  if (!currentFixedCode) return;
-  navigator.clipboard.writeText(currentFixedCode).then(() => {
-    showToast('Fixed code copied to clipboard!', '📋');
+window.switchCodexTab = function(tab) {
+  ['check', 'fix', 'console'].forEach(t => {
+    const btn = document.getElementById(`codex-tab-${t}-btn`);
+    const view = document.getElementById(`codex-view-${t}`);
+    if (btn) btn.classList.toggle('active', t === tab);
+    if (view) view.style.display = (t === tab) ? 'block' : 'none';
   });
 };
 
-window.copyCodexEditorCode = function() {
+window.loadCodexSample = function() {
   const editor = document.getElementById('codex-editor');
-  if (editor && editor.value) {
-    navigator.clipboard.writeText(editor.value).then(() => {
-      showToast('Source code copied to clipboard!', '📋');
-    });
+  if (editor) {
+    editor.value = `# Sample Python Program with Bugs\ndef divide(a, b):\n    return a / b\n\nprint(divide(10, 0))\n`;
+    initCodexEditor();
   }
 };
 
@@ -2676,50 +1319,118 @@ window.clearCodexEditor = function() {
   if (editor) {
     editor.value = '';
     initCodexEditor();
-    const statusPill = document.getElementById('codex-status-pill');
+  }
+};
+
+window.copyCodexEditorCode = function() {
+  const editor = document.getElementById('codex-editor');
+  if (editor && editor.value) {
+    navigator.clipboard.writeText(editor.value);
+    showToast('Code copied!', '📋');
+  }
+};
+
+window.checkCodexCode = async function() {
+  const editor = document.getElementById('codex-editor');
+  const reportBox = document.getElementById('codex-report-box');
+  const langSelect = document.getElementById('codex-lang-select');
+  const modelSelect = document.getElementById('codex-model-select');
+  const statusPill = document.getElementById('codex-status-pill');
+  const code = editor ? editor.value.trim() : '';
+  if (!code) {
+    showToast('Please enter some code to inspect.', '⚠️');
+    return;
+  }
+
+  switchCodexTab('check');
+  if (statusPill) { statusPill.className = 'codex-status-pill running'; statusPill.textContent = 'Analyzing...'; }
+  if (reportBox) reportBox.innerHTML = '<div style="color:var(--blue-primary); font-weight:600;">⚡ Scanning AST syntax tree & running neural security audit...</div>';
+
+  try {
+    const res = await fetch('/api/codex/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        language: langSelect ? langSelect.value : 'python',
+        model: modelSelect ? modelSelect.value : 'gemini-3.7-flash'
+      })
+    });
+    const data = await res.json();
     if (statusPill) {
-      statusPill.className = 'codex-status-pill standby';
-      statusPill.textContent = 'Ready';
+      statusPill.className = data.valid ? 'codex-status-pill success' : 'codex-status-pill error';
+      statusPill.textContent = data.valid ? 'Verified' : 'Issues Found';
     }
-    const reportBox = document.getElementById('codex-report-box');
-    if (reportBox) {
-      reportBox.innerHTML = `
-        <div class="codex-empty-report">
-          <div class="codex-empty-icon">🔍</div>
-          <div class="codex-empty-title">Codex Ready for Inspection</div>
-          <div class="codex-empty-desc">Enter your code on the left and click <strong>Check Code</strong> to run AST syntax validation, logic bug hunting, and neural security analysis.</div>
+    if (reportBox) reportBox.innerHTML = renderMarkdown(data.analysis || 'Analysis complete.');
+  } catch (err) {
+    if (statusPill) { statusPill.className = 'codex-status-pill error'; statusPill.textContent = 'Error'; }
+    if (reportBox) reportBox.innerHTML = `<div style="color:var(--red-crimson);">Error: ${err.message}</div>`;
+  }
+};
+
+window.fixCodexCode = async function() {
+  const editor = document.getElementById('codex-editor');
+  const fixBox = document.getElementById('codex-fix-box');
+  const langSelect = document.getElementById('codex-lang-select');
+  const modelSelect = document.getElementById('codex-model-select');
+  const statusPill = document.getElementById('codex-status-pill');
+  const code = editor ? editor.value.trim() : '';
+  if (!code) {
+    showToast('Please enter some code to fix.', '⚠️');
+    return;
+  }
+
+  switchCodexTab('fix');
+  if (statusPill) { statusPill.className = 'codex-status-pill running'; statusPill.textContent = 'Repairing...'; }
+  if (fixBox) fixBox.innerHTML = '<div style="color:var(--orange-primary); font-weight:600;">🛠️ AI Auto-Repairing code flaws and reconstructing syntax...</div>';
+
+  try {
+    const res = await fetch('/api/codex/fix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        language: langSelect ? langSelect.value : 'python',
+        model: modelSelect ? modelSelect.value : 'gemini-3.7-flash'
+      })
+    });
+    const data = await res.json();
+    if (statusPill) { statusPill.className = 'codex-status-pill success'; statusPill.textContent = 'Repaired'; }
+    if (fixBox) {
+      const fixedCode = data.fixed_code || '';
+      window._lastCodexFix = fixedCode;
+      fixBox.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <span style="font-weight:800; color:var(--green-emerald);">✨ Auto-Repaired Code</span>
+          <button class="codex-btn codex-btn-run" onclick="applyCodexFix()" style="font-size:0.75rem;">⚡ Apply Fix to Editor</button>
         </div>
+        <pre style="background:#020617; border:1px solid rgba(0,210,255,0.2); padding:12px; border-radius:6px; font-family:var(--font-mono); font-size:0.84rem; overflow-x:auto;"><code>${escapeHtml(fixedCode)}</code></pre>
+        <div style="margin-top:14px; border-top:1px solid rgba(255,255,255,0.08); padding-top:10px;">${renderMarkdown(data.explanation || '')}</div>
       `;
     }
-    showToast('Editor cleared', '🧹');
+  } catch (err) {
+    if (statusPill) { statusPill.className = 'codex-status-pill error'; statusPill.textContent = 'Error'; }
+    if (fixBox) fixBox.innerHTML = `<div style="color:var(--red-crimson);">Fix Error: ${err.message}</div>`;
+  }
+};
+
+window.applyCodexFix = function() {
+  const editor = document.getElementById('codex-editor');
+  if (editor && window._lastCodexFix) {
+    editor.value = window._lastCodexFix;
+    initCodexEditor();
+    showToast('Fixed code applied to editor!', '🛠️');
   }
 };
 
 window.runCodexCode = async function() {
   const editor = document.getElementById('codex-editor');
-  const langSelect = document.getElementById('codex-lang-select');
-  const consoleOutput = document.getElementById('codex-console-output');
-  const runBtn = document.getElementById('codex-run-btn');
-
+  const consoleBox = document.getElementById('codex-console-output');
   const code = editor ? editor.value.trim() : '';
-  if (!code) {
-    showToast('Please enter code into the editor to run.', '⚠️');
-    return;
-  }
-
-  const lang = langSelect ? langSelect.value : 'python';
-  if (lang !== 'python') {
-    showToast(`Sandbox execution currently supports Python. For ${lang}, use 'Check Code' or 'Fix Code'.`, 'ℹ️');
-  }
+  if (!code) return;
 
   switchCodexTab('console');
-  if (runBtn) {
-    runBtn.disabled = true;
-    runBtn.textContent = '⏳ Running...';
-  }
-  if (consoleOutput) {
-    consoleOutput.textContent = `$ Running python sandbox...\n`;
-  }
+  if (consoleBox) consoleBox.textContent = '$ Running sandbox...';
 
   try {
     const res = await fetch('/api/execute-code', {
@@ -2727,58 +1438,712 @@ window.runCodexCode = async function() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code })
     });
-
-    const result = await res.json();
-    if (consoleOutput) {
-      if (result.success) {
-        consoleOutput.innerHTML = `<span style="color:#34d399;">$ Process completed successfully (${result.duration})</span>\n\n${escapeHtml(result.stdout || '(No standard output)')}`;
-      } else {
-        consoleOutput.innerHTML = `<span style="color:#f87171;">$ Process exited with error (Exit Code: ${result.exit_code}, ${result.duration})</span>\n\n<span style="color:#fca5a5;">${escapeHtml(result.stderr || result.stdout)}</span>`;
-      }
-    }
-    showToast(result.success ? 'Execution Finished' : 'Execution Error', result.success ? '▶' : '⚠️');
+    const data = await res.json();
+    if (consoleBox) consoleBox.textContent = data.stdout || data.stderr || 'Execution finished with no output.';
   } catch (err) {
-    if (consoleOutput) {
-      consoleOutput.innerHTML = `<span style="color:#f87171;">$ Sandbox error: ${escapeHtml(err.message)}</span>`;
-    }
-    showToast('Execution failed: ' + err.message, '❌');
-  } finally {
-    if (runBtn) {
-      runBtn.disabled = false;
-      runBtn.textContent = '▶ Run Sandbox';
+    if (consoleBox) consoleBox.textContent = `Error: ${err.message}`;
+  }
+};
+
+// ==============================================================================
+// IMAGE STUDIO INSPIRATION HELPER
+// ==============================================================================
+window.setImagePrompt = function(promptText) {
+  const input = document.getElementById('image-prompt-input');
+  if (input) {
+    input.value = promptText;
+    input.focus();
+    showToast('Inspiration prompt loaded!', '✨');
+  }
+};
+
+// ==============================================================================
+// FILE EXPLORER
+// ==============================================================================
+let currentBrowsePath = null;
+let cachedFilesList = [];
+
+async function loadFilesBrowser(targetPath = null) {
+  try {
+    const res = await fetch('/api/files/browse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: targetPath })
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    currentBrowsePath = data.current_path;
+    cachedFilesList = data.items || [];
+
+    const pathBar = document.getElementById('files-current-path');
+    if (pathBar) pathBar.textContent = data.current_path;
+
+    renderFilesTree(cachedFilesList);
+  } catch (e) {}
+}
+
+function renderFilesTree(items) {
+  const treeList = document.getElementById('files-tree-list');
+  if (!treeList) return;
+  if (!items || items.length === 0) {
+    treeList.innerHTML = '<div style="color:var(--text-dim); font-size:0.8rem; padding:10px;">No files found.</div>';
+    return;
+  }
+  treeList.innerHTML = items.map(item => `
+    <div class="file-tree-item" onclick="${item.is_dir ? `loadFilesBrowser('${item.path.replace(/\\/g, '\\\\')}')` : `openFileInViewer('${item.path.replace(/\\/g, '\\\\')}')`}">
+      <span class="file-tree-name">
+        <span>${item.is_dir ? '📁' : getFileIcon(item.name)}</span>
+        <span>${escapeHtml(item.name)}</span>
+      </span>
+      <span class="file-tree-meta">${item.is_dir ? 'Dir' : formatBytes(item.size)}</span>
+    </div>
+  `).join('');
+}
+
+function getFileIcon(name) {
+  const n = name.toLowerCase();
+  if (n.endsWith('.py')) return '🐍';
+  if (n.endsWith('.js') || n.endsWith('.ts')) return '🟨';
+  if (n.endsWith('.html') || n.endsWith('.css')) return '🌐';
+  if (n.endsWith('.json')) return '📦';
+  if (n.endsWith('.md')) return '📝';
+  if (n.endsWith('.pdf')) return '📑';
+  if (n.endsWith('.png') || n.endsWith('.jpg') || n.endsWith('.jpeg') || n.endsWith('.webp')) return '🖼️';
+  return '📄';
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+window.filterFilesList = function(query) {
+  const q = (query || '').toLowerCase().trim();
+  const filtered = q ? cachedFilesList.filter(item => item.name.toLowerCase().includes(q)) : cachedFilesList;
+  renderFilesTree(filtered);
+};
+
+window.navigateFileUp = function() {
+  if (currentBrowsePath) {
+    const parts = currentBrowsePath.split(/[\\\/]/);
+    if (parts.length > 1) {
+      parts.pop();
+      loadFilesBrowser(parts.join('\\'));
     }
   }
 };
 
-window.loadCodexSample = function() {
-  const editor = document.getElementById('codex-editor');
-  const langSelect = document.getElementById('codex-lang-select');
-  if (!editor) return;
-
-  if (langSelect) langSelect.value = 'python';
-
-  editor.value = `# Sample Python Program with Multiple Syntax & Logic Bugs
-def calculate_metrics(numbers, factor=2, cache=[]):
-    cache.append(numbers)
-    total = 0
-    for i in range(len(numbers)):
-        # Bug 1: Off-by-one / IndexError potential
-        val = numbers[i]
-        
-        # Bug 2: ZeroDivisionError potential
-        average = val / (val - 5)
-        
-        total += val * factor
-        
-    # Bug 3: Syntax / variable scope typo
-    return {"total": total, "avg": average, "history": cache
-
-# Test run
-sample_data = [10, 5, 20]
-result = calculate_metrics(sample_data)
-print("Result:", result)
-`;
-  initCodexEditor();
-  showToast('Loaded sample buggy code. Click "Check Code" or "Fix Code (AI)"!', '💡');
+window.refreshFileList = function() {
+  loadFilesBrowser(currentBrowsePath);
+  showToast('File list refreshed', '🔄');
 };
 
+window.openFileInViewer = async function(filePath) {
+  const viewer = document.getElementById('files-viewer-box');
+  if (!viewer) return;
+  try {
+    const res = await fetch(`/api/files/read?path=${encodeURIComponent(filePath)}`);
+    const data = await res.json();
+    viewer.innerHTML = `
+      <div style="font-weight:700; margin-bottom:8px; color:var(--blue-bright);">${escapeHtml(data.name)}</div>
+      <pre style="background:#020617; padding:12px; border-radius:6px; max-height:400px; overflow:auto;"><code>${escapeHtml(data.content)}</code></pre>
+    `;
+  } catch (err) {
+    viewer.innerHTML = `Failed to load: ${err.message}`;
+  }
+};
+
+// ==============================================================================
+// SYSTEM COMMANDS
+// ==============================================================================
+window.runSysCmd = async function(cmd) {
+  showToast(`Executing: ${cmd}...`, '⚡');
+  try {
+    const res = await fetch('/api/system/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command: cmd })
+    });
+    const data = await res.json();
+    showToast(data.message || 'Action finished.', data.success ? '✅' : '⚠️');
+  } catch (err) {
+    showToast('Error: ' + err.message, '❌');
+  }
+};
+
+window.confirmShutdown = function() {
+  const m = document.getElementById('shutdown-confirm-modal');
+  if (m) m.style.display = 'flex';
+};
+window.closeShutdownModal = function() {
+  const m = document.getElementById('shutdown-confirm-modal');
+  if (m) m.style.display = 'none';
+};
+window.executeShutdown = function() {
+  closeShutdownModal();
+  runSysCmd('shutdown');
+};
+
+window.confirmRestart = function() {
+  const m = document.getElementById('restart-confirm-modal');
+  if (m) m.style.display = 'flex';
+};
+window.closeRestartModal = function() {
+  const m = document.getElementById('restart-confirm-modal');
+  if (m) m.style.display = 'none';
+};
+window.executeRestart = function() {
+  closeRestartModal();
+  runSysCmd('restart');
+};
+
+// ==============================================================================
+// TELEMETRY & SESSIONS
+// ==============================================================================
+async function fetchSystemStatus() {
+  try {
+    const res = await fetch('/api/system/status');
+    if (!res.ok) return;
+    const data = await res.json();
+    state.systemStatus = data;
+
+    const ollamaModelEl = document.getElementById('home-ollama-model');
+    const geminiModelEl = document.getElementById('home-gemini-model');
+    const cpuText = document.getElementById('home-cpu-text');
+    const cpuBar = document.getElementById('home-cpu-bar');
+    const ramText = document.getElementById('home-ram-text');
+    const ramBar = document.getElementById('home-ram-bar');
+
+    if (ollamaModelEl) ollamaModelEl.textContent = state.modelDisplayNames[data.active_local_model] || data.active_local_model;
+    if (geminiModelEl) geminiModelEl.textContent = state.modelDisplayNames[data.active_cloud_model] || data.active_cloud_model;
+    if (cpuText) cpuText.textContent = `CPU: ${data.cpu_usage || 0}%`;
+    if (cpuBar) cpuBar.style.width = `${Math.min(100, Math.max(5, data.cpu_usage || 0))}%`;
+    if (ramText) ramText.textContent = `RAM: ${data.ram_usage || 0}%`;
+    if (ramBar) ramBar.style.width = `${Math.min(100, Math.max(5, data.ram_usage || 0))}%`;
+
+    const sbCpu = document.getElementById('sidebar-cpu-val');
+    const sbRam = document.getElementById('sidebar-ram-val');
+    if (sbCpu) sbCpu.textContent = `CPU: ${data.cpu_usage || 0}%`;
+    if (sbRam) sbRam.textContent = `RAM: ${data.ram_usage || 0}%`;
+  } catch (e) {}
+}
+
+window.restartOllamaService = async function() {
+  showToast('Connecting / restarting Ollama...', '⚡');
+  try {
+    const res = await fetch('/api/ollama/start', { method: 'POST' });
+    const data = await res.json();
+    showToast(data.running ? 'Ollama online!' : 'Daemon checked.', '⚡');
+    fetchSystemStatus();
+  } catch (e) {}
+};
+
+async function loadStoredSessions() {
+  try {
+    const res = await fetch('/api/memory');
+    if (res.ok) {
+      const data = await res.json();
+      state.sessions = data.sessions || [];
+      renderSessionsList();
+    }
+  } catch (e) {}
+}
+
+function renderSessionsList() {
+  if (!sessionsList) return;
+  if (state.sessions.length === 0) {
+    sessionsList.innerHTML = `<div style="font-size:0.75rem; color:var(--text-dim); padding:6px 4px; font-style:italic;">No recent chats</div>`;
+    return;
+  }
+  sessionsList.innerHTML = state.sessions.slice(0, 15).map(s => `
+    <div class="history-session-item ${s.id === state.currentSessionId ? 'active' : ''}" onclick="loadSession('${s.id}')">
+      <span class="history-session-title">${escapeHtml(s.title || 'Conversation')}</span>
+      <button class="history-session-del" onclick="event.stopPropagation(); deleteSession('${s.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+window.startNewChat = function() {
+  state.currentSessionId = 'session_' + Date.now();
+  if (chatMessagesContainer) {
+    chatMessagesContainer.innerHTML = '';
+    chatMessagesContainer.style.display = 'none';
+  }
+  if (welcomeHero) welcomeHero.style.display = 'block';
+  switchView('chat');
+  showToast('Started new conversation', '✨');
+};
+
+window.clearCurrentChatMessages = function() {
+  if (chatMessagesContainer) chatMessagesContainer.innerHTML = '';
+  if (welcomeHero) welcomeHero.style.display = 'block';
+  showToast('Chat cleared', '🧹');
+};
+
+window.clearAllSessions = function() {
+  if (confirm('Clear all conversation history?')) {
+    state.sessions = [];
+    renderSessionsList();
+    window.startNewChat();
+  }
+};
+
+window.deleteSession = async function(sId) {
+  try {
+    await fetch(`/api/sessions/${sId}`, { method: 'DELETE' });
+    state.sessions = state.sessions.filter(s => s.id !== sId);
+    renderSessionsList();
+  } catch (e) {}
+};
+
+window.loadSession = function(sId) {
+  const session = state.sessions.find(s => s.id === sId);
+  if (!session) return;
+  state.currentSessionId = sId;
+  switchView('chat');
+  if (welcomeHero) welcomeHero.style.display = 'none';
+  if (chatMessagesContainer) {
+    chatMessagesContainer.innerHTML = '';
+    chatMessagesContainer.style.display = 'flex';
+    (session.messages || []).forEach(m => addMessageBubble(m.role, m.content, m.meta || {}));
+  }
+  renderSessionsList();
+};
+
+async function saveActiveSession() {
+  if (!state.currentSessionId) state.currentSessionId = 'session_' + Date.now();
+  const bubbles = document.querySelectorAll('.chat-message-row');
+  const messages = [];
+  bubbles.forEach(b => {
+    const isUser = b.classList.contains('user-row');
+    const textEl = b.querySelector('.chat-bubble-content');
+    if (textEl) messages.push({ role: isUser ? 'user' : 'assistant', content: textEl.innerText });
+  });
+
+  const title = messages[0] ? messages[0].content.slice(0, 30) + '...' : 'Conversation';
+  const payload = { id: state.currentSessionId, title, messages, updatedAt: new Date().toISOString() };
+
+  try {
+    await fetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    loadStoredSessions();
+  } catch (e) {}
+}
+
+// ==============================================================================
+// ATTACHMENTS & EVENT LISTENERS
+// ==============================================================================
+function initEventListeners() {
+  if (chatInput) {
+    chatInput.onkeydown = (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSendMessage();
+      }
+    };
+  }
+
+  document.querySelectorAll('.quick-card').forEach(card => {
+    card.onclick = () => {
+      const prompt = card.getAttribute('data-prompt');
+      if (prompt && chatInput) {
+        chatInput.value = prompt;
+        switchView('chat');
+        handleSendMessage();
+      }
+    };
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm') {
+      e.preventDefault();
+      toggleVoiceListening();
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+      e.preventDefault();
+      startNewChat();
+    }
+  });
+
+  if (fileInput) {
+    fileInput.onchange = async (e) => {
+      const files = Array.from(e.target.files);
+      for (const f of files) {
+        const formData = new FormData();
+        formData.append('file', f);
+        showToast(`Uploading ${f.name}...`, '📎');
+        try {
+          const res = await fetch('/api/upload', { method: 'POST', body: formData });
+          const data = await res.json();
+          state.attachments.push({
+            name: f.name,
+            type: f.type,
+            data: data.data_uri || '',
+            text_content: data.text_content || '',
+            is_pdf: data.is_pdf || false
+          });
+          renderAttachmentTray();
+          showToast(`Attached ${f.name}`, '✅');
+        } catch (err) {
+          showToast(`Upload error: ${err.message}`, '⚠️');
+        }
+      }
+    };
+  }
+}
+
+function renderAttachmentTray() {
+  if (!attachmentTray) return;
+  if (state.attachments.length === 0) {
+    attachmentTray.innerHTML = '';
+    attachmentTray.style.display = 'none';
+    return;
+  }
+  attachmentTray.style.display = 'flex';
+  attachmentTray.innerHTML = state.attachments.map((att, i) => `
+    <span style="background:rgba(0,210,255,0.15); border:1px solid rgba(0,210,255,0.3); padding:3px 8px; border-radius:6px; font-size:0.75rem; display:inline-flex; align-items:center; gap:6px;">
+      📎 ${escapeHtml(att.name)}
+      <button onclick="state.attachments.splice(${i},1); renderAttachmentTray();" style="background:none; border:none; color:#f87171; cursor:pointer;">✕</button>
+    </span>
+  `).join('');
+}
+
+// Markdown Helper
+function renderMarkdown(str) {
+  if (!str) return '';
+  let res = escapeHtml(str);
+
+  res = res.replace(/```([a-zA-Z0-9_-]+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+    return `<pre><div style="display:flex; justify-content:space-between; margin-bottom:6px; color:var(--blue-bright); font-size:0.72rem;"><span>${lang || 'code'}</span><button onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.innerText); showToast('Code copied!','📋');" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">📋 Copy</button></div><code>${code}</code></pre>`;
+  });
+
+  res = res.replace(/`([^`]+)`/g, '<code>$1</code>');
+  res = res.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  res = res.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  res = res.replace(/^### (.*$)/gim, '<h4 style="margin:8px 0; color:var(--blue-bright);">$1</h4>');
+  res = res.replace(/^## (.*$)/gim, '<h3 style="margin:10px 0; color:#fff;">$1</h3>');
+  res = res.replace(/^# (.*$)/gim, '<h2 style="margin:12px 0; color:#fff;">$1</h2>');
+  res = res.replace(/\n/g, '<br/>');
+
+  return res;
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+window.showToast = function(msg, icon = '⚡') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = `<span>${icon}</span> <span>${escapeHtml(msg)}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+};
+
+// ==============================================================================
+// MASTER DOCK & IN-PLACE VOICE/TYPE SWAPPING (1-LINE SYMMETRICAL DOCK)
+// ==============================================================================
+window.setDockMode = function(mode) {
+  const voiceDock = document.getElementById('dock-voice-mode');
+  const typeDock = document.getElementById('dock-typing-mode');
+
+  if (mode === 'type') {
+    if (voiceDock) voiceDock.style.display = 'none';
+    if (typeDock) {
+      typeDock.style.display = 'flex';
+      setTimeout(() => {
+        const inp = document.getElementById('chat-input');
+        if (inp) inp.focus();
+      }, 50);
+    }
+  } else {
+    if (typeDock) typeDock.style.display = 'none';
+    if (voiceDock) voiceDock.style.display = 'flex';
+  }
+};
+
+window.toggleWebSearch = function(btn) {
+  state.useWebSearch = !state.useWebSearch;
+  if (btn) btn.classList.toggle('active', state.useWebSearch);
+  const dot = document.getElementById('search-dot');
+  if (dot) {
+    dot.style.background = state.useWebSearch ? 'var(--green-emerald)' : 'rgba(255,255,255,0.2)';
+    dot.style.boxShadow = state.useWebSearch ? '0 0 8px var(--green-emerald)' : 'none';
+  }
+  showToast(state.useWebSearch ? 'Live Web Search ENABLED 🌐' : 'Live Web Search DISABLED', state.useWebSearch ? '🌐' : '⚡');
+};
+
+// ==============================================================================
+// REAL-TIME SCREEN VISION (Hardware-Accelerated + Gemini Multimodal Vision)
+// ==============================================================================
+async function captureBrowserScreen() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) return null;
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { cursor: "always" },
+      audio: false
+    });
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    await new Promise((resolve) => {
+      video.onloadedmetadata = () => {
+        video.play();
+        resolve();
+      };
+    });
+    await new Promise(r => setTimeout(r, 120));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1920;
+    canvas.height = video.videoHeight || 1080;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    stream.getTracks().forEach(t => t.stop());
+    return canvas.toDataURL('image/jpeg', 0.88);
+  } catch (err) {
+    console.warn('Browser getDisplayMedia cancelled/skipped, falling back to server capture:', err);
+    return null;
+  }
+}
+
+window.triggerScreenVision = async function(customPrompt = null) {
+  let promptText = customPrompt;
+  if (!promptText && chatInput && chatInput.value.trim()) {
+    promptText = chatInput.value.trim();
+    chatInput.value = '';
+  }
+  if (!promptText) {
+    promptText = "Analyze this screen in detail. Explain what applications, code, terminal, errors, or content are visible and provide helpful insights.";
+  }
+
+  showToast('Capturing active screen with AI Vision... 📸', '📸');
+  switchView('chat');
+
+  if (welcomeHero) welcomeHero.style.display = 'none';
+  if (chatMessagesContainer) chatMessagesContainer.style.display = 'flex';
+
+  addMessageBubble('user', `📸 [Screen Vision Analysis]: ${promptText}`);
+
+  const thinkingId = 'thinking-screen-' + Date.now();
+  addThinkingBubble(thinkingId);
+
+  // Attempt client-side capture first (zero black screen), fallback to server
+  let clientImg = null;
+  try {
+    clientImg = await captureBrowserScreen();
+  } catch (e) {}
+
+  try {
+    const res = await fetch('/api/screen-vision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: promptText,
+        image_data: clientImg,
+        session_id: state.currentSessionId,
+        model: 'gemini-3.7-flash'
+      })
+    });
+
+    const data = await res.json();
+    removeThinkingBubble(thinkingId);
+
+    const reply = data.text || data.analysis || 'Screen vision analysis complete.';
+    
+    // Pass screenshot preview thumbnail to render in bubble
+    const previewSrc = data.image_data || data.preview_data_uri || clientImg;
+    const meta = {
+      model: data.model || 'Gemini Vision',
+      screenshot_preview: previewSrc
+    };
+    addMessageBubble('assistant', reply, meta);
+
+    if (state.speechSynthEnabled) {
+      smartSpeakResponse(reply);
+    }
+    saveActiveSession();
+  } catch (err) {
+    removeThinkingBubble(thinkingId);
+    addMessageBubble('assistant', `⚠️ Screen Vision Error: ${err.message}`, { isError: true });
+  }
+};
+
+// ==============================================================================
+// AESTHETICS & GLOW THEME SYSTEM (Dynamic CSS Tokens & Particle Synchronization)
+// ==============================================================================
+// AESTHETICS & GLOW THEME SYSTEM (Dynamic CSS Tokens & Particle Synchronization)
+// ==============================================================================
+const THEME_PRESETS = {
+  blue_orange: {
+    '--blue-primary': '#00f3ff',
+    '--blue-bright': '#38f8ff',
+    '--blue-deep': '#0099ff',
+    '--blue-dark': '#0066cc',
+    '--blue-glow': 'rgba(0, 243, 255, 0.65)',
+    '--blue-glow-subtle': 'rgba(0, 243, 255, 0.20)',
+    '--orange-primary': '#ff5e00',
+    '--orange-bright': '#ff8400',
+    '--orange-deep': '#e64a00',
+    '--orange-dark': '#cc3700',
+    '--orange-glow': 'rgba(255, 94, 0, 0.65)',
+    '--orange-glow-subtle': 'rgba(255, 94, 0, 0.20)',
+    '--border-glass': 'rgba(0, 243, 255, 0.35)',
+    '--border-orange': 'rgba(255, 94, 0, 0.45)',
+    '--grad-blue-orange': 'linear-gradient(135deg, #00f3ff 0%, #ff5e00 100%)',
+    '--grad-orange-blue': 'linear-gradient(135deg, #ff5e00 0%, #00f3ff 100%)'
+  },
+  cyan_amber: {
+    '--blue-primary': '#00ffcc',
+    '--blue-bright': '#38ffe0',
+    '--blue-deep': '#00c49f',
+    '--blue-dark': '#008a70',
+    '--blue-glow': 'rgba(0, 255, 204, 0.65)',
+    '--blue-glow-subtle': 'rgba(0, 255, 204, 0.20)',
+    '--orange-primary': '#ffaa00',
+    '--orange-bright': '#ffc233',
+    '--orange-deep': '#e69500',
+    '--orange-dark': '#b37400',
+    '--orange-glow': 'rgba(255, 170, 0, 0.65)',
+    '--orange-glow-subtle': 'rgba(255, 170, 0, 0.20)',
+    '--border-glass': 'rgba(0, 255, 204, 0.35)',
+    '--border-orange': 'rgba(255, 170, 0, 0.45)',
+    '--grad-blue-orange': 'linear-gradient(135deg, #00ffcc 0%, #ffaa00 100%)',
+    '--grad-orange-blue': 'linear-gradient(135deg, #ffaa00 0%, #00ffcc 100%)'
+  },
+  emerald_neon: {
+    '--blue-primary': '#00ff88',
+    '--blue-bright': '#52ffa7',
+    '--blue-deep': '#00cc66',
+    '--blue-dark': '#00994d',
+    '--blue-glow': 'rgba(0, 255, 136, 0.65)',
+    '--blue-glow-subtle': 'rgba(0, 255, 136, 0.20)',
+    '--orange-primary': '#00f0ff',
+    '--orange-bright': '#4df4ff',
+    '--orange-deep': '#00b8c4',
+    '--orange-dark': '#00808a',
+    '--orange-glow': 'rgba(0, 240, 255, 0.65)',
+    '--orange-glow-subtle': 'rgba(0, 240, 255, 0.20)',
+    '--border-glass': 'rgba(0, 255, 136, 0.35)',
+    '--border-orange': 'rgba(0, 240, 255, 0.45)',
+    '--grad-blue-orange': 'linear-gradient(135deg, #00ff88 0%, #00f0ff 100%)',
+    '--grad-orange-blue': 'linear-gradient(135deg, #00f0ff 0%, #00ff88 100%)'
+  },
+  crimson_violet: {
+    '--blue-primary': '#b026ff',
+    '--blue-bright': '#c766ff',
+    '--blue-deep': '#8c00e6',
+    '--blue-dark': '#6900ad',
+    '--blue-glow': 'rgba(176, 38, 255, 0.65)',
+    '--blue-glow-subtle': 'rgba(176, 38, 255, 0.20)',
+    '--orange-primary': '#ff0055',
+    '--orange-bright': '#ff4785',
+    '--orange-deep': '#cc0044',
+    '--orange-dark': '#990033',
+    '--orange-glow': 'rgba(255, 0, 85, 0.65)',
+    '--orange-glow-subtle': 'rgba(255, 0, 85, 0.20)',
+    '--border-glass': 'rgba(176, 38, 255, 0.35)',
+    '--border-orange': 'rgba(255, 0, 85, 0.45)',
+    '--grad-blue-orange': 'linear-gradient(135deg, #b026ff 0%, #ff0055 100%)',
+    '--grad-orange-blue': 'linear-gradient(135deg, #ff0055 0%, #b026ff 100%)'
+  },
+  midnight_blue: {
+    '--blue-primary': '#2979ff',
+    '--blue-bright': '#6ea4ff',
+    '--blue-deep': '#1565c0',
+    '--blue-dark': '#0d47a1',
+    '--blue-glow': 'rgba(41, 121, 255, 0.65)',
+    '--blue-glow-subtle': 'rgba(41, 121, 255, 0.20)',
+    '--orange-primary': '#ff6d00',
+    '--orange-bright': '#ff9638',
+    '--orange-deep': '#d95a00',
+    '--orange-dark': '#a64500',
+    '--orange-glow': 'rgba(255, 109, 0, 0.65)',
+    '--orange-glow-subtle': 'rgba(255, 109, 0, 0.20)',
+    '--border-glass': 'rgba(41, 121, 255, 0.35)',
+    '--border-orange': 'rgba(255, 109, 0, 0.45)',
+    '--grad-blue-orange': 'linear-gradient(135deg, #2979ff 0%, #ff6d00 100%)',
+    '--grad-orange-blue': 'linear-gradient(135deg, #ff6d00 0%, #2979ff 100%)'
+  }
+};
+
+window.applyTheme = function(themeKey) {
+  state.currentTheme = themeKey || 'blue_orange';
+  const theme = THEME_PRESETS[themeKey] || THEME_PRESETS['blue_orange'];
+  const root = document.documentElement;
+  for (const [prop, val] of Object.entries(theme)) {
+    root.style.setProperty(prop, val);
+  }
+
+  // Persist locally
+  try {
+    localStorage.setItem('vedas_theme', themeKey);
+  } catch (e) {}
+
+  // Update dropdown value if present
+  const select = document.getElementById('setting-theme-palette');
+  if (select && select.value !== themeKey) {
+    select.value = themeKey;
+  }
+
+  // Update particles canvas colors
+  if (window.vedasParticles && typeof window.vedasParticles.setColor === 'function') {
+    window.vedasParticles.setColor(theme['--blue-primary'], theme['--orange-primary']);
+  }
+};
+
+window.cycleTheme = function() {
+  const keys = Object.keys(THEME_PRESETS);
+  const current = state.currentTheme || 'blue_orange';
+  const nextIdx = (keys.indexOf(current) + 1) % keys.length;
+  const nextTheme = keys[nextIdx];
+  applyTheme(nextTheme);
+  const names = {
+    blue_orange: 'Cyber Electric Blue & Orange',
+    cyan_amber: 'Cyber Mint & Solar Gold',
+    emerald_neon: 'Laser Matrix Emerald & Aqua',
+    crimson_violet: 'Ultraviolet Neon & Rose',
+    midnight_blue: 'Hyper Cobalt & Blaze'
+  };
+  showToast(`Palette: ${names[nextTheme] || nextTheme}`, '🎨');
+};
+
+window.toggleFullscreen = function() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().then(() => {
+      showToast('Fullscreen Neural HUD Activated', '⛶');
+    }).catch(err => {
+      console.log('Fullscreen notice:', err);
+    });
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen().then(() => {
+        showToast('Standard Window Restored', '🗗');
+      }).catch(() => {});
+    }
+  }
+};
+
+// Automatic Terminal & Server Lifecycle: cleanly terminate terminal when window is closed
+window.addEventListener('beforeunload', () => {
+  try {
+    navigator.sendBeacon('/api/system/window-closed');
+  } catch (e) {}
+});
+
+window.addEventListener('pagehide', () => {
+  try {
+    navigator.sendBeacon('/api/system/window-closed');
+  } catch (e) {}
+});

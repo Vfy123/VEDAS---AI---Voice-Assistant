@@ -31,29 +31,21 @@ echo [*] Compiling VedasAI.exe using VedasAI.spec ...
 python -m PyInstaller --noconfirm --clean VedasAI.spec
 
 if %errorlevel% equ 0 (
+    if not exist "dist\memory" mkdir "dist\memory"
+    if not exist "dist\memory\memory.json" (
+        if exist "memory\memory.json" (
+            copy "memory\memory.json" "dist\memory\memory.json" >nul
+        ) else (
+            echo { "notes": [], "sessions": [] } > "dist\memory\memory.json"
+        )
+    )
+
     echo.
     echo ============================================================
     echo [SUCCESS] VedasAI.exe compiled successfully!
     echo Location: dist\VedasAI.exe
-    echo.
-    echo NOTE: The 'memory' folder is kept outside the executable
-    echo so you can directly inspect, edit, and back up memory.json!
+    echo Memory Bank: dist\memory\memory.json
     echo ============================================================
-    
-    :: Ensure dist directory has memory, uploads, certs, and config ready
-    if not exist "dist\memory" mkdir "dist\memory"
-    if not exist "dist\uploads" mkdir "dist\uploads"
-    if not exist "dist\certs" mkdir "dist\certs"
-    if exist "config.json" (
-        if not exist "dist\config.json" (
-            copy "config.json" "dist\config.json" >nul
-        )
-    )
-    if exist "memory\memory.json" (
-        if not exist "dist\memory\memory.json" (
-            copy "memory\memory.json" "dist\memory\memory.json" >nul
-        )
-    )
 ) else (
     echo.
     echo [ERROR] Compilation failed. Please inspect the logs above.

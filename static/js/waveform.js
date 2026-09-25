@@ -8,30 +8,32 @@ class VedasWaveform {
     this.canvas = document.getElementById(canvasId);
     if (!this.canvas) return;
     this.ctx = this.canvas.getContext('2d');
-    this.state = 'idle'; // 'idle' | 'listening' | 'speaking'
+    this.state = 'idle'; // 'idle' | 'listening' | 'speaking' | 'thinking'
     this.phase = 0;
     this.audioLevel = 0.5;
 
-    this.resize();
-    window.addEventListener('resize', () => this.resize());
+    this.initCanvasSize();
+    window.addEventListener('resize', () => this.initCanvasSize());
     this.animate();
   }
 
-  resize() {
+  initCanvasSize() {
     if (!this.canvas) return;
     const parent = this.canvas.parentElement;
-    const rect = this.canvas.getBoundingClientRect();
-    const parentRect = parent ? parent.getBoundingClientRect() : null;
-    const w = rect.width > 0 ? rect.width : (parentRect && parentRect.width > 0 ? parentRect.width : 200);
-    const h = rect.height > 0 ? rect.height : (parentRect && parentRect.height > 0 ? parentRect.height : 48);
-    const dpr = window.devicePixelRatio || 1;
-    this.width = this.canvas.width = w * dpr;
-    this.height = this.canvas.height = h * dpr;
+    const w = (parent && parent.clientWidth > 0) ? parent.clientWidth : 360;
+    const h = (parent && parent.clientHeight > 0) ? parent.clientHeight : 38;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    this.width = w * dpr;
+    this.height = h * dpr;
+    this.canvas.width = this.width;
+    this.canvas.height = this.height;
+    this.canvas.style.width = '100%';
+    this.canvas.style.height = '100%';
   }
 
   setState(newState) {
     this.state = newState;
-    this.resize();
     const indicator = document.getElementById('dock-waveform-status') || document.getElementById('waveform-status-text');
     if (indicator) {
       if (newState === 'listening') {
@@ -147,8 +149,12 @@ class VedasWaveform {
   }
 }
 
-// Global instance
+// Global instances
 window.vedasWaveform = null;
+window.vedasDashWaveform = null;
+window.vedasChatWaveform = null;
 document.addEventListener('DOMContentLoaded', () => {
   window.vedasWaveform = new VedasWaveform('waveform-canvas');
+  window.vedasDashWaveform = new VedasWaveform('dashboard-waveform');
+  window.vedasChatWaveform = new VedasWaveform('chat-waveform');
 });

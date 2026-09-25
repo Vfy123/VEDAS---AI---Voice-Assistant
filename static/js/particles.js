@@ -35,6 +35,20 @@
     mouse.y = null;
   });
 
+  let currentThemeKey = 'blue_orange';
+  let strokeBase = 'rgba(0, 210, 255, ';
+
+  window.updateParticleTheme = function(themeKey) {
+    currentThemeKey = themeKey;
+    if (themeKey === 'cyan_amber') strokeBase = 'rgba(6, 182, 212, ';
+    else if (themeKey === 'emerald_neon') strokeBase = 'rgba(16, 185, 129, ';
+    else if (themeKey === 'crimson_violet') strokeBase = 'rgba(168, 85, 247, ';
+    else if (themeKey === 'midnight_blue') strokeBase = 'rgba(59, 130, 246, ';
+    else strokeBase = 'rgba(0, 210, 255, ';
+
+    particles.forEach(p => p.retheme(themeKey));
+  };
+
   class Particle {
     constructor() {
       this.x = Math.random() * width;
@@ -42,25 +56,28 @@
       this.vx = (Math.random() - 0.5) * 0.7;
       this.vy = (Math.random() - 0.5) * 0.7;
       this.radius = Math.random() * 2 + 1;
-      const r = Math.random();
-      if (r > 0.65) {
-        // High-voltage Electric Cyan / Arc Blue
-        this.baseColor = 'rgba(0, 210, 255,';
-        this.glowColor = '#00d2ff';
-      } else if (r > 0.45) {
-        // Cyber Azure / Royal Blue
-        this.baseColor = 'rgba(56, 189, 248,';
-        this.glowColor = '#38bdf8';
-      } else if (r > 0.22) {
-        // JARVIS Blazing Orange
-        this.baseColor = 'rgba(255, 119, 0,';
-        this.glowColor = '#ff7700';
-      } else {
-        // Glowing Gold
-        this.baseColor = 'rgba(245, 184, 61,';
-        this.glowColor = '#f5b83d';
-      }
+      this.retheme(currentThemeKey);
       this.alpha = Math.random() * 0.55 + 0.3;
+    }
+
+    retheme(tKey) {
+      const r = Math.random();
+      if (tKey === 'cyan_amber') {
+        if (r > 0.5) { this.baseColor = 'rgba(6, 182, 212,'; this.glowColor = '#06b6d4'; }
+        else { this.baseColor = 'rgba(245, 158, 11,'; this.glowColor = '#f59e0b'; }
+      } else if (tKey === 'emerald_neon') {
+        if (r > 0.5) { this.baseColor = 'rgba(16, 185, 129,'; this.glowColor = '#10b981'; }
+        else { this.baseColor = 'rgba(6, 182, 212,'; this.glowColor = '#06b6d4'; }
+      } else if (tKey === 'crimson_violet') {
+        if (r > 0.5) { this.baseColor = 'rgba(168, 85, 247,'; this.glowColor = '#a855f7'; }
+        else { this.baseColor = 'rgba(244, 63, 94,'; this.glowColor = '#f43f5e'; }
+      } else if (tKey === 'midnight_blue') {
+        if (r > 0.5) { this.baseColor = 'rgba(59, 130, 246,'; this.glowColor = '#3b82f6'; }
+        else { this.baseColor = 'rgba(249, 115, 22,'; this.glowColor = '#f97316'; }
+      } else {
+        if (r > 0.5) { this.baseColor = 'rgba(0, 210, 255,'; this.glowColor = '#00d2ff'; }
+        else { this.baseColor = 'rgba(255, 123, 0,'; this.glowColor = '#ff7b00'; }
+      }
     }
 
     update() {
@@ -111,7 +128,7 @@
 
         if (dist < maxDistance) {
           const opacity = (1 - dist / maxDistance) * 0.25;
-          ctx.strokeStyle = `rgba(0, 240, 255, ${opacity})`;
+          ctx.strokeStyle = `${strokeBase}${opacity})`;
           ctx.lineWidth = 0.8;
           ctx.beginPath();
           ctx.moveTo(particles[a].x, particles[a].y);
