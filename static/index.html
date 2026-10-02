@@ -3,44 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VEDAS AI 3.7 Pro — Neural Intelligence Core</title>
-  <meta name="description" content="VEDAS AI 3.7 Pro — Autonomous Multimodal Neural Intelligence Operating System. Powered by Local Ollama & Gemini Supervisor.">
+  <title>VEDAS AI 4.0 Pro — Neural Intelligence Core</title>
+  <meta name="description" content="VEDAS AI 4.0 Pro — Autonomous Multimodal Neural Intelligence Operating System. Powered by Local Ollama & Gemini Supervisor.">
   <meta name="theme-color" content="#050914">
-  <link rel="stylesheet" href="/static/css/style.css?v=3.7.0">
+  <link rel="stylesheet" href="/static/css/style.css?v=3.9.0">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
 </head>
 <body>
-
   <!-- Interactive Background Canvas & Ambience -->
   <canvas id="particles-canvas"></canvas>
   <div class="ambient-glow ambient-glow-blue-primary"></div>
   <div class="ambient-glow ambient-glow-orange-primary"></div>
-
   <!-- Master App Shell (Sidebar Layout) -->
   <div id="app-container">
-
     <!-- ==============================================================================
          LEFT SIDEBAR NAVIGATION (Electric Blue & Neon Orange Aesthetic)
          ============================================================================== -->
     <aside id="sidebar">
       
       <!-- Brand Header -->
-      <div class="sidebar-brand" onclick="switchView('chat')" title="VEDAS AI 3.7 Pro">
+      <div class="sidebar-brand" onclick="switchView('chat')" title="VEDAS AI 4.0 Pro">
         <div class="brand-badge-glow">
           <span class="brand-icon">⚡</span>
         </div>
         <div class="brand-text">
-          <div class="brand-title">VEDAS AI <span class="brand-pro-pill">3.7 PRO</span></div>
+          <div class="brand-title">VEDAS AI <span class="brand-pro-pill">4.0 PRO</span></div>
           <div class="brand-tagline">Neural Intelligence Core</div>
         </div>
       </div>
-
       <!-- New Chat Action Button -->
       <button class="sidebar-new-chat-btn" onclick="startNewChat()">
         <span class="btn-icon">✨</span>
         <span class="btn-text">New Conversation</span>
       </button>
-
       <!-- Main Navigation Menu -->
       <nav class="sidebar-nav" aria-label="Main Navigation">
         <button class="nav-item active" id="nav-item-chat" onclick="switchView('chat')">
@@ -48,38 +43,41 @@
           <span class="nav-label">AI Chatbot</span>
           <span class="nav-badge" id="chat-badge">Online</span>
         </button>
-
+        <button class="nav-item nav-item-live" id="nav-item-live" onclick="switchView('live')">
+          <span class="nav-icon live-pulse-dot">🔴</span>
+          <span class="nav-label">VEDAS Live</span>
+          <span class="nav-badge live-nav-badge">LIVE</span>
+        </button>
         <button class="nav-item" id="nav-item-codex" onclick="switchView('codex')">
           <span class="nav-icon">💻</span>
           <span class="nav-label">Codex Code Lab</span>
         </button>
-
-        <button class="nav-item" id="nav-item-image" onclick="switchView('image')">
-          <span class="nav-icon">🎨</span>
-          <span class="nav-label">8K Image Studio</span>
+        <button class="nav-item" id="nav-item-veo" onclick="switchView('veo')">
+          <span class="nav-icon">🎬</span>
+          <span class="nav-label">VEO Studio</span>
         </button>
-
+        <button class="nav-item" id="nav-item-admin" onclick="switchView('admin')" style="display:none;">
+          <span class="nav-icon">🛡️</span>
+          <span class="nav-label">Admin Quota & Usage</span>
+          <span class="nav-badge" id="admin-nav-badge" style="background:linear-gradient(135deg,#ff5e00,#00f3ff); color:#fff;">Admin</span>
+        </button>
         <button class="nav-item" id="nav-item-memory" onclick="switchView('memory')">
           <span class="nav-icon">🧠</span>
           <span class="nav-label">Memory Bank</span>
         </button>
-
         <button class="nav-item" id="nav-item-files" onclick="switchView('files')">
           <span class="nav-icon">📁</span>
           <span class="nav-label">Workspace Files</span>
         </button>
-
         <button class="nav-item" id="nav-item-commands" onclick="switchView('commands')">
           <span class="nav-icon">⚡</span>
           <span class="nav-label">System Controls</span>
         </button>
-
         <button class="nav-item" id="nav-item-settings" onclick="switchView('settings')">
           <span class="nav-icon">⚙️</span>
           <span class="nav-label">Settings</span>
         </button>
       </nav>
-
       <!-- Sidebar History Sessions -->
       <div class="sidebar-history-section">
         <div class="history-header">
@@ -88,7 +86,6 @@
         </div>
         <div class="history-list" id="sessions-list"></div>
       </div>
-
       <!-- Sidebar Footer Telemetry -->
       <div class="sidebar-footer">
         <div class="telemetry-mini-card">
@@ -108,14 +105,37 @@
           </div>
         </div>
       </div>
-
     </aside>
-
     <!-- ==============================================================================
          MAIN CONTENT AREA
          ============================================================================== -->
     <main id="main-content">
-
+      <!-- ==============================================================================
+           GLOBAL AUTH NOTIFICATION POP-UP (Full Screen Backdrop Blur)
+           ============================================================================== -->
+      <div id="auth-banner" class="auth-prompt-overlay" style="display:none;">
+        <div class="auth-prompt-card">
+          <div class="auth-prompt-left">
+            <div class="auth-prompt-icon-ring">
+              <span class="auth-banner-pulse-icon">🔒</span>
+            </div>
+            <div class="auth-prompt-text-group">
+              <div class="auth-prompt-heading">Authentication Required</div>
+              <div class="auth-banner-text">
+                You are currently not logged in. If you want to log in, please <a href="javascript:void(0)" onclick="openLoginModal()" class="auth-banner-link">go here</a>.
+              </div>
+            </div>
+          </div>
+          <div class="auth-prompt-actions">
+            <button type="button" class="auth-prompt-guest-btn" onclick="dismissAuthPromptGuest()" title="Continue exploring in Guest Mode">
+              Guest Mode
+            </button>
+            <button type="button" class="auth-banner-login-btn" onclick="openLoginModal()">
+              <span>🔑</span> Login
+            </button>
+          </div>
+        </div>
+      </div>
       <!-- ==============================================================================
            VIEW: AI CHATBOT (Primary Default Intelligence Hub)
            ============================================================================== -->
@@ -130,25 +150,28 @@
               <div class="chat-header-sub">Multimodal Neural Chat • Vision & Voice Core</div>
             </div>
           </div>
-
           <div class="chat-header-right">
-            <!-- Model Switcher -->
+            <!-- Model Switcher (Categorized into Local & Cloud Models) -->
             <div class="control-select-wrapper">
               <span class="select-label">Model:</span>
               <select id="model-selector" class="chat-model-select" title="Active Intelligence Core">
-                <option value="llama3.2:latest">⚡ Local: LLaMA 3.2 (Primary)</option>
-                <option value="llama3:latest">⚡ Local: LLaMA 3</option>
-                <option value="qwen2.5:7b">⚡ Local: Qwen 2.5 7B</option>
-                <option value="phi4:latest">⚡ Local: Phi-4</option>
-                <option value="gemini-3.7-flash">⚡ Cloud: Gemini 3.7 Flash</option>
-                <option value="gemini-3.6-flash">⚡ Cloud: Gemini 3.6 Flash</option>
-                <option value="gemini-3.5-flash">⚡ Cloud: Gemini 3.5 Flash</option>
-                <option value="gemini-3.1-flash-lite">⚡ Cloud: Gemini 3.1 Flash Lite</option>
-                <option value="gemini-3.5-flash-lite">⚡ Cloud: Gemini 3.5 Flash Lite</option>
-                <option value="gemini-3.1-pro-preview">⚡ Cloud: Gemini 3.1 Pro</option>
+                <optgroup label="⚡ Local Neural Models (Offline / Private)">
+                  <option value="llama3.2:latest" selected>🦙 LLaMA 3.2 (Primary Local • Offline)</option>
+                  <option value="llama3:latest">🦙 LLaMA 3 8B (Local)</option>
+                  <option value="qwen2.5:7b">💻 Qwen 2.5 7B Coder (Local)</option>
+                  <option value="phi4:latest">🔬 Phi-4 14B (Local Reasoning)</option>
+                </optgroup>
+                <optgroup label="☁️ Cloud AI Models (Google Gemini Neural Engine)">
+                  <option value="gemini-3.8-flash">⚡ Gemini 3.8 Flash (Latest & Fast)</option>
+                  <option value="gemini-3.7-flash">🚀 Gemini 3.7 Flash (High Performance)</option>
+                  <option value="gemini-3.6-flash">⚡ Gemini 3.6 Flash (Fast & Balanced)</option>
+                  <option value="gemini-3.5-flash">⚡ Gemini 3.5 Flash</option>
+                  <option value="gemini-3.5-flash-lite">💡 Gemini 3.5 Flash Lite</option>
+                  <option value="gemini-3.1-flash-lite">🔦 Gemini 3.1 Flashlight</option>
+                  <option value="gemini-3.1-pro-preview">🧠 Gemini 3.1 Pro Preview (Deep Logic)</option>
+                </optgroup>
               </select>
             </div>
-
             <!-- Persona Switcher -->
             <div class="control-select-wrapper">
               <span class="select-label">Persona:</span>
@@ -160,7 +183,6 @@
                 <option value="sarcastic_genius">Sarcastic Genius (Witty)</option>
               </select>
             </div>
-
             <!-- Quick Action Chips -->
             <button class="chat-hdr-chip" onclick="cycleTheme()" title="Switch Vibrant Cyber Color Palette">
               🎨 <span class="chip-txt">Theme</span>
@@ -168,13 +190,41 @@
             <button class="chat-hdr-chip" onclick="toggleFullscreen()" title="Toggle Fullscreen Neural Interface">
               ⛶ <span class="chip-txt">Fullscreen</span>
             </button>
-
+            <!-- User Profile & Auth Capsule Widget -->
+            <div class="user-profile-widget" id="user-profile-widget" onclick="toggleUserDropdown(event)" title="User Account & Authentication">
+              <div class="user-avatar-pill" id="user-avatar-pill">👤</div>
+              <div class="user-info-text">
+                <span class="user-name" id="user-name-display">Guest User</span>
+                <span class="user-role-badge guest" id="user-role-badge">Not Logged In</span>
+              </div>
+              <span class="user-dropdown-arrow">▾</span>
+              <!-- Dropdown Menu -->
+              <div class="user-dropdown-menu" id="user-dropdown-menu" onclick="event.stopPropagation()">
+                <div class="user-dropdown-header">
+                  <div class="user-dropdown-avatar" id="dropdown-avatar">👤</div>
+                  <div class="user-dropdown-meta">
+                    <div class="user-dropdown-name" id="dropdown-name">Guest User</div>
+                    <div class="user-dropdown-email" id="dropdown-email">Not authenticated</div>
+                    <div class="user-dropdown-role-chip" id="dropdown-role-chip">Guest Access</div>
+                  </div>
+                </div>
+                <div class="user-dropdown-divider"></div>
+                <button class="user-dropdown-item" id="btn-admin-portal-link" onclick="switchView('admin'); closeUserDropdown();" style="display:none;">
+                  <span>🛡️</span> Admin Quotas & Usage
+                </button>
+                <button class="user-dropdown-item" onclick="openLoginModal(); closeUserDropdown();" id="btn-dropdown-login">
+                  <span>🔑</span> Sign In / Switch Account
+                </button>
+                <button class="user-dropdown-item danger" onclick="handleLogout(); closeUserDropdown();" id="btn-dropdown-logout" style="display:none;">
+                  <span>🚪</span> Sign Out
+                </button>
+              </div>
+            </div>
             <button class="chat-hdr-btn" onclick="startNewChat()" title="Start Fresh Conversation">
               <span>+</span> New
             </button>
           </div>
         </div>
-
         <!-- Chat Conversation Stage (Full Width, Centered, Clean) -->
         <div class="chat-stage-wrapper">
           <div class="chat-stage-body" id="chat-stage-body">
@@ -182,41 +232,37 @@
             <!-- Empty State Hero (Prompt Suggestions) -->
             <div id="welcome-hero" class="chat-welcome-hero">
               <div class="chat-hero-orb">⚡</div>
-              <div class="chat-hero-status">VEDAS AI 3.7 PRO — READY</div>
+              <div class="chat-hero-status">VEDAS AI 4.0 PRO — READY</div>
               <h2 class="chat-hero-title">How can I assist you today?</h2>
               <p class="chat-hero-desc">
-                Speak directly, write and debug code, capture your screen for vision QA, attach PDFs, or synthesize 8K visuals.
+                Speak directly, write and debug code, capture your screen for vision QA, synthesize VEO 8K visuals & videos, or edit media.
               </p>
-
               <div class="chat-quick-cards-grid">
                 <div class="quick-card" onclick="triggerScreenVision()" title="Capture and analyze active desktop window">
                   <div class="quick-card-icon">📸</div>
                   <div class="quick-card-title">Real-Time Screen Vision</div>
                   <div class="quick-card-desc">Capture active desktop window & let Vedas inspect errors, UI, or code.</div>
                 </div>
-                <div class="quick-card" onclick="switchView('codex')" title="Open Codex Code Lab">
+                <div class="quick-card" onclick="sendQuickChatPrompt('Write a clean, optimized Python algorithm for multi-threaded asynchronous execution with error handling.')" title="Generate clean Python code in chat">
                   <div class="quick-card-icon">💻</div>
-                  <div class="quick-card-title">Codex Neural Code Lab</div>
-                  <div class="quick-card-desc">Write, verify & execute Python algorithms with sub-50ms AST diagnostics.</div>
+                  <div class="quick-card-title">Codex Code Synthesizer</div>
+                  <div class="quick-card-desc">Generate production-ready algorithms with instant diagnostics and verification.</div>
                 </div>
-                <div class="quick-card" onclick="triggerQuickWebSearch()" title="Instant Live Web Search">
+                <div class="quick-card" onclick="sendQuickChatPrompt('Search the live web for the latest artificial intelligence breakthroughs and news in 2026.', { use_web_search: true })" title="Instant Live Web Search">
                   <div class="quick-card-icon">🌐</div>
                   <div class="quick-card-title">Deep Web Intelligence</div>
                   <div class="quick-card-desc">Instant multi-source search with live citations and real-time 2026 data.</div>
                 </div>
-                <div class="quick-card" onclick="switchView('image')" title="Open 8K Image Studio">
-                  <div class="quick-card-icon">🎨</div>
-                  <div class="quick-card-title">8K Creative Visuals</div>
-                  <div class="quick-card-desc">Generate photorealistic cinematic renders with cyber aesthetics.</div>
+                <div class="quick-card" onclick="sendQuickChatPrompt('Explain how VEO neural video and 8K image diffusion synthesis works, and give me 3 cinematic prompts to try.')" title="Creative VEO Media Assistant">
+                  <div class="quick-card-icon">🎬</div>
+                  <div class="quick-card-title">VEO Studio Assistant</div>
+                  <div class="quick-card-desc">Synthesize 8K visuals, generate cinematic videos, and edit media.</div>
                 </div>
               </div>
             </div>
-
             <!-- Active Chat Messages Stream -->
             <div id="chat-messages-container" style="display:none;"></div>
-
           </div>
-
           <!-- Floating Voice "Read in Full?" Prompt Bar (Bottom Area, One-Line Capsule) -->
           <div id="voice-read-full-panel" class="voice-read-full-bar" style="display:none;">
             <div class="vrf-bar-left">
@@ -234,18 +280,14 @@
               <button class="vrf-bar-close" onclick="dismissReadFullPrompt(false)" title="Dismiss">✕</button>
             </div>
           </div>
-
         </div>
-
         <!-- Master Chat Voice & Action Dock (Single-Line Symmetrical Interface) -->
         <div class="chat-master-dock">
           
           <!-- Hidden File Input for Attachments -->
           <input type="file" id="file-input" multiple accept=".pdf,image/*,.txt,.py,.js,.json,.md,.csv" style="display:none;">
-
           <!-- File / Vision Attachments Tray -->
           <div id="attachment-tray"></div>
-
           <!-- MODE 1: VOICE DOCK (Default 1-Line Mode with Centered Big Mic Orb) -->
           <div class="dock-symmetrical-bar" id="dock-voice-mode">
             
@@ -255,20 +297,23 @@
                 <span class="dock-icon">📎</span>
                 <span class="dock-text">Attach</span>
               </button>
+              <button class="dock-tool-btn dock-btn-camera" onclick="openChatCameraStudio()" title="Camera Vision Studio (Take Photo / Record Clip)">
+                <span class="dock-icon">📷</span>
+                <span class="dock-text">Camera</span>
+              </button>
               <button class="dock-tool-btn dock-btn-vision" onclick="triggerScreenVision()" title="Capture and analyze active screen with AI Vision">
-                <span class="dock-icon">📸</span>
+                <span class="dock-icon">🖥️</span>
                 <span class="dock-text">Screen Vision</span>
               </button>
-              <button class="dock-tool-btn" onclick="switchView('image')" title="8K Neural Image Studio">
-                <span class="dock-icon">🎨</span>
-                <span class="dock-text">8K Image</span>
+              <button class="dock-tool-btn" onclick="switchView('veo')" title="VEO Image & Video Studio">
+                <span class="dock-icon">🎬</span>
+                <span class="dock-text">VEO Studio</span>
               </button>
               <button class="dock-tool-btn" onclick="switchView('memory')" title="Persistent Memory Bank">
                 <span class="dock-icon">🧠</span>
                 <span class="dock-text">Memory</span>
               </button>
             </div>
-
             <!-- CENTER VOICE HUB: Large Prominent Mic Orb with Waveform & Transcript -->
             <div class="dock-center-voice-core">
               <div class="dock-wave-container">
@@ -285,7 +330,6 @@
               </div>
               <div class="dock-voice-caption" id="chat-voice-transcript">Click the orb or press Ctrl+M to talk</div>
             </div>
-
             <!-- RIGHT TOOLS WING (1 Line) -->
             <div class="dock-wing dock-wing-right">
               <button class="dock-tool-btn dock-btn-type" id="type-mode-toggle" onclick="setDockMode('type')" title="Switch to Keyboard Typing Bar">
@@ -305,10 +349,12 @@
                 <span class="dock-icon">💻</span>
                 <span class="dock-text">Code Lab</span>
               </button>
+              <button class="dock-tool-btn" onclick="switchView('commands')" title="System Controls & Actions">
+                <span class="dock-icon">⚡</span>
+                <span class="dock-text">System</span>
+              </button>
             </div>
-
           </div>
-
           <!-- MODE 2: TYPING DOCK (Single-Line Bar Replaces Mic in Place) -->
           <div class="dock-typing-bar-wrapper" id="dock-typing-mode" style="display:none;">
             <div class="dock-typing-bar">
@@ -319,6 +365,12 @@
               
               <button class="typing-attach-btn" onclick="document.getElementById('file-input').click()" title="Attach File [📎]">
                 📎
+              </button>
+              <button class="typing-attach-btn" onclick="openChatCameraStudio()" title="Camera Vision Studio [📷]">
+                📷
+              </button>
+              <button class="typing-attach-btn" onclick="triggerScreenVision()" title="Screen Vision [🖥️]">
+                🖥️
               </button>
               
               <textarea id="chat-input" rows="1" placeholder="Ask Vedas anything, paste code, say 'look at my screen', or press Enter to send..."></textarea>
@@ -331,11 +383,175 @@
               </button>
             </div>
           </div>
+        </div>
+      </section>
+      <!-- ==============================================================================
+           VIEW: VEDAS LIVE (Real-Time Voice-to-Voice Duplex Core & Multimodal Vision)
+           ============================================================================== -->
+      <section class="app-view" id="view-live" style="display:none;">
+        <div class="live-duplex-container">
+          
+          <!-- Live Top HUD Control Bar -->
+          <div class="live-hud-topbar">
+            <div class="live-hud-left">
+              <div class="live-brand-chip">
+                <span class="live-pulse-radar"></span>
+                <span class="live-brand-name">VEDAS LIVE</span>
+              </div>
+              <div class="live-telemetry-pill">
+                <span class="live-status-dot" id="live-connection-dot"></span>
+                <span id="live-connection-text">Real-Time Audio Active</span>
+                <span class="live-telemetry-sep">•</span>
+                <span id="live-latency-val">22ms</span>
+              </div>
+            </div>
+
+            <div class="live-hud-center">
+              <div class="live-mode-badge" id="live-mode-badge">
+                <span id="live-mode-icon">🎙️</span>
+                <span id="live-mode-label">Voice-to-Voice Continuous</span>
+              </div>
+            </div>
+
+            <div class="live-hud-right">
+              <!-- Screen Vision Toggle -->
+              <button class="live-hud-btn" id="live-screen-toggle-btn" onclick="toggleLiveScreenVision()" title="Toggle Desktop Screen Vision">
+                <span class="live-btn-icon">🖥️</span>
+                <span class="live-btn-text">Screen Vision</span>
+                <span class="live-status-tag" id="live-screen-tag">OFF</span>
+              </button>
+              
+              <!-- Camera Vision Toggle -->
+              <button class="live-hud-btn" id="live-camera-toggle-btn" onclick="toggleLiveCameraVision()" title="Toggle Live Webcam Vision">
+                <span class="live-btn-icon">📷</span>
+                <span class="live-btn-text">Camera</span>
+                <span class="live-status-tag" id="live-camera-tag">OFF</span>
+              </button>
+
+              <!-- Persona / Voice Switcher -->
+              <div class="live-select-wrapper">
+                <select id="live-persona-select" class="live-hud-select" onchange="changeLivePersona(this.value)" title="Live Voice Persona">
+                  <option value="master_vedas">👑 Master Vedas</option>
+                  <option value="cyber_coder">💻 Cyber Coder</option>
+                  <option value="deep_thinker">🧠 Deep Thinker</option>
+                  <option value="creative_muse">🎨 Creative Muse</option>
+                  <option value="sarcastic_genius">⚡ Sarcastic Genius</option>
+                </select>
+              </div>
+
+              <!-- Live Audio Output Mute -->
+              <button class="live-hud-icon-btn" id="live-speaker-btn" onclick="toggleLiveSpeaker()" title="Mute/Unmute Live Voice Output">
+                <span id="live-speaker-icon">🔊</span>
+              </button>
+
+              <!-- Exit Live Button -->
+              <button class="live-hud-exit-btn" onclick="switchView('chat')" title="Exit Live Mode">
+                <span>✕</span> Exit
+              </button>
+            </div>
+          </div>
+
+          <!-- Main Live Stage Area -->
+          <div class="live-stage-body">
+            
+            <!-- Living Neural Plasma Orb Canvas -->
+            <div class="live-visualizer-wrapper">
+              <canvas id="live-orb-canvas" class="live-orb-canvas"></canvas>
+              
+              <!-- Ambient Halo Glow Rings -->
+              <div class="live-halo-ring halo-ring-1"></div>
+              <div class="live-halo-ring halo-ring-2"></div>
+              <div class="live-halo-ring halo-ring-3"></div>
+
+              <!-- Interactive Center Microphone Orb -->
+              <div class="live-central-mic-container">
+                <button class="live-central-mic-btn" id="live-mic-btn" onclick="handleLiveMicClick()" title="Tap to Speak / Tap to Interrupt">
+                  <div class="live-mic-inner-core">
+                    <span class="live-mic-glyph" id="live-mic-glyph">🎙️</span>
+                    <div class="live-mic-ripple"></div>
+                  </div>
+                </button>
+                <div class="live-mic-hint" id="live-mic-hint">Tap to Interrupt / Talk</div>
+              </div>
+            </div>
+
+            <!-- Dynamic State Headline Readout -->
+            <div class="live-state-display">
+              <div class="live-state-headline" id="live-state-headline">VEDAS LIVE READY</div>
+              <div class="live-state-subtext" id="live-state-subtext">Speak naturally or tap the orb to interact</div>
+            </div>
+
+            <!-- Floating Picture-in-Picture Vision Box (Camera / Screen Preview) -->
+            <div class="live-pip-vision-box" id="live-pip-vision-box" style="display:none;">
+              <div class="live-pip-header">
+                <span class="live-pip-title" id="live-pip-title">📷 LIVE CAMERA FEED</span>
+                <button class="live-pip-close" onclick="closeLivePip()" title="Hide Vision Window">✕</button>
+              </div>
+              <div class="live-pip-body">
+                <video id="live-camera-video" autoplay playsinline muted style="display:none;"></video>
+                <img id="live-screen-preview-img" style="display:none;" alt="Screen Vision Preview" />
+                <div class="live-camera-reticle">
+                  <div class="reticle-corner reticle-tl"></div>
+                  <div class="reticle-corner reticle-tr"></div>
+                  <div class="reticle-corner reticle-bl"></div>
+                  <div class="reticle-corner reticle-br"></div>
+                  <div class="reticle-scanline"></div>
+                </div>
+              </div>
+              <div class="live-pip-footer">
+                <span class="live-pip-fps" id="live-pip-status">STREAMING • 30 FPS</span>
+                <button class="live-pip-action-btn" onclick="captureLiveVisionSnapshot()" title="Capture and analyze snapshot">📸 Analyze Frame</button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Live Dynamic Subtitle / Transcript HUD Pill (Floating Capsule) -->
+          <div class="live-subtitle-hud-container">
+            <div class="live-subtitle-capsule" id="live-subtitle-capsule">
+              <div class="live-speaker-badge" id="live-speaker-badge">
+                <span class="speaker-dot"></span>
+                <span id="live-speaker-label">VEDAS</span>
+              </div>
+              <div class="live-subtitle-text" id="live-subtitle-text">
+                Welcome to VEDAS Live. Start speaking, or turn on your camera/screen vision to discuss in real time.
+              </div>
+              <div class="live-subtitle-audio-wave" id="live-subtitle-audio-wave">
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Floating Controls Bar -->
+          <div class="live-bottom-dock">
+            <div class="live-dock-group">
+              <button class="live-dock-action-btn active" id="btn-live-duplex-mode" onclick="setLiveInteractionMode('continuous')" title="Continuous Hands-Free Conversation">
+                <span>🔄</span> Continuous Duplex
+              </button>
+              <button class="live-dock-action-btn" id="btn-live-ptt-mode" onclick="setLiveInteractionMode('push_to_talk')" title="Push to Talk Mode">
+                <span>🎯</span> Push-to-Talk
+              </button>
+            </div>
+
+            <div class="live-dock-group">
+              <button class="live-dock-action-btn" onclick="triggerLiveQuickQuestion('What is currently visible on my camera and screen?')" title="Quick Multimodal Vision Audit">
+                <span>👁️</span> What do you see?
+              </button>
+              <button class="live-dock-action-btn" onclick="triggerLiveQuickQuestion('Summarize our discussion so far concisely.')" title="Quick Summary">
+                <span>📝</span> Summarize
+              </button>
+              <button class="live-dock-action-btn danger-hover" onclick="interruptLiveSpeech()" title="Interrupt Speech & Listen Immediately">
+                <span>⏹️</span> Interrupt
+              </button>
+            </div>
+          </div>
 
         </div>
-
       </section>
-
       <!-- ==============================================================================
            VIEW: CODEX NEURAL CODE STUDIO (Fast AST & Auto-Repair IDE)
            ============================================================================== -->
@@ -361,13 +577,29 @@
               <option value="bash">💻 Shell / Bash</option>
             </select>
             <select id="codex-model-select" class="codex-select" title="Codex AI Model">
-              <option value="gemini-3.8-flash">⚡ Hyper-Fast: Gemini 3.8 Flash (&lt;1s)</option>
-              <option value="gemini-3.7-flash">⚡ Cloud: Gemini 3.7 Flash</option>
-              <option value="llama3.2:latest">⚡ Local: LLaMA 3.2</option>
-              <option value="qwen2.5:7b">⚡ Local: Qwen 2.5 7B</option>
+              <optgroup label="☁️ Cloud AI Models (Ultra-Fast & Smart)">
+                <option value="gemini-3.8-flash" selected>⚡ Gemini 3.8 Flash (Hyper-Fast &lt;1s)</option>
+                <option value="gemini-3.7-flash">🚀 Gemini 3.7 Flash (High Performance)</option>
+                <option value="gemini-3.6-flash">⚡ Gemini 3.6 Flash</option>
+                <option value="gemini-3.5-flash">⚡ Gemini 3.5 Flash</option>
+                <option value="gemini-3.1-pro-preview">🧠 Gemini 3.1 Pro Preview (Deep Logic)</option>
+              </optgroup>
+              <optgroup label="⚡ Local Neural Models (Private & Offline)">
+                <option value="llama3.2:latest">🦙 LLaMA 3.2 (Primary Local)</option>
+                <option value="qwen2.5:7b">💻 Qwen 2.5 7B Coder (Local)</option>
+                <option value="phi4:latest">🔬 Phi-4 (Local)</option>
+              </optgroup>
             </select>
+            <button type="button" class="codex-btn codex-btn-file" onclick="openCodexFilePicker()" title="Select local code file from your workspace">
+              📂 Open File
+            </button>
+            <input type="file" id="codex-file-input" style="display:none;" onchange="handleCodexFilePicked(event)" accept=".py,.js,.html,.css,.json,.md,.cpp,.c,.java,.ts,.sh,.bat,.txt" />
+            <span id="codex-active-file-badge" class="codex-active-file-pill" style="display:none;">
+              <span class="file-pill-icon">📄</span>
+              <span id="codex-active-file-name">file.py</span>
+              <button type="button" class="codex-pill-close" onclick="detachCodexActiveFile()" title="Detach file">✕</button>
+            </span>
           </div>
-
           <div class="codex-toolbar-right">
             <button class="codex-btn codex-btn-sample" onclick="loadCodexSample()" title="Load sample bug code">
               💡 Sample Bug
@@ -386,7 +618,6 @@
             </button>
           </div>
         </div>
-
         <div class="codex-grid">
           <div class="codex-panel codex-editor-panel">
             <div class="codex-panel-header">
@@ -394,15 +625,15 @@
               <div class="codex-editor-meta">
                 <span id="codex-line-count">Lines: 1</span>
                 <span id="codex-char-count">Chars: 0</span>
+                <button class="codex-mini-btn codex-save-btn" id="codex-save-btn" onclick="saveCodexActiveFile()" title="Save code back to active file on disk" style="display:none;">💾 Save File</button>
                 <button class="codex-mini-btn" onclick="copyCodexEditorCode()" title="Copy editor content">📋 Copy</button>
               </div>
             </div>
             <div class="codex-editor-wrapper">
               <div class="codex-line-numbers" id="codex-line-numbers">1</div>
-              <textarea id="codex-editor" class="codex-code-input" spellcheck="false" placeholder="# Paste or write your code here...&#10;# Click 'Check Code' for instant diagnostics.&#10;# Click 'Fix Code (AI)' to have Vedas automatically repair all bugs."></textarea>
+              <textarea id="codex-editor" class="codex-code-input" spellcheck="false" placeholder="# Paste, write, or open a file here...&#10;# Click 'Check Code' for instant diagnostics.&#10;# Click 'Fix Code (AI)' to have Vedas automatically repair and save fixes directly to your file."></textarea>
             </div>
           </div>
-
           <div class="codex-panel codex-output-panel">
             <div class="codex-panel-header">
               <div class="codex-output-tabs">
@@ -412,27 +643,29 @@
               </div>
               <div id="codex-status-pill" class="codex-status-pill standby">Ready</div>
             </div>
-
             <div class="codex-tab-content active" id="codex-view-check">
               <div class="codex-report-box" id="codex-report-box">
                 <div class="codex-empty-report">
                   <div class="codex-empty-icon">🔍</div>
                   <div class="codex-empty-title">Codex Ready for Inspection</div>
-                  <div class="codex-empty-desc">Enter your code on the left and click <strong>Check Code</strong> for instant AST syntax checking, logic bug hunting, and security analysis.</div>
+                  <div class="codex-empty-desc">Enter your code on the left or select a code file, then click <strong>Check Code</strong> for instant AST syntax checking, logic bug hunting, and security analysis.</div>
                 </div>
               </div>
             </div>
-
             <div class="codex-tab-content" id="codex-view-fix" style="display:none;">
+              <div class="codex-fix-actions-top" style="display:flex; justify-content:flex-end; padding:8px 12px; gap:8px; border-bottom:1px solid rgba(255,255,255,0.08);">
+                <button type="button" class="codex-btn-apply-fix" id="codex-apply-fix-top-btn" onclick="applyCodexFixToEditor(true)" title="Apply fixed code directly to editor and save to file">
+                  ⚡ Apply Fix & Save to File
+                </button>
+              </div>
               <div class="codex-fix-box" id="codex-fix-box">
                 <div class="codex-empty-report">
                   <div class="codex-empty-icon">🛠️</div>
                   <div class="codex-empty-title">No Fix Generated Yet</div>
-                  <div class="codex-empty-desc">Click <strong>Fix Code (AI)</strong> to have Vedas diagnose all flaws, reconstruct clean working code, and explain every fix.</div>
+                  <div class="codex-empty-desc">Click <strong>Fix Code (AI)</strong> to have Vedas diagnose all flaws, reconstruct clean working code, and write the fixed code directly back to your file.</div>
                 </div>
               </div>
             </div>
-
             <div class="codex-tab-content" id="codex-view-console" style="display:none;">
               <div class="codex-console-box" id="codex-console-box">
                 <pre class="codex-console-output" id="codex-console-output">$ Ready. Click 'Run Sandbox' to execute code in sandbox.</pre>
@@ -441,79 +674,914 @@
           </div>
         </div>
       </section>
-
       <!-- ==============================================================================
-           VIEW: 8K IMAGE STUDIO (Neural Diffusion Studio)
+           VIEW: VEO NEURAL MEDIA STUDIO (Image & Video Generation + Editing Suite)
            ============================================================================== -->
-      <section class="app-view" id="view-image" style="display:none;">
-        <div class="studio-page-container">
-          <div class="studio-header">
-            <div class="studio-badge">🎨 NEURAL SYNTHESIS</div>
-            <h2 class="studio-title">8K AI Image Generation Studio</h2>
-            <p class="studio-desc">Synthesize cinematic art, concept designs, wallpapers, and photorealistic renders.</p>
+      <section class="app-view" id="view-veo" style="display:none;">
+        <div class="veo-page-container">
+          
+          <!-- VEO Studio Header -->
+          <div class="veo-header">
+            <div class="veo-badge">🎬 VEO 4.0 NEURAL CREATIVE CORE</div>
+            <h2 class="veo-title">VEO Media Synthesis & Editing Studio</h2>
+            <p class="veo-desc">Synthesize photorealistic 8K visuals, generate cinematic AI videos, and perform full image/video editing.</p>
           </div>
-
-          <div class="image-studio-grid">
-            <div class="studio-controls-panel">
-              <div class="studio-form-group">
-                <label for="image-prompt-input">Prompt Description</label>
-                <textarea id="image-prompt-input" rows="3" placeholder="Describe the scene in detail... e.g. A futuristic cybernetic samurai in a glowing rain-soaked Tokyo street with blue and orange neon lights, 8k cinematic"></textarea>
+          <!-- TOP SUB-NAVIGATION BAR (Switch between Image Gen, Image Edit, Video Gen, Video Edit) -->
+          <div class="veo-subnav-bar">
+            <button class="veo-tab-btn active" id="veo-tab-image-gen" onclick="switchVeoMode('image-gen')">
+              <span class="veo-tab-icon">🎨</span>
+              <div class="veo-tab-text-group">
+                <span class="veo-tab-title">Image Generation</span>
+                <span class="veo-tab-sub">Text to 8K Visuals</span>
               </div>
-
-              <!-- Quick Inspiration Prompts -->
-              <div class="studio-form-group">
-                <label>Inspiration Prompts (Click to Use):</label>
-                <div class="studio-tag-chips">
-                  <button type="button" class="tag-chip" onclick="setImagePrompt('A futuristic cybernetic samurai in glowing rain-soaked Neo-Tokyo street with neon blue and bright orange reflections, 8k octane render')">⚡ Cyberpunk Samurai</button>
-                  <button type="button" class="tag-chip" onclick="setImagePrompt('Hyperrealistic quantum artificial intelligence neural core floating in deep space, glowing electric cyan and ember gold filaments, ultra detailed')">🧠 Neural Quantum Core</button>
-                  <button type="button" class="tag-chip" onclick="setImagePrompt('Cinematic sci-fi command workstation with holographic blueprints, glowing dark blue and orange displays, 8k photorealistic')">💻 Cyber Workstation</button>
-                </div>
+            </button>
+            <button class="veo-tab-btn" id="veo-tab-image-edit" onclick="switchVeoMode('image-edit')">
+              <span class="veo-tab-icon">🖌️</span>
+              <div class="veo-tab-text-group">
+                <span class="veo-tab-title">Image Editing</span>
+                <span class="veo-tab-sub">Inpaint, Filters & Crop</span>
               </div>
-
-              <div class="studio-row">
-                <div class="studio-form-group flex-1">
-                  <label for="image-style-select">Visual Style</label>
-                  <select id="image-style-select">
-                    <option value="cinematic">🎬 Cinematic Cyberpunk</option>
-                    <option value="photorealistic">📸 Ultra Photorealistic 8K</option>
-                    <option value="anime">✨ Anime & Concept Art</option>
-                    <option value="fantasy">🔮 Epic Fantasy</option>
-                    <option value="3d-render">💎 Octane 3D Render</option>
-                    <option value="digital-art">🖌️ Modern Digital Art</option>
-                  </select>
-                </div>
-
-                <div class="studio-form-group flex-1">
-                  <label for="image-ratio-select">Aspect Ratio</label>
-                  <select id="image-ratio-select">
-                    <option value="1:1">1:1 Square (1024x1024)</option>
-                    <option value="16:9">16:9 Widescreen (1280x720)</option>
-                    <option value="9:16">9:16 Mobile Story (720x1280)</option>
-                    <option value="4:3">4:3 Standard (1024x768)</option>
-                  </select>
-                </div>
+            </button>
+            <button class="veo-tab-btn" id="veo-tab-video-gen" onclick="switchVeoMode('video-gen')">
+              <span class="veo-tab-icon">🎬</span>
+              <div class="veo-tab-text-group">
+                <span class="veo-tab-title">Video Generation</span>
+                <span class="veo-tab-sub">Text & Image to Video</span>
               </div>
-
-              <div class="studio-btn-row">
-                <button class="studio-generate-btn" id="image-gen-btn" onclick="executeImageGeneration()">
+            </button>
+            <button class="veo-tab-btn" id="veo-tab-video-edit" onclick="switchVeoMode('video-edit')">
+              <span class="veo-tab-icon">✂️</span>
+              <div class="veo-tab-text-group">
+                <span class="veo-tab-title">Video Editing</span>
+                <span class="veo-tab-sub">Trim, Speed & FX</span>
+              </div>
+            </button>
+          </div>
+          <!-- ==============================================================================
+               VEO SUB-VIEW 1: IMAGE GENERATION (Default Mode)
+               ============================================================================== -->
+          <div class="veo-mode-panel active" id="veo-panel-image-gen">
+            <div class="veo-grid">
+              
+              <!-- Left Controls -->
+              <div class="veo-controls-card">
+                <div class="veo-section-title"><span>🎨</span> Image Synthesis Settings</div>
+                <div class="studio-form-group">
+                  <label for="veo-image-prompt">Prompt Description</label>
+                  <textarea id="veo-image-prompt" rows="3" placeholder="Describe the scene in detail... e.g. A futuristic cybernetic samurai in glowing rain-soaked Neo-Tokyo street with blue and orange neon reflections, 8k cinematic"></textarea>
+                </div>
+                <!-- Inspiration Prompts -->
+                <div class="studio-form-group">
+                  <label>Inspiration Prompts (Click to Use):</label>
+                  <div class="studio-tag-chips">
+                    <button type="button" class="tag-chip" onclick="setVeoImagePrompt('A futuristic cybernetic samurai in glowing rain-soaked Neo-Tokyo street with neon blue and bright orange reflections, 8k octane render')">⚡ Cyber Samurai</button>
+                    <button type="button" class="tag-chip" onclick="setVeoImagePrompt('Hyperrealistic quantum artificial intelligence neural core floating in deep space, glowing electric cyan and ember gold filaments, ultra detailed')">🧠 Quantum Core</button>
+                    <button type="button" class="tag-chip" onclick="setVeoImagePrompt('Cinematic sci-fi command workstation with holographic blueprints, glowing dark blue and orange displays, 8k photorealistic')">💻 Cyber Workstation</button>
+                    <button type="button" class="tag-chip" onclick="setVeoImagePrompt('Majestic golden dragon soaring through swirling violet nebulae and star clusters, cinematic lighting, 8k wallpaper')">🐉 Cosmic Dragon</button>
+                  </div>
+                </div>
+                <div class="studio-form-group">
+                  <label for="veo-image-neg-prompt">Negative Prompt (Optional)</label>
+                  <input type="text" id="veo-image-neg-prompt" class="setting-input" style="width:100%;" placeholder="blurry, distorted, low quality, bad anatomy, artifacts..." />
+                </div>
+                <div class="studio-row">
+                  <div class="studio-form-group flex-1">
+                    <label for="veo-image-style">Visual Style</label>
+                    <select id="veo-image-style">
+                      <option value="cinematic">🎬 Cinematic Cyberpunk</option>
+                      <option value="photorealistic">📸 Ultra Photorealistic 8K</option>
+                      <option value="anime">✨ Anime & Concept Art</option>
+                      <option value="fantasy">🔮 Epic Fantasy</option>
+                      <option value="3d_render">💎 Octane 3D Render</option>
+                      <option value="digital_art">🖌️ Modern Digital Art</option>
+                      <option value="neon_noir">🌃 Neon Noir Detective</option>
+                      <option value="studio_portrait">👤 Studio Portrait 85mm</option>
+                    </select>
+                  </div>
+                  <div class="studio-form-group flex-1">
+                    <label for="veo-image-ratio">Aspect Ratio</label>
+                    <select id="veo-image-ratio">
+                      <option value="1:1">1:1 Square (1024x1024)</option>
+                      <option value="16:9">16:9 Widescreen (1280x720)</option>
+                      <option value="9:16">9:16 Reel / Story (720x1280)</option>
+                      <option value="4:3">4:3 Standard (1024x768)</option>
+                      <option value="21:9">21:9 Ultra-Wide (1344x576)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="studio-row">
+                  <div class="studio-form-group flex-1">
+                    <label for="veo-image-model">Diffusion Model</label>
+                    <select id="veo-image-model">
+                      <option value="flux">⚡ Flux Ultra (Highest Fidelity)</option>
+                      <option value="turbo">🚀 Turbo High-Speed</option>
+                      <option value="midjourney">🎨 Midjourney Aesthetic</option>
+                    </select>
+                  </div>
+                  <div class="studio-form-group flex-1">
+                    <label for="veo-image-seed">Seed (Random or Custom)</label>
+                    <div style="display:flex; gap:6px;">
+                      <input type="number" id="veo-image-seed" class="setting-input" style="flex:1;" placeholder="Random" />
+                      <button type="button" class="veo-mini-icon-btn" onclick="randomizeVeoImageSeed()" title="Randomize Seed">🎲</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="veo-toggle-row">
+                  <label class="veo-checkbox-label">
+                    <input type="checkbox" id="veo-image-enhance" checked class="setting-toggle" />
+                    <span>Auto-Enhance Prompt with Neural Master Details</span>
+                  </label>
+                </div>
+                <button class="studio-generate-btn" id="veo-img-gen-btn" onclick="executeVeoImageGeneration()">
                   <span>✨</span> Generate 8K Image
                 </button>
               </div>
+              <!-- Right Preview Stage -->
+              <div class="veo-preview-card">
+                <div class="image-preview-wrapper" id="veo-image-preview-box">
+                  <div class="image-placeholder-content">
+                    <span class="ph-icon">🎨</span>
+                    <span class="ph-title">Ready for Image Synthesis</span>
+                    <span class="ph-desc">Enter your prompt on the left and click <strong>Generate 8K Image</strong> to synthesize a high-resolution render.</span>
+                  </div>
+                </div>
+                <!-- Action Bar Below Preview -->
+                <div class="veo-preview-action-bar" id="veo-image-action-bar" style="display:none;">
+                  <button class="veo-act-btn" onclick="openVeoLightbox()" title="View Fullscreen Lightbox">
+                    <span>🔍</span> Lightbox
+                  </button>
+                  <button class="veo-act-btn" onclick="downloadVeoImage()" title="Download High-Res Image">
+                    <span>💾</span> Download
+                  </button>
+                  <button class="veo-act-btn highlight" onclick="sendGeneratedImageToEditor()" title="Send image to Image Editor tab">
+                    <span>🖌️</span> Edit in Image Editor
+                  </button>
+                  <button class="veo-act-btn highlight-orange" onclick="sendGeneratedImageToVideo()" title="Animate this image to Video">
+                    <span>🎬</span> Animate to Video
+                  </button>
+                </div>
+              </div>
             </div>
+          </div>
+          <!-- ==============================================================================
+               VEO SUB-VIEW 2: IMAGE EDITING (Inpaint, Filters, Crop, Adjustments)
+               ============================================================================== -->
+          <div class="veo-mode-panel" id="veo-panel-image-edit" style="display:none;">
+            <div class="veo-grid">
+              
+              <!-- Left Editing Tools -->
+              <div class="veo-controls-card">
+                <div class="veo-section-title"><span>🖌️</span> Image Editing & Filter Studio</div>
+                <!-- Image Source Selector -->
+                <div class="studio-form-group">
+                  <label>Image Source</label>
+                  <div class="veo-file-dropzone" onclick="document.getElementById('veo-edit-file-input').click()">
+                    <span class="dropzone-icon">📁</span>
+                    <span class="dropzone-text" id="veo-dropzone-label">Click or Drag Image to Upload</span>
+                    <input type="file" id="veo-edit-file-input" accept="image/*" style="display:none;" onchange="handleVeoImageUpload(event)" />
+                  </div>
+                </div>
+                <!-- Tool Modes Navigation Tabs -->
+                <div class="veo-tool-subtabs">
+                  <button class="veo-tool-tab active" id="tool-tab-adjust" onclick="switchEditToolTab('adjust')">🎛️ Adjust</button>
+                  <button class="veo-tool-tab" id="tool-tab-filters" onclick="switchEditToolTab('filters')">🪄 AI Filters</button>
+                  <button class="veo-tool-tab" id="tool-tab-draw" onclick="switchEditToolTab('draw')">🖌️ Draw / Brush</button>
+                  <button class="veo-tool-tab" id="tool-tab-crop" onclick="switchEditToolTab('crop')">✂️ Crop</button>
+                  <button class="veo-tool-tab" id="tool-tab-text" onclick="switchEditToolTab('text')">💬 Text</button>
+                  <button class="veo-tool-tab" id="tool-tab-ai" onclick="switchEditToolTab('ai')">⚡ AI Remix</button>
+                </div>
+                <!-- SUBTAB 1: ADJUSTMENTS -->
+                <div class="veo-tool-content active" id="edit-tool-adjust">
+                  <div class="veo-slider-group">
+                    <div class="slider-header">
+                      <span>Brightness</span>
+                      <span id="val-brightness">0</span>
+                    </div>
+                    <input type="range" id="slider-brightness" min="-100" max="100" value="0" oninput="updateImageAdjustments()" />
+                  </div>
+                  <div class="veo-slider-group">
+                    <div class="slider-header">
+                      <span>Contrast</span>
+                      <span id="val-contrast">0</span>
+                    </div>
+                    <input type="range" id="slider-contrast" min="-100" max="100" value="0" oninput="updateImageAdjustments()" />
+                  </div>
+                  <div class="veo-slider-group">
+                    <div class="slider-header">
+                      <span>Saturation</span>
+                      <span id="val-saturation">0</span>
+                    </div>
+                    <input type="range" id="slider-saturation" min="-100" max="100" value="0" oninput="updateImageAdjustments()" />
+                  </div>
+                  <div class="veo-slider-group">
+                    <div class="slider-header">
+                      <span>Blur Effect</span>
+                      <span id="val-blur">0px</span>
+                    </div>
+                    <input type="range" id="slider-blur" min="0" max="20" value="0" step="1" oninput="updateImageAdjustments()" />
+                  </div>
+                  <div class="veo-slider-group">
+                    <div class="slider-header">
+                      <span>Hue Rotate</span>
+                      <span id="val-hue">0°</span>
+                    </div>
+                    <input type="range" id="slider-hue" min="0" max="360" value="0" oninput="updateImageAdjustments()" />
+                  </div>
+                  <div class="veo-checkbox-grid">
+                    <label class="veo-checkbox-chip">
+                      <input type="checkbox" id="chk-grayscale" onchange="updateImageAdjustments()" /> Grayscale
+                    </label>
+                    <label class="veo-checkbox-chip">
+                      <input type="checkbox" id="chk-invert" onchange="updateImageAdjustments()" /> Invert Colors
+                    </label>
+                    <label class="veo-checkbox-chip">
+                      <input type="checkbox" id="chk-sepia" onchange="updateImageAdjustments()" /> Sepia Film
+                    </label>
+                  </div>
+                </div>
+                <!-- SUBTAB 2: AI FILTERS -->
+                <div class="veo-tool-content" id="edit-tool-filters" style="display:none;">
+                  <div class="veo-filters-grid">
+                    <button class="veo-filter-tile active" onclick="applyPresetFilter('none')">Original</button>
+                    <button class="veo-filter-tile" onclick="applyPresetFilter('cyberpunk')">⚡ Cyber Neon</button>
+                    <button class="veo-filter-tile" onclick="applyPresetFilter('teal_orange')">🎬 Teal & Orange</button>
+                    <button class="veo-filter-tile" onclick="applyPresetFilter('noir')">🕶️ Dark Noir</button>
+                    <button class="veo-filter-tile" onclick="applyPresetFilter('sunset')">🌅 Sunset Glow</button>
+                    <button class="veo-filter-tile" onclick="applyPresetFilter('matrix')">🌲 Matrix Green</button>
+                    <button class="veo-filter-tile" onclick="applyPresetFilter('hdr')">💎 HDR Super-Clarity</button>
+                    <button class="veo-filter-tile" onclick="applyPresetFilter('vintage')">🎞️ 80s Vintage VHS</button>
+                  </div>
+                </div>
+                <!-- SUBTAB 3: DRAW & INPAINT -->
+                <div class="veo-tool-content" id="edit-tool-draw" style="display:none;">
+                  <div class="studio-row">
+                    <div class="studio-form-group flex-1">
+                      <label>Brush Size (<span id="val-brush-size">8</span>px)</label>
+                      <input type="range" id="brush-size" min="1" max="50" value="8" oninput="document.getElementById('val-brush-size').textContent=this.value" />
+                    </div>
+                    <div class="studio-form-group flex-1">
+                      <label>Brush Color</label>
+                      <input type="color" id="brush-color" value="#00f3ff" class="setting-color-picker" />
+                    </div>
+                  </div>
+                  <div class="veo-btn-pair" style="margin-top:10px;">
+                    <button class="veo-mini-btn" id="btn-brush-mode" onclick="setDrawingMode('brush')">🖌️ Brush Mode</button>
+                    <button class="veo-mini-btn" id="btn-eraser-mode" onclick="setDrawingMode('eraser')">🧹 Eraser Mode</button>
+                    <button class="veo-mini-btn" onclick="clearCanvasDrawings()">Clear Drawings</button>
+                  </div>
+                </div>
+                <!-- SUBTAB 4: CROP -->
+                <div class="veo-tool-content" id="edit-tool-crop" style="display:none;">
+                  <label>Select Crop Aspect Ratio:</label>
+                  <div class="veo-crop-chips">
+                    <button class="veo-crop-btn active" onclick="setCropRatio('free')">Free Crop</button>
+                    <button class="veo-crop-btn" onclick="setCropRatio('1:1')">1:1 Square</button>
+                    <button class="veo-crop-btn" onclick="setCropRatio('16:9')">16:9 Widescreen</button>
+                    <button class="veo-crop-btn" onclick="setCropRatio('9:16')">9:16 Mobile</button>
+                    <button class="veo-crop-btn" onclick="setCropRatio('4:3')">4:3 Photo</button>
+                  </div>
+                  <button class="studio-generate-btn" style="margin-top:14px;" onclick="applyCanvasCrop()">Apply Crop</button>
+                </div>
+                <!-- SUBTAB 5: TEXT OVERLAY -->
+                <div class="veo-tool-content" id="edit-tool-text" style="display:none;">
+                  <div class="studio-form-group">
+                    <label>Overlay Text</label>
+                    <input type="text" id="overlay-text-input" class="setting-input" placeholder="e.g. VEDAS AI • 2026" />
+                  </div>
+                  <div class="studio-row">
+                    <div class="studio-form-group flex-1">
+                      <label>Position</label>
+                      <select id="overlay-text-pos">
+                        <option value="bottom-right">Bottom Right</option>
+                        <option value="bottom-center">Bottom Center</option>
+                        <option value="top-left">Top Left</option>
+                        <option value="center">Center</option>
+                      </select>
+                    </div>
+                    <div class="studio-form-group flex-1">
+                      <label>Font Size</label>
+                      <input type="number" id="overlay-text-size" value="28" min="12" max="100" class="setting-input" />
+                    </div>
+                  </div>
+                  <button class="studio-generate-btn" style="margin-top:10px;" onclick="applyTextOverlay()">Add Text to Image</button>
+                </div>
+                <!-- SUBTAB 6: AI PROMPT REMIX -->
+                <div class="veo-tool-content" id="edit-tool-ai" style="display:none;">
+                  <div class="studio-form-group">
+                    <label>AI Prompt-Guided Inpainting / Remix</label>
+                    <textarea id="ai-remix-prompt" rows="3" placeholder="Describe modifications (e.g. Add glowing neon sunglasses, change background to a cyberpunk neon rain city)..."></textarea>
+                  </div>
+                  <button class="studio-generate-btn" onclick="executeAiImageRemix()">
+                    <span>⚡</span> Synthesize AI Remix
+                  </button>
+                </div>
+                <!-- Actions Footer -->
+                <div class="veo-edit-footer-actions">
+                  <button class="veo-act-btn" onclick="resetImageAdjustments()">
+                    <span>🔄</span> Reset All
+                  </button>
+                  <button class="studio-generate-btn" onclick="exportEditedImage()">
+                    <span>💾</span> Export & Download
+                  </button>
+                  <button class="veo-act-btn highlight-orange" onclick="sendEditedImageToVideo()">
+                    <span>🎬</span> Animate to Video
+                  </button>
+                </div>
+              </div>
+              <!-- Right Canvas Stage -->
+              <div class="veo-preview-card">
+                <div class="veo-canvas-container" id="veo-canvas-container">
+                  <div class="image-placeholder-content" id="veo-canvas-placeholder">
+                    <span class="ph-icon">🖌️</span>
+                    <span class="ph-title">Interactive Editing Canvas</span>
+                    <span class="ph-desc">Upload an image on the left or send an image from Generation to begin editing.</span>
+                  </div>
+                  <canvas id="veo-editor-canvas" style="display:none;"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- ==============================================================================
+               VEO SUB-VIEW 3: VIDEO GENERATION (Text-to-Video & Image-to-Video)
+               ============================================================================== -->
+          <div class="veo-mode-panel" id="veo-panel-video-gen" style="display:none;">
+            <div class="veo-grid">
+              
+              <!-- Left Video Generation Controls -->
+              <div class="veo-controls-card">
+                <div class="veo-section-title"><span>🎬</span> AI Video Generation Core</div>
+                <!-- Generation Mode Toggle -->
+                <div class="veo-mode-segmented-ctrl">
+                  <button class="veo-seg-btn active" id="btn-vmode-t2v" onclick="setVideoGenMode('text')">
+                    <span>📝</span> Text-to-Video
+                  </button>
+                  <button class="veo-seg-btn" id="btn-vmode-i2v" onclick="setVideoGenMode('image')">
+                    <span>🖼️</span> Image-to-Video
+                  </button>
+                </div>
+                <div class="studio-form-group">
+                  <label for="veo-video-prompt">Video Scene Prompt</label>
+                  <textarea id="veo-video-prompt" rows="3" placeholder="Describe cinematic motion... e.g. An ultra-realistic glowing hypercar speeding through a cyberpunk neon rain tunnel with motion blur, reflections, 4k 60fps"></textarea>
+                </div>
+                <!-- Image Reference Container (Image-to-Video) -->
+                <div class="studio-form-group" id="veo-i2v-container" style="display:none;">
+                  <label>Reference Image</label>
+                  <div class="veo-reference-preview" id="veo-ref-preview-box">
+                    <span id="veo-ref-label">No reference image attached</span>
+                  </div>
+                  <button type="button" class="veo-mini-btn" onclick="document.getElementById('veo-vid-ref-input').click()" style="margin-top:6px;">
+                    📎 Upload Reference Image
+                  </button>
+                  <input type="file" id="veo-vid-ref-input" accept="image/*" style="display:none;" onchange="handleVideoRefUpload(event)" />
+                </div>
+                <!-- AI Video Generation Engine -->
+                <div class="studio-form-group">
+                  <label for="veo-video-engine">AI Video Engine</label>
+                  <select id="veo-video-engine">
+                    <option value="auto">⚡ Auto (LTX-Video 2.0 / Zeroscope / Wan - Free Neural Diffusion)</option>
+                    <option value="ltx_video">🚀 LTX-Video 2.0 Distilled (Free Real AI Video)</option>
+                    <option value="zeroscope">🌌 Zeroscope v2 (Free Diffusion Text-to-Video)</option>
+                    <option value="hunyuan">🎬 Hunyuan Video 1.5 (Free Neural Image-to-Video)</option>
+                    <option value="wan_video">🎥 Wan 2.1 Video Generator (Free Diffusion)</option>
+                    <option value="veo_cloud">🧠 Google Veo 3.1 Cloud (Paid / Quota)</option>
+                  </select>
+                </div>
+                <!-- Camera Motion Presets -->
+                <div class="studio-form-group">
+                  <label for="veo-camera-motion">Camera Motion Preset</label>
+                  <select id="veo-camera-motion">
+                    <option value="orbit">🛰️ 360 Orbit Camera Around Subject</option>
+                    <option value="zoom_in">🔍 Dynamic Push-In Zoom</option>
+                    <option value="zoom_out">🔭 Wide Cinematic Pull-Back</option>
+                    <option value="pan_left">↔️ Pan Left to Right</option>
+                    <option value="pan_right">➡️ Pan Right to Left</option>
+                    <option value="tilt_up">⬆️ Low-Angle Tilt Upward</option>
+                    <option value="drone">🛸 High-Speed Drone Aerial Flyover</option>
+                    <option value="vertigo">🌀 Vertigo Dolly-Zoom Effect</option>
+                    <option value="static">🎯 Static Macro with Particle Physics</option>
+                  </select>
+                </div>
+                <div class="studio-row">
+                  <div class="studio-form-group flex-1">
+                    <label for="veo-video-style">Cinematic Style</label>
+                    <select id="veo-video-style">
+                      <option value="cinematic">🎬 Hyper-Cinematic 4K</option>
+                      <option value="cyberpunk">⚡ Cyberpunk Neo-Tokyo</option>
+                      <option value="anime">✨ Anime Cinematic Studio</option>
+                      <option value="photorealistic">📸 Photorealistic Real Life</option>
+                      <option value="digital_art">🌌 Sci-Fi Space Odyssey</option>
+                    </select>
+                  </div>
+                  <div class="studio-form-group flex-1">
+                    <label for="veo-video-ratio">Aspect Ratio</label>
+                    <select id="veo-video-ratio">
+                      <option value="16:9">16:9 Widescreen (1280x720)</option>
+                      <option value="9:16">9:16 Mobile Story (720x1280)</option>
+                      <option value="1:1">1:1 Square (1024x1024)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="studio-row">
+                  <div class="studio-form-group flex-1">
+                    <label for="veo-video-duration">Duration</label>
+                    <select id="veo-video-duration">
+                      <option value="5">5 Seconds (Standard)</option>
+                      <option value="3">3 Seconds (Fast)</option>
+                      <option value="8">8 Seconds (Cinematic)</option>
+                      <option value="10">10 Seconds (Extended)</option>
+                    </select>
+                  </div>
+                  <div class="studio-form-group flex-1">
+                    <label for="veo-video-fps">Frame Rate</label>
+                    <select id="veo-video-fps">
+                      <option value="30">30 FPS (Smooth)</option>
+                      <option value="60">60 FPS (Ultra Fluid)</option>
+                      <option value="24">24 FPS (Film Look)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="studio-form-group">
+                  <div class="slider-header">
+                    <span>Motion Dynamics Intensity</span>
+                    <span id="val-motion-strength">5</span>
+                  </div>
+                  <input type="range" id="veo-motion-strength" min="1" max="10" value="5" oninput="document.getElementById('val-motion-strength').textContent=this.value" />
+                </div>
+                <button class="studio-generate-btn" id="veo-vid-gen-btn" onclick="executeVeoVideoGeneration()">
+                  <span>🎬</span> Synthesize Cinematic Video
+                </button>
+              </div>
+              <!-- Right Video Player Stage -->
+              <div class="veo-preview-card">
+                <div class="veo-video-stage-wrapper" id="veo-video-stage">
+                  <div class="image-placeholder-content" id="veo-video-placeholder">
+                    <span class="ph-icon">🎬</span>
+                    <span class="ph-title">Ready for AI Video Synthesis</span>
+                    <span class="ph-desc">Configure your camera motion and prompt on the left and click <strong>Synthesize Cinematic Video</strong> to generate motion video.</span>
+                  </div>
+                  
+                  <!-- Interactive HTML5 Video Player with Synchronized Audio -->
+                  <div class="veo-player-container" id="veo-player-container" style="display:none;">
+                    <video id="veo-rendered-video" loop playsinline></video>
+                    <canvas id="veo-animated-canvas"></canvas>
+                    <audio id="veo-rendered-audio" loop></audio>
+                    
+                    <!-- Soundscape & Cinematic Music Badge -->
+                    <div class="veo-sound-banner" id="veo-sound-banner" style="display:none;">
+                      <span class="sound-icon">🎵</span>
+                      <span id="veo-sound-theme-text">Cinematic Soundtrack & Spatial SFX Active</span>
+                    </div>
 
-            <div class="studio-preview-panel">
-              <div class="image-preview-wrapper" id="image-preview-box">
-                <div class="image-placeholder-content">
-                  <span class="ph-icon">🎨</span>
-                  <span class="ph-title">Ready for Image Synthesis</span>
-                  <span class="ph-desc">Enter your prompt on the left and click <strong>Generate 8K Image</strong> to synthesize a high-resolution render.</span>
+                    <!-- Custom Player Controls Bar -->
+                    <div class="veo-player-controls-dock">
+                      <button class="veo-ctrl-btn" id="veo-play-pause-btn" onclick="toggleVeoVideoPlay()" title="Play/Pause">▶</button>
+                      <span class="veo-time-display" id="veo-time-readout">00:00 / 00:05</span>
+                      <input type="range" class="veo-scrub-slider" id="veo-scrub-bar" min="0" max="100" value="0" oninput="scrubVeoVideo(this.value)" title="Timeline Scrubber" />
+                      <button class="veo-ctrl-btn" onclick="toggleVeoAudioMute()" id="veo-mute-btn" title="Toggle Sound / Music">🔊</button>
+                      <input type="range" class="veo-volume-slider" id="veo-volume-bar" min="0" max="100" value="85" oninput="setVeoAudioVolume(this.value)" title="Volume Slider" style="width:65px; accent-color:var(--blue-bright); cursor:pointer;" />
+                      <button class="veo-ctrl-btn" onclick="toggleVeoVideoLoop()" id="veo-loop-btn" title="Toggle Looping">🔁</button>
+                      <select class="veo-speed-select" id="veo-playback-speed" onchange="changeVeoVideoSpeed(this.value)" title="Playback Speed">
+                        <option value="0.5">0.5x</option>
+                        <option value="1" selected>1.0x</option>
+                        <option value="1.5">1.5x</option>
+                        <option value="2">2.0x</option>
+                      </select>
+                      <button class="veo-ctrl-btn" onclick="toggleVeoVideoFullscreen()" title="Fullscreen">⛶</button>
+                    </div>
+                  </div>
+                </div>
+                <!-- Video Actions Footer -->
+                <div class="veo-preview-action-bar" id="veo-video-action-bar" style="display:none;">
+                  <button class="veo-act-btn highlight" onclick="downloadVeoVideo('mp4')">
+                    <span>💾</span> Download MP4 (with Audio)
+                  </button>
+                  <button class="veo-act-btn" onclick="downloadVeoVideo('webm')">
+                    <span>📹</span> Download WebM
+                  </button>
+                  <button class="veo-act-btn highlight-orange" onclick="sendGeneratedVideoToEditor()">
+                    <span>✂️</span> Open in Video Editor
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- ==============================================================================
+               VEO SUB-VIEW 4: VIDEO EDITING (Trim, Speed, Color Grading & Overlays)
+               ============================================================================== -->
+          <div class="veo-mode-panel" id="veo-panel-video-edit" style="display:none;">
+            <div class="veo-grid">
+              
+              <!-- Left Video Editing Controls -->
+              <div class="veo-controls-card">
+                <div class="veo-section-title"><span>✂️</span> Video Post-Production & FX</div>
+                <div class="studio-form-group">
+                  <label>Video Source</label>
+                  <div class="veo-file-dropzone" onclick="document.getElementById('veo-video-edit-file').click()">
+                    <span class="dropzone-icon">📹</span>
+                    <span class="dropzone-text" id="veo-video-drop-label">Click or Drag Video to Edit (MP4 / WebM)</span>
+                    <input type="file" id="veo-video-edit-file" accept="video/*" style="display:none;" onchange="handleVeoVideoUpload(event)" />
+                  </div>
+                </div>
+                <!-- Timeline Trim Controls -->
+                <div class="veo-edit-box">
+                  <div class="veo-edit-box-title">⏱️ Timeline Trimming</div>
+                  <div class="studio-row">
+                    <div class="studio-form-group flex-1">
+                      <label>Start (sec)</label>
+                      <input type="number" id="v-trim-start" value="0" min="0" step="0.1" class="setting-input" onchange="updateVideoTrim()" />
+                    </div>
+                    <div class="studio-form-group flex-1">
+                      <label>End (sec)</label>
+                      <input type="number" id="v-trim-end" value="5" min="0.5" step="0.1" class="setting-input" onchange="updateVideoTrim()" />
+                    </div>
+                  </div>
+                  <div class="trim-indicator-text" id="v-trim-duration-text">Trim Duration: 5.0 seconds</div>
+                </div>
+                <!-- Playback & Audio Controls -->
+                <div class="studio-row">
+                  <div class="studio-form-group flex-1">
+                    <label for="v-edit-speed">Playback Speed</label>
+                    <select id="v-edit-speed" onchange="applyVideoEditSpeed(this.value)">
+                      <option value="0.25">0.25x (Slow-Motion)</option>
+                      <option value="0.5">0.5x (Half Speed)</option>
+                      <option value="0.75">0.75x (Gentle Slow-Mo)</option>
+                      <option value="1.0" selected>1.0x (Normal)</option>
+                      <option value="1.25">1.25x (Brisk)</option>
+                      <option value="1.5">1.5x (Fast-Forward)</option>
+                      <option value="2.0">2.0x (2x Speed)</option>
+                    </select>
+                  </div>
+                  <div class="studio-form-group flex-1">
+                    <label for="v-edit-ratio">Aspect Ratio</label>
+                    <select id="v-edit-ratio" onchange="applyVideoAspectRatio(this.value)">
+                      <option value="16/9" selected>16:9 Widescreen</option>
+                      <option value="9/16">9:16 Reel / Story</option>
+                      <option value="1/1">1:1 Square</option>
+                      <option value="4/3">4:3 Standard</option>
+                    </select>
+                  </div>
+                </div>
+                <!-- Video Volume Slider -->
+                <div class="veo-slider-group">
+                  <div class="slider-header">
+                    <span>Video Volume</span>
+                    <span id="val-video-volume">100%</span>
+                  </div>
+                  <input type="range" id="slider-video-volume" min="0" max="100" value="100" oninput="updateVideoVolume(this.value)" />
+                </div>
+                <!-- Visual Sliders (Brightness, Contrast, Saturation) -->
+                <div class="veo-slider-group">
+                  <div class="slider-header">
+                    <span>Brightness</span>
+                    <span id="val-video-brightness">0%</span>
+                  </div>
+                  <input type="range" id="slider-video-brightness" min="-50" max="50" value="0" oninput="updateVideoVisualFilters()" />
+                </div>
+                <div class="veo-slider-group">
+                  <div class="slider-header">
+                    <span>Contrast</span>
+                    <span id="val-video-contrast">0%</span>
+                  </div>
+                  <input type="range" id="slider-video-contrast" min="-50" max="50" value="0" oninput="updateVideoVisualFilters()" />
+                </div>
+                <div class="veo-slider-group">
+                  <div class="slider-header">
+                    <span>Saturation</span>
+                    <span id="val-video-saturation">0%</span>
+                  </div>
+                  <input type="range" id="slider-video-saturation" min="-50" max="50" value="0" oninput="updateVideoVisualFilters()" />
+                </div>
+                <!-- Color Grading Filters -->
+                <div class="studio-form-group">
+                  <label>Cinematic Color Grading FX</label>
+                  <div class="veo-filters-grid">
+                    <button class="veo-filter-tile active" onclick="applyVideoFilter('none')">Original</button>
+                    <button class="veo-filter-tile" onclick="applyVideoFilter('cyberpunk')">⚡ Cyber Neon</button>
+                    <button class="veo-filter-tile" onclick="applyVideoFilter('teal_orange')">🎬 Teal & Orange</button>
+                    <button class="veo-filter-tile" onclick="applyVideoFilter('noir')">🕶️ Noir Cinema</button>
+                    <button class="veo-filter-tile" onclick="applyVideoFilter('vhs')">🎞️ 80s VHS Tape</button>
+                    <button class="veo-filter-tile" onclick="applyVideoFilter('matrix')">🌲 Matrix Emerald</button>
+                  </div>
+                </div>
+                <!-- Movable Text Overlay & Subtitles -->
+                <div class="studio-form-group">
+                  <label>Title / Text Overlay <span style="font-size:0.72rem; color:var(--blue-bright); font-weight:400;">(Draggable on video)</span></label>
+                  <input type="text" id="v-overlay-text" class="setting-input" placeholder="e.g. VEDAS AI CINEMATICS" oninput="updateVideoTextOverlay(this.value)" />
+                </div>
+                <!-- Audio Toggle & Snapshot -->
+                <div class="veo-btn-pair">
+                  <button class="veo-mini-btn" id="v-play-pause-btn" onclick="toggleEditVideoPlayback()">⏸ Pause / Play</button>
+                  <button class="veo-mini-btn" id="v-stop-btn" onclick="stopEditVideoPlayback()">⏹ Stop Video</button>
+                  <button class="veo-mini-btn highlight" onclick="captureVideoFrameToImageEditor()">📸 Snapshot</button>
+                </div>
+                <button class="studio-generate-btn" style="margin-top:14px;" onclick="exportEditedVideo()">
+                  <span>💾</span> Save & Export to Desktop / Disk
+                </button>
+              </div>
+              <!-- Right Video Editor Canvas Preview -->
+              <div class="veo-preview-card">
+                <div class="veo-video-stage-wrapper" id="veo-video-edit-stage">
+                  <div class="image-placeholder-content" id="veo-edit-placeholder">
+                    <span class="ph-icon">✂️</span>
+                    <span class="ph-title">Video Editing Preview</span>
+                    <span class="ph-desc">Load a generated video or upload a video file on the left to trim, grade, and edit.</span>
+                  </div>
+                  <div class="veo-edit-player-box" id="veo-edit-player-box" style="display:none; position:relative;">
+                    <video id="veo-edit-video-element" loop playsinline></video>
+                    <div id="veo-edit-watermark-overlay" class="veo-video-overlay-caption draggable-overlay" title="Drag to reposition watermark"></div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </section>
+      <!-- ==============================================================================
+           VIEW: ADMIN DASHBOARD & MODEL QUOTA MONITOR (ghanekar.vedansh@gmail.com)
+           ============================================================================== -->
+      <section class="app-view" id="view-admin" style="display:none;">
+        <div class="admin-page-container">
+          
+          <!-- Admin Dashboard Header -->
+          <div class="admin-header">
+            <div class="admin-header-left">
+              <div class="admin-badge">🛡️ EXECUTIVE CONTROL CORE</div>
+              <h2 class="admin-title">VEDAS AI — Model Usage & Quota Monitor</h2>
+              <p class="admin-desc">Real-time system telemetry, active Gemini & LLaMA quota tracking, and infrastructure diagnostics.</p>
+            </div>
+            <div class="admin-header-right">
+              <div class="admin-user-tag">
+                <span class="admin-crown-icon">👑</span>
+                <div>
+                  <div class="admin-user-title">Master Administrator</div>
+                  <div class="admin-user-email">ghanekar.vedansh@gmail.com</div>
+                </div>
+              </div>
+              <button class="admin-btn-refresh" onclick="fetchAdminUsageMetrics()" title="Refresh Live Metrics">
+                🔄 Refresh Live
+              </button>
+            </div>
+          </div>
+          <!-- Admin Sub-Navigation Tabs -->
+          <div class="admin-subnav-bar">
+            <button class="admin-subnav-btn active" id="admin-subtab-telemetry" onclick="switchAdminSubTab('telemetry')">
+              📊 Telemetry & Model Quotas
+            </button>
+            <button class="admin-subnav-btn" id="admin-subtab-users" onclick="switchAdminSubTab('users')">
+              👥 User Accounts Vault (<span id="adm-user-count-badge">1</span>)
+            </button>
+          </div>
 
+          <!-- SUBPANEL 1: TELEMETRY & MODEL QUOTAS -->
+          <div id="admin-panel-telemetry">
+            <!-- Top Executive Metrics Matrix -->
+            <div class="admin-stats-grid">
+              <div class="admin-stat-card">
+                <div class="admin-stat-icon">⚡</div>
+                <div class="admin-stat-data">
+                  <div class="admin-stat-val" id="adm-total-queries">0</div>
+                  <div class="admin-stat-lbl">Total API Calls</div>
+                </div>
+              </div>
+              <div class="admin-stat-card">
+                <div class="admin-stat-icon">☁️</div>
+                <div class="admin-stat-data">
+                  <div class="admin-stat-val" id="adm-gemini-calls">0</div>
+                  <div class="admin-stat-lbl">Gemini Cloud Queries</div>
+                </div>
+              </div>
+              <div class="admin-stat-card">
+                <div class="admin-stat-icon">🦙</div>
+                <div class="admin-stat-data">
+                  <div class="admin-stat-val" id="adm-llama-calls">0</div>
+                  <div class="admin-stat-lbl">Local LLaMA Inferences</div>
+                </div>
+              </div>
+              <div class="admin-stat-card">
+                <div class="admin-stat-icon">🎬</div>
+                <div class="admin-stat-data">
+                  <div class="admin-stat-val" id="adm-veo-media">0</div>
+                  <div class="admin-stat-lbl">VEO Media Synthesized</div>
+                </div>
+              </div>
+            </div>
+            <!-- MODEL QUOTA & CAPACITY PROGRESS BARS (Gemini + LLaMA) -->
+            <div class="admin-quotas-split-grid">
+              
+              <!-- CARD 1: GEMINI MODEL USAGE & REMAINING QUOTA -->
+              <div class="admin-quota-panel gemini-panel">
+                <div class="quota-panel-header">
+                  <div class="quota-brand">
+                    <span class="quota-logo">⚡</span>
+                    <div>
+                      <div class="quota-title">Google Gemini Neural Cloud</div>
+                      <div class="quota-sub">Supervisor & Reasoning Models (3.7 Flash, 3.8, 3.5, 3.1 Pro)</div>
+                    </div>
+                  </div>
+                  <span class="quota-health-badge" id="adm-gemini-status">Active • Tier 1</span>
+                </div>
+                <!-- BAR 1: Requests Used vs Remaining Quota -->
+                <div class="quota-metric-group">
+                  <div class="quota-metric-info">
+                    <span class="metric-name">Daily Request Quota</span>
+                    <span class="metric-usage-text" id="adm-gemini-req-text">142 / 1,500 Requests Used</span>
+                  </div>
+                  <div class="quota-progress-track">
+                    <div class="quota-progress-fill fill-blue" id="adm-gemini-req-bar" style="width: 10%;"></div>
+                  </div>
+                  <div class="quota-metric-footer">
+                    <span class="metric-remaining-highlight" id="adm-gemini-req-rem">✨ 1,358 Requests remaining (90.5%)</span>
+                    <span class="metric-limit-tag">Quota Limit: 1,500 RPD</span>
+                  </div>
+                </div>
+                <!-- BAR 2: Token Throughput Quota -->
+                <div class="quota-metric-group">
+                  <div class="quota-metric-info">
+                    <span class="metric-name">Token Consumption Allowance</span>
+                    <span class="metric-usage-text" id="adm-gemini-tok-text">184,200 / 1,000,000 Tokens</span>
+                  </div>
+                  <div class="quota-progress-track">
+                    <div class="quota-progress-fill fill-cyan" id="adm-gemini-tok-bar" style="width: 18%;"></div>
+                  </div>
+                  <div class="quota-metric-footer">
+                    <span class="metric-remaining-highlight" id="adm-gemini-tok-rem">✨ 815,800 Tokens remaining (81.6%)</span>
+                    <span class="metric-limit-tag">TPM Bandwidth: High</span>
+                  </div>
+                </div>
+                <!-- Gemini Metadata Details -->
+                <div class="admin-meta-list">
+                  <div class="admin-meta-row">
+                    <span class="meta-label">API Key Configuration</span>
+                    <span class="meta-val font-mono" id="adm-gemini-key">AQ.Ab8RN6...v0g (Embedded)</span>
+                  </div>
+                  <div class="admin-meta-row">
+                    <span class="meta-label">Average API Latency</span>
+                    <span class="meta-val highlight-green" id="adm-gemini-latency">~0.82s sub-second</span>
+                  </div>
+                  <div class="admin-meta-row">
+                    <span class="meta-label">Active Cloud Fallback</span>
+                    <span class="meta-val" id="adm-gemini-chain">3.7 Flash → 3.8 Flash → 3.5 Flash → 3.1 Pro</span>
+                  </div>
+                </div>
+              </div>
+              <!-- CARD 2: LOCAL LLAMA MODEL USAGE & VRAM CAPACITY -->
+              <div class="admin-quota-panel llama-panel">
+                <div class="quota-panel-header">
+                  <div class="quota-brand">
+                    <span class="quota-logo">🦙</span>
+                    <div>
+                      <div class="quota-title">Local LLaMA & Ollama Engine</div>
+                      <div class="quota-sub">On-Device Edge Neural Inference (LLaMA 3.2, Qwen 2.5, Phi-4)</div>
+                    </div>
+                  </div>
+                  <span class="quota-health-badge local-badge" id="adm-llama-status">Ollama: Online</span>
+                </div>
+                <!-- BAR 1: Context Window Capacity -->
+                <div class="quota-metric-group">
+                  <div class="quota-metric-info">
+                    <span class="metric-name">Active Context Window Capacity</span>
+                    <span class="metric-usage-text" id="adm-llama-ctx-text">2,450 / 8,192 Tokens</span>
+                  </div>
+                  <div class="quota-progress-track">
+                    <div class="quota-progress-fill fill-orange" id="adm-llama-ctx-bar" style="width: 30%;"></div>
+                  </div>
+                  <div class="quota-metric-footer">
+                    <span class="metric-remaining-highlight orange" id="adm-llama-ctx-rem">⚡ 5,742 Context Tokens free (70.1%)</span>
+                    <span class="metric-limit-tag">Max Buffer: 8,192</span>
+                  </div>
+                </div>
+                <!-- BAR 2: GPU VRAM Allocation -->
+                <div class="quota-metric-group">
+                  <div class="quota-metric-info">
+                    <span class="metric-name">GPU VRAM Allocation / Memory</span>
+                    <span class="metric-usage-text" id="adm-llama-vram-text">3.8 GB / 8.0 GB VRAM</span>
+                  </div>
+                  <div class="quota-progress-track">
+                    <div class="quota-progress-fill fill-amber" id="adm-llama-vram-bar" style="width: 47%;"></div>
+                  </div>
+                  <div class="quota-metric-footer">
+                    <span class="metric-remaining-highlight orange" id="adm-llama-vram-rem">⚡ 4.2 GB VRAM Headroom Available</span>
+                    <span class="metric-limit-tag">Shared Memory: Dynamic</span>
+                  </div>
+                </div>
+                <!-- LLaMA Metadata Details -->
+                <div class="admin-meta-list">
+                  <div class="admin-meta-row">
+                    <span class="meta-label">Daemon Endpoint</span>
+                    <span class="meta-val font-mono">http://127.0.0.1:11434</span>
+                  </div>
+                  <div class="admin-meta-row">
+                    <span class="meta-label">Inference Speed</span>
+                    <span class="meta-val highlight-cyan" id="adm-llama-speed">~48 tokens/sec</span>
+                  </div>
+                  <div class="admin-meta-row">
+                    <span class="meta-label">Preloaded Model in VRAM</span>
+                    <span class="meta-val" id="adm-llama-loaded-model">llama3.2:latest (Ready)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- ADMIN ACTIONS & AUDIT LOG -->
+            <div class="admin-controls-card">
+              <div class="admin-controls-header">
+                <span class="admin-box-title">🛠️ Model Diagnostics & Live Probes</span>
+                <div class="admin-btn-group">
+                  <button class="admin-ctrl-btn" onclick="testGeminiConnection()">
+                    <span>⚡</span> Test Gemini API Ping
+                  </button>
+                  <button class="admin-ctrl-btn" onclick="testLlamaConnection()">
+                    <span>🦙</span> Test Local LLaMA Ping
+                  </button>
+                </div>
+              </div>
+              <!-- Activity Log Table -->
+              <div class="admin-audit-section">
+                <div class="audit-header">📜 Recent Real-Time Activity & Audit Log</div>
+                <div class="admin-audit-table-wrapper">
+                  <table class="admin-audit-table">
+                    <thead>
+                      <tr>
+                        <th>Time</th>
+                        <th>Action / Event</th>
+                        <th>Details</th>
+                        <th>User Account</th>
+                      </tr>
+                    </thead>
+                    <tbody id="adm-audit-tbody">
+                      <tr>
+                        <td colspan="4" style="text-align:center; color:var(--text-dim);">Loading activity log...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SUBPANEL 2: USER ACCOUNTS VAULT -->
+          <div id="admin-panel-users" style="display:none;">
+            <div class="admin-controls-card">
+              <div class="admin-controls-header">
+                <span class="admin-box-title">➕ Create & Register New User Account</span>
+              </div>
+              <form id="admin-create-user-form" onsubmit="handleAdminCreateUser(event)" class="admin-create-user-grid">
+                <div class="studio-form-group">
+                  <label for="adm-new-name">Full Name</label>
+                  <input type="text" id="adm-new-name" class="setting-input" placeholder="e.g. Alex Johnson" required />
+                </div>
+                <div class="studio-form-group">
+                  <label for="adm-new-email">Gmail / Email Address</label>
+                  <input type="email" id="adm-new-email" class="setting-input" placeholder="e.g. user@gmail.com" required />
+                </div>
+                <div class="studio-form-group">
+                  <label for="adm-new-pwd">Password</label>
+                  <input type="password" id="adm-new-pwd" class="setting-input" placeholder="Password (min 4 chars)" required />
+                </div>
+                <div class="studio-form-group">
+                  <label for="adm-new-role">Role</label>
+                  <select id="adm-new-role" class="setting-select">
+                    <option value="user" selected>User (Standard)</option>
+                    <option value="admin">Administrator</option>
+                  </select>
+                </div>
+                <button type="submit" class="admin-ctrl-btn highlight" style="height:38px; align-self:flex-end;">
+                  <span>✨</span> Create User
+                </button>
+              </form>
+            </div>
+
+            <!-- Users List Table -->
+            <div class="admin-controls-card" style="margin-top:16px;">
+              <div class="admin-controls-header">
+                <span class="admin-box-title">👥 Registered Accounts in Vault (Stored in memory/user_accounts.json)</span>
+                <button class="admin-ctrl-btn" onclick="fetchAdminUserVault()">
+                  <span>🔄</span> Refresh Users
+                </button>
+              </div>
+              <div class="admin-audit-table-wrapper" style="max-height:480px;">
+                <table class="admin-users-table">
+                  <thead>
+                    <tr>
+                      <th style="width:40px;">Avatar</th>
+                      <th>Full Name</th>
+                      <th>Gmail / Email</th>
+                      <th>Role</th>
+                      <th>Password</th>
+                      <th>Registered On</th>
+                      <th style="text-align:right;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-users-tbody">
+                    <tr>
+                      <td colspan="7" style="text-align:center; color:var(--text-dim); padding:20px;">Loading accounts vault...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
       <!-- ==============================================================================
            VIEW: MEMORY BANK
            ============================================================================== -->
@@ -524,14 +1592,12 @@
             <h2 class="memory-title">Persistent Knowledge & Long-Term Memory</h2>
             <p class="memory-desc">Information stored here is recalled across all conversations by VEDAS AI.</p>
           </div>
-
           <div class="memory-add-card">
             <input type="text" id="memory-new-input" placeholder="Add a new fact or instruction for VEDAS to remember (e.g. My preferred language is Python, my project is VedasAI)..." />
             <button class="memory-add-btn" onclick="addCustomMemoryNote()">
               <span>+</span> Add Fact
             </button>
           </div>
-
           <div class="memory-list-card">
             <div class="memory-card-header">
               <span class="card-title">STORED MEMORY NOTES</span>
@@ -541,7 +1607,6 @@
           </div>
         </div>
       </section>
-
       <!-- ==============================================================================
            VIEW: FILE EXPLORER
            ============================================================================== -->
@@ -552,7 +1617,6 @@
             <h2 class="files-title">Local Files & Project Workspace</h2>
             <p class="files-desc">Browse, preview, edit and upload files to your active workspace.</p>
           </div>
-
           <div class="files-browser-card">
             <div class="files-toolbar">
               <div class="files-tools-left">
@@ -573,7 +1637,6 @@
           </div>
         </div>
       </section>
-
       <!-- ==============================================================================
            VIEW 8: SYSTEM COMMANDS & WORKSTATION AUTOMATION
            ============================================================================== -->
@@ -584,7 +1647,6 @@
             <h2 class="commands-title">System Control Center</h2>
             <p class="commands-desc">Trigger native Windows tools, media volume, screen utilities, and power actions.</p>
           </div>
-
           <!-- Horizontal Command Center Navigation Tabs -->
           <div class="commands-nav-tabs">
             <button class="cmd-tab-btn active" id="cmd-tab-audio" onclick="switchCommandsTab('audio')">
@@ -597,7 +1659,6 @@
               <span>🛡️</span> Power & Security
             </button>
           </div>
-
           <!-- TAB 1: AUDIO & UTILITIES -->
           <div class="cmd-tab-panel active" id="cmd-panel-audio">
             <div class="cmd-full-card">
@@ -652,7 +1713,6 @@
               </div>
             </div>
           </div>
-
           <!-- TAB 2: NATIVE APPLICATIONS -->
           <div class="cmd-tab-panel" id="cmd-panel-apps" style="display:none;">
             <div class="cmd-full-card">
@@ -707,7 +1767,6 @@
               </div>
             </div>
           </div>
-
           <!-- TAB 3: POWER & SECURITY -->
           <div class="cmd-tab-panel" id="cmd-panel-power" style="display:none;">
             <div class="cmd-full-card">
@@ -747,10 +1806,8 @@
               </div>
             </div>
           </div>
-
         </div>
       </section>
-
       <!-- ==============================================================================
            VIEW 9: SETTINGS
            ============================================================================== -->
@@ -761,14 +1818,12 @@
             <h2 class="settings-title">Settings & Customization</h2>
             <p class="settings-desc">Configure AI models, speech synthesis engines, theme glow colors, and preferences.</p>
           </div>
-
           <div class="settings-tabs-bar">
             <button class="settings-tab-btn active" id="set-tab-ai" onclick="switchSettingsSubTab('ai')">🤖 AI Engine & Models</button>
             <button class="settings-tab-btn" id="set-tab-voice" onclick="switchSettingsSubTab('voice')">🎙️ Voice & TTS</button>
             <button class="settings-tab-btn" id="set-tab-theme" onclick="switchSettingsSubTab('theme')">🎨 Aesthetics & Glow</button>
             <button class="settings-tab-btn" id="set-tab-data" onclick="switchSettingsSubTab('data')">💾 Data & Memory</button>
           </div>
-
           <!-- AI Subtab -->
           <div class="settings-panel active" id="settings-panel-ai">
             <div class="setting-item-card">
@@ -780,7 +1835,6 @@
                 <input type="text" id="setting-ollama-host" value="http://127.0.0.1:11434" class="setting-input" />
               </div>
             </div>
-
             <div class="setting-item-card">
               <div class="setting-item-info">
                 <div class="setting-item-title">Default Local Model</div>
@@ -788,39 +1842,70 @@
               </div>
               <div class="setting-item-control">
                 <select id="setting-local-model" class="setting-select">
-                  <option value="llama3.2:latest">LLaMA 3.2 (Primary)</option>
-                  <option value="llama3:latest">LLaMA 3</option>
-                  <option value="qwen2.5:7b">Qwen 2.5 7B</option>
-                  <option value="phi4:latest">Phi-4</option>
+                  <option value="llama3.2:latest">🦙 LLaMA 3.2 (Primary Local)</option>
+                  <option value="llama3:latest">🦙 LLaMA 3 8B</option>
+                  <option value="qwen2.5:7b">💻 Qwen 2.5 7B Coder</option>
+                  <option value="phi4:latest">🔬 Phi-4 14B</option>
                 </select>
               </div>
             </div>
-
             <div class="setting-item-card">
               <div class="setting-item-info">
-                <div class="setting-item-title">Cloud Intelligence Model</div>
+                <div class="setting-item-title">Cloud Intelligence Model Tier</div>
                 <div class="setting-item-desc">Preferred Gemini cloud model tier.</div>
               </div>
               <div class="setting-item-control">
                 <select id="setting-cloud-model" class="setting-select">
-                  <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
-                  <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
-                  <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
-                  <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
+                  <option value="gemini-3.8-flash">⚡ Gemini 3.8 Flash (Latest & Fast)</option>
+                  <option value="gemini-3.7-flash">🚀 Gemini 3.7 Flash (High Performance)</option>
+                  <option value="gemini-3.6-flash">⚡ Gemini 3.6 Flash</option>
+                  <option value="gemini-3.5-flash">⚡ Gemini 3.5 Flash</option>
+                  <option value="gemini-3.1-pro-preview">🧠 Gemini 3.1 Pro Preview</option>
                 </select>
               </div>
             </div>
-
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Default System Persona</div>
+                <div class="setting-item-desc">Core personality and reasoning baseline for AI answers.</div>
+              </div>
+              <div class="setting-item-control">
+                <select id="setting-system-persona" class="setting-select">
+                  <option value="master_vedas">Master Vedas (Omniscient & Direct)</option>
+                  <option value="cyber_coder">Cyber Coder (Senior Software Engineer)</option>
+                  <option value="deep_thinker">Deep Thinker (Analytical & Logic)</option>
+                  <option value="creative_muse">Creative Muse (Visionary Concept Designer)</option>
+                  <option value="sarcastic_genius">Sarcastic Genius (Witty & Sharp)</option>
+                </select>
+              </div>
+            </div>
             <div class="setting-item-card">
               <div class="setting-item-info">
                 <div class="setting-item-title">Gemini Supervisor Fact-Checking</div>
                 <div class="setting-item-desc">Automatically verify local model responses for accuracy.</div>
               </div>
               <div class="setting-item-control">
-                <input type="checkbox" id="setting-supervisor-toggle" checked class="setting-toggle" />
+                <input type="checkbox" id="setting-supervisor-toggle" class="setting-toggle" />
               </div>
             </div>
-
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Hugging Face Access Token (Free Neural Video Quota)</div>
+                <div class="setting-item-desc">Unlocks dedicated GPU compute for LTX-Video, Zeroscope, Wan 2.1 & Hunyuan Video. <a href="https://huggingface.co/settings/tokens" target="_blank" style="color:var(--blue-bright); text-decoration:underline;">Get your free HF token here ↗</a></div>
+              </div>
+              <div class="setting-item-control">
+                <input type="password" id="setting-hf-token" placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" class="setting-input" />
+              </div>
+            </div>
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Google Gemini API Key</div>
+                <div class="setting-item-desc">API key for Gemini cloud reasoning and Google Veo 3.1 video generation.</div>
+              </div>
+              <div class="setting-item-control">
+                <input type="password" id="setting-gemini-key" placeholder="AIzaSy... or AQ.Ab8..." class="setting-input" />
+              </div>
+            </div>
             <div class="setting-item-card">
               <div class="setting-item-info">
                 <div class="setting-item-title">Temperature (Creativity)</div>
@@ -832,7 +1917,6 @@
               </div>
             </div>
           </div>
-
           <!-- Voice Subtab -->
           <div class="settings-panel" id="settings-panel-voice" style="display:none;">
             <div class="setting-item-card">
@@ -843,16 +1927,14 @@
               <div class="setting-item-control">
                 <select id="setting-tts-engine" class="setting-select">
                   <option value="webspeech">Standard Web Speech API (Fast & Native)</option>
-                  <option value="kokoro">Kokoro Neural TTS (Ultra Natural)</option>
-                  <option value="edgetts">Microsoft Edge Neural Voices</option>
-                  <option value="elevenlabs">ElevenLabs Cloud Engine</option>
+                  <option value="neural">Neural Deep Voice Synthesis</option>
+                  <option value="edgetts">Edge Natural Neural Voices</option>
                 </select>
               </div>
             </div>
-
             <div class="setting-item-card">
               <div class="setting-item-info">
-                <div class="setting-item-title">Speech Rate</div>
+                <div class="setting-item-title">Speech Rate (Pacing)</div>
                 <div class="setting-item-desc">Pacing of spoken AI answers (0.5x to 2.0x).</div>
               </div>
               <div class="setting-item-control slider-control">
@@ -860,7 +1942,16 @@
                 <span id="rate-val" class="slider-val">1.0x</span>
               </div>
             </div>
-
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Speech Pitch</div>
+                <div class="setting-item-desc">Tonal pitch of speech synthesis output (0.5 to 1.5).</div>
+              </div>
+              <div class="setting-item-control slider-control">
+                <input type="range" id="setting-speech-pitch" min="0.5" max="1.5" step="0.1" value="1.0" oninput="document.getElementById('pitch-val').textContent=this.value" />
+                <span id="pitch-val" class="slider-val">1.0</span>
+              </div>
+            </div>
             <div class="setting-item-card">
               <div class="setting-item-info">
                 <div class="setting-item-title">Auto-Speak Spoken Responses</div>
@@ -871,7 +1962,6 @@
               </div>
             </div>
           </div>
-
           <!-- Theme Subtab -->
           <div class="settings-panel" id="settings-panel-theme" style="display:none;">
             <div class="setting-item-card">
@@ -889,7 +1979,6 @@
                 </select>
               </div>
             </div>
-
             <div class="setting-item-card">
               <div class="setting-item-info">
                 <div class="setting-item-title">Interactive Background Particles</div>
@@ -899,8 +1988,16 @@
                 <input type="checkbox" id="setting-particles-toggle" checked class="setting-toggle" />
               </div>
             </div>
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Sound Effects (Beeps & Clicks)</div>
+                <div class="setting-item-desc">Subtle micro-audio cues on buttons and mode switches.</div>
+              </div>
+              <div class="setting-item-control">
+                <input type="checkbox" id="setting-soundfx-toggle" checked class="setting-toggle" />
+              </div>
+            </div>
           </div>
-
           <!-- Data Subtab -->
           <div class="settings-panel" id="settings-panel-data" style="display:none;">
             <div class="setting-item-card">
@@ -912,18 +2009,25 @@
                 <button class="settings-action-btn" onclick="exportFullBackup()">💾 Download JSON Backup</button>
               </div>
             </div>
-
+            <div class="setting-item-card">
+              <div class="setting-item-info">
+                <div class="setting-item-title">Clear Transient Web Cache</div>
+                <div class="setting-item-desc">Clear browser cached assets and reset view layout states.</div>
+              </div>
+              <div class="setting-item-control">
+                <button class="settings-action-btn" onclick="clearTransientCache()">🧹 Clear Cache</button>
+              </div>
+            </div>
             <div class="setting-item-card">
               <div class="setting-item-info">
                 <div class="setting-item-title">Clear Local Memory Bank</div>
                 <div class="setting-item-desc">Erase all long-term memory notes permanently.</div>
               </div>
               <div class="setting-item-control">
-                <button class="settings-danger-btn" onclick="clearAllMemoryNotes()">🧹 Clear Memory</button>
+                <button class="settings-danger-btn" onclick="clearAllMemoryNotes()">⚠️ Clear Memory</button>
               </div>
             </div>
           </div>
-
           <!-- Settings Save Footer -->
           <div class="settings-footer-actions">
             <button class="settings-save-btn" onclick="saveAllSettings()">
@@ -931,19 +2035,14 @@
             </button>
             <span class="settings-saved-hint" id="settings-saved-hint"></span>
           </div>
-
         </div>
       </section>
-
       <!-- Full-Screen Lightbox Modal -->
       <div id="lightbox-modal" onclick="closeLightbox()">
         <img id="lightbox-img" src="" alt="Fullscreen Render">
       </div>
-
     </main>
-
   </div>
-
   <!-- Shutdown Confirmation Dialog -->
   <div id="shutdown-confirm-modal" onclick="if(event.target===this)closeShutdownModal()">
     <div class="confirm-modal-box">
@@ -956,7 +2055,6 @@
       </div>
     </div>
   </div>
-
   <!-- Restart Confirmation Dialog -->
   <div id="restart-confirm-modal" onclick="if(event.target===this)closeRestartModal()">
     <div class="confirm-modal-box restart-modal-box">
@@ -969,13 +2067,182 @@
       </div>
     </div>
   </div>
+  <!-- ==============================================================================
+       AUTHENTICATION & LOGIN MODAL (Proprietary Accounts & Google Gateway)
+       ============================================================================== -->
+  <div id="login-modal" class="auth-modal-backdrop" style="display:none;" onclick="if(event.target===this)closeLoginModal()">
+    <div class="auth-modal-card">
+      <button class="auth-modal-close" onclick="closeLoginModal()" title="Close">✕</button>
+      <!-- Modal Brand & Header -->
+      <div class="auth-modal-header">
+        <div class="auth-modal-badge">
+          <span>⚡</span>
+        </div>
+        <h3 class="auth-modal-title">Sign In to VEDAS AI</h3>
+        <p class="auth-modal-desc">Access high-performance neural intelligence, VEO media studio, and executive controls.</p>
+      </div>
+      <!-- Google Sign-In Action -->
+      <div class="auth-google-section">
+        <button type="button" class="auth-google-btn" onclick="startGoogleOAuth()">
+          <svg class="google-svg-icon" viewBox="0 0 24 24" width="20" height="20">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          <span>Continue with Google Account</span>
+        </button>
+      </div>
+      <div class="auth-divider">
+        <span>OR ENTER CREDENTIALS</span>
+      </div>
+      <!-- Email & Password Form -->
+      <form id="auth-login-form" onsubmit="event.preventDefault(); handlePasswordLogin();">
+        <div class="auth-field-group">
+          <label for="auth-email-input">Account Email</label>
+          <input type="email" id="auth-email-input" class="auth-text-input" placeholder="e.g. demo@vedas.ai or your email..." required autocomplete="email" />
+        </div>
+        <div class="auth-field-group">
+          <label for="auth-password-input">Password</label>
+          <div class="auth-password-wrapper">
+            <input type="password" id="auth-password-input" class="auth-text-input" placeholder="Enter password..." required autocomplete="current-password" />
+            <button type="button" class="auth-pw-toggle" onclick="togglePasswordVisibility()" title="Toggle Password Visibility">👁️</button>
+          </div>
+        </div>
+        <div class="auth-options-row">
+          <label class="auth-remember-label">
+            <input type="checkbox" id="auth-remember-chk" checked />
+            <span>Keep me logged in</span>
+          </label>
+        </div>
+        <div id="auth-error-msg" class="auth-error-box" style="display:none;"></div>
+        <button type="submit" class="auth-submit-btn" id="auth-submit-btn">
+          <span>⚡</span> Sign In to VEDAS
+        </button>
+      </form>
+    </div>
+  </div>
+  <!-- ==============================================================================
+       GOOGLE ACCOUNT SIGN-IN MODAL (Universal Google Dialog)
+       ============================================================================== -->
+  <div id="google-modal" class="auth-modal-backdrop" style="display:none;" onclick="if(event.target===this)closeGoogleModal()">
+    <div class="google-modal-card">
+      <button class="auth-modal-close" onclick="closeGoogleModal()" title="Close">✕</button>
+      
+      <div class="google-modal-header">
+        <svg class="google-svg-icon" viewBox="0 0 24 24" width="32" height="32">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <h3 class="google-modal-title">Sign in with Google</h3>
+        <p class="google-modal-sub">to continue to <strong>VEDAS AI Neural OS</strong></p>
+      </div>
+      <form id="google-auth-form" onsubmit="event.preventDefault(); submitGoogleSignIn();">
+        <div class="auth-field-group">
+          <label for="google-email-input">Google / Gmail Address</label>
+          <input type="email" id="google-email-input" class="auth-text-input" placeholder="e.g. name@gmail.com" required autocomplete="email" autofocus />
+        </div>
+        <div class="auth-field-group">
+          <label for="google-name-input">Full Name / Display Name (Optional)</label>
+          <input type="text" id="google-name-input" class="auth-text-input" placeholder="e.g. Your Name" />
+        </div>
+        <div class="auth-field-group">
+          <label for="google-password-input">Account Password (Saved in local vault)</label>
+          <div class="auth-password-wrapper">
+            <input type="password" id="google-password-input" class="auth-text-input" placeholder="Set password for standard email login..." required minlength="4" autocomplete="new-password" />
+            <button type="button" class="auth-pw-toggle" onclick="toggleGooglePasswordVisibility()" title="Toggle Password Visibility">👁️</button>
+          </div>
+        </div>
+        <div class="auth-options-row" style="margin-top:4px; margin-bottom:12px;">
+          <label class="auth-remember-label">
+            <input type="checkbox" id="google-remember-chk" checked />
+            <span>Keep me logged in</span>
+          </label>
+        </div>
+        <div id="google-error-msg" class="auth-error-box" style="display:none;"></div>
+        <div class="google-modal-footer">
+          <button type="button" class="google-cancel-btn" onclick="closeGoogleModal()">Cancel</button>
+          <button type="submit" class="google-submit-btn" id="google-submit-btn">
+            <span>🌐</span> Sign In with Google
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <!-- ==============================================================================
+       CHAT CAMERA VISION STUDIO MODAL
+       ============================================================================== -->
+  <div id="chat-camera-modal" class="auth-prompt-overlay" style="display:none;" onclick="if(event.target === this) closeChatCameraStudio()">
+    <div class="camera-studio-card">
+      <div class="camera-studio-header">
+        <div class="camera-studio-title-group">
+          <span class="camera-studio-icon">📷</span>
+          <div>
+            <div class="camera-studio-title">Camera Vision Studio</div>
+            <div class="camera-studio-subtitle">Capture live photo or video to attach to conversation</div>
+          </div>
+        </div>
+        <button class="camera-studio-close-btn" onclick="closeChatCameraStudio()" title="Close Camera">✕</button>
+      </div>
+
+      <div class="camera-studio-body">
+        <div class="camera-viewport-container">
+          <video id="chat-camera-live-video" autoplay playsinline muted></video>
+          <img id="chat-camera-photo-preview" style="display:none;" alt="Captured Photo" />
+          <video id="chat-camera-video-preview" controls playsinline style="display:none;"></video>
+          
+          <div class="camera-reticle-overlay" id="camera-reticle-overlay">
+            <div class="reticle-corner reticle-tl"></div>
+            <div class="reticle-corner reticle-tr"></div>
+            <div class="reticle-corner reticle-bl"></div>
+            <div class="reticle-corner reticle-br"></div>
+            <div class="reticle-scanline"></div>
+          </div>
+
+          <div class="camera-rec-indicator" id="camera-rec-indicator" style="display:none;">
+            <span class="rec-dot"></span> <span id="camera-rec-time">REC 00:00</span>
+          </div>
+        </div>
+
+        <!-- Mode Switcher -->
+        <div class="camera-mode-switcher">
+          <button type="button" class="camera-mode-tab active" id="cam-tab-photo" onclick="setCameraCaptureMode('photo')">
+            📸 Snap Photo
+          </button>
+          <button type="button" class="camera-mode-tab" id="cam-tab-video" onclick="setCameraCaptureMode('video')">
+            🎥 Record Video (5s)
+          </button>
+        </div>
+      </div>
+
+      <div class="camera-studio-footer">
+        <div class="camera-live-actions" id="camera-live-actions">
+          <button type="button" class="camera-shutter-btn" id="camera-shutter-btn" onclick="executeCameraCapture()">
+            <span class="shutter-inner"></span>
+            <span id="camera-shutter-text">📸 Capture Photo</span>
+          </button>
+        </div>
+
+        <div class="camera-preview-actions" id="camera-preview-actions" style="display:none;">
+          <button type="button" class="camera-btn-retake" onclick="retakeCameraCapture()">
+            🔄 Retake
+          </button>
+          <button type="button" class="camera-btn-attach" onclick="confirmCameraAttachment()">
+            ✅ Attach to Message
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Toast Notification Container -->
   <div id="toast-container"></div>
-
   <!-- Core Scripts -->
-  <script src="/static/js/particles.js?v=3.7.0"></script>
-  <script src="/static/js/waveform.js?v=3.7.0"></script>
-  <script src="/static/js/app.js?v=3.7.0"></script>
+  <script src="/static/js/particles.js?v=3.9.0"></script>
+  <script src="/static/js/waveform.js?v=3.9.0"></script>
+  <script src="/static/js/app.js?v=3.9.0"></script>
+  <script src="/static/js/live_duplex.js?v=4.0.0"></script>
 </body>
 </html>

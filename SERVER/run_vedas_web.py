@@ -1,13 +1,4 @@
 #!/usr/bin/env python3
-"""
-==============================================================================
-Vedas AI — Application Launcher
-==============================================================================
-Starts the Vedas FastAPI backend and automatically launches the standalone
-application window powered by Google Chrome / Chromium App Mode.
-==============================================================================
-"""
-
 import os
 import sys
 
@@ -40,7 +31,7 @@ else:
     SERVER_DIR = Path(__file__).parent.resolve()
     APP_DIR = SERVER_DIR.parent.resolve() if SERVER_DIR.name == "SERVER" else SERVER_DIR
 
-# Ensure SERVER_DIR and APP_DIR are on sys.path
+# paths
 if str(SERVER_DIR) not in sys.path:
     sys.path.insert(0, str(SERVER_DIR))
 if str(APP_DIR) not in sys.path:
@@ -50,14 +41,14 @@ PORT = 8000
 HOST = "127.0.0.1"
 
 
+# server helpers
 def get_url():
     return f"http://{HOST}:{PORT}"
 
 
+# browser detection
 def find_chrome_or_edge():
-    """Locates Google Chrome or Microsoft Edge executable for standalone app mode."""
     if sys.platform == "win32":
-        # 1. Google Chrome (Primary)
         chrome_candidates = [
             r"C:\Program Files\Google\Chrome\Application\chrome.exe",
             r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
@@ -73,7 +64,6 @@ def find_chrome_or_edge():
             if found:
                 return ("Google Chrome", found)
 
-        # 2. Microsoft Edge (Built into Windows)
         edge_candidates = [
             r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
             r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
@@ -100,11 +90,11 @@ def find_chrome_or_edge():
     return (None, None)
 
 
+# desktop client launcher
 def launch_client():
     time.sleep(1.2)
     url = get_url()
     
-    # Try importing from root run_vedas_desktop if present
     try:
         import run_vedas_desktop
         run_vedas_desktop.launch_app_window(url)
@@ -147,12 +137,12 @@ def launch_client():
         except Exception as e:
             print(f"⚠️ App launch notice: {e}")
 
-    # Fallback to standard browser
     print(f"\n🌐 Opening Vedas AI at {url} ...")
     import webbrowser
     webbrowser.open(url)
 
 
+# main entrypoint
 def main():
     multiprocessing.freeze_support()
 
@@ -164,10 +154,8 @@ def main():
     print(f" Web Interface: {url}")
     print("=" * 65)
 
-    # Launch standalone window in background thread
     threading.Thread(target=launch_client, daemon=True).start()
 
-    # Run FastAPI / Uvicorn server
     try:
         import uvicorn
         os.chdir(str(APP_DIR))
@@ -180,3 +168,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# khatam

@@ -1,9 +1,4 @@
 @echo off
-:: ==============================================================================
-:: Vedas AI — Windows Desktop Application Launcher
-:: Auto-detects Python / venv, verifies Ollama, starts server & opens App Window
-:: ==============================================================================
-
 title Vedas AI — Desktop Application
 cd /d "%~dp0"
 
@@ -13,7 +8,7 @@ echo  Engine: Google Chrome App Mode ^| AI Core: Ollama + Gemini
 echo  Target: Standalone Window (Zero Browser Chrome)
 echo ============================================================
 
-:: Check for virtual environment (checks myenv and myvenv)
+:: virtualenv activation
 if exist "myenv\Scripts\activate.bat" (
     call "myenv\Scripts\activate.bat"
 ) else if exist "..\myenv\Scripts\activate.bat" (
@@ -28,7 +23,7 @@ if exist "myenv\Scripts\activate.bat" (
     call "..\..\myvenv\Scripts\activate.bat"
 )
 
-:: Check if Ollama is running (use 127.0.0.1 to avoid Windows IPv6 localhost delay)
+:: ollama check
 where ollama >nul 2>nul
 if %errorlevel% equ 0 (
     curl -s http://127.0.0.1:11434/api/tags >nul 2>nul
@@ -39,7 +34,7 @@ if %errorlevel% equ 0 (
     )
 )
 
-:: Launch Vedas Desktop App Window
+:: desktop launcher
 if exist "..\run_vedas_desktop.py" (
     python "..\run_vedas_desktop.py"
 ) else if exist "run_vedas_desktop.py" (
@@ -51,3 +46,5 @@ if exist "..\run_vedas_desktop.py" (
 )
 
 pause
+
+:: khatam

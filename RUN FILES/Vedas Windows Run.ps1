@@ -1,7 +1,3 @@
-# ==============================================================================
-# Vedas AI — Windows PowerShell Desktop Launcher
-# ==============================================================================
-
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ScriptDir
 
@@ -11,7 +7,7 @@ Write-Host " Engine: Google Chrome App Mode | Major Engine: Local Ollama" -Foreg
 Write-Host " Mode: Standalone Window (Zero Browser UI)" -ForegroundColor Yellow
 Write-Host "============================================================" -ForegroundColor Cyan
 
-# Activate Virtual Environment if available (checks myenv and myvenv)
+# virtualenv activation
 if (Test-Path "$ScriptDir\myenv\Scripts\Activate.ps1") {
     & "$ScriptDir\myenv\Scripts\Activate.ps1"
 } elseif (Test-Path "$ScriptDir\..\myenv\Scripts\Activate.ps1") {
@@ -26,7 +22,7 @@ if (Test-Path "$ScriptDir\myenv\Scripts\Activate.ps1") {
     & "$ScriptDir\..\..\myvenv\Scripts\Activate.ps1"
 }
 
-# Run Launcher
+# desktop launcher
 if (Test-Path "$ScriptDir\..\run_vedas_desktop.py") {
     python "$ScriptDir\..\run_vedas_desktop.py"
 } elseif (Test-Path "$ScriptDir\run_vedas_desktop.py") {
@@ -36,3 +32,5 @@ if (Test-Path "$ScriptDir\..\run_vedas_desktop.py") {
 } elseif (Test-Path "$ScriptDir\SERVER\run_vedas_web.py") {
     python "$ScriptDir\SERVER\run_vedas_web.py"
 }
+
+# khatam
